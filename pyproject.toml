@@ -1,0 +1,97 @@
+[build-system]
+requires = ["hatchling>=1.31.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cognema"
+version = "0.0.1"
+description = "Research-driven cognitive memory framework for AI systems."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [
+  { name = "George Paterson", email = "paterson.george@gmail.com" },
+]
+keywords = ["ai", "memory", "cognitive", "llm", "research"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
+  "Typing :: Typed",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://cognema.io"
+Repository = "https://github.com/cognema/cognema"
+Issues = "https://github.com/cognema/cognema/issues"
+Documentation = "https://cognema.io"
+
+[dependency-groups]
+dev = [
+  "mypy>=2.3.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "ruff>=0.16.1",
+  "twine>=7.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cognema"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/cognema/py.typed" = "cognema/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  ".github/workflows/*.yml",
+  "CHANGELOG.md",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "LICENSE",
+  "README.md",
+  "SECURITY.md",
+  "docs/*.md",
+  "examples/*.py",
+  "src/cognema/**/*.py",
+  "src/cognema/py.typed",
+  "tests/*.py",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+packages = ["cognema"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=cognema --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
+source = ["cognema"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
