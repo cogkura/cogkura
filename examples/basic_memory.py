@@ -1,24 +1,44 @@
 """Basic usage example for Cognema."""
 
-from cognema import Memory
+import asyncio
+from datetime import UTC, datetime
+
+from cognema import Memory, ObservationInput
 
 
-def main() -> None:
+async def main() -> None:
     memory = Memory()
+    tenant_id = "local"
 
-    memory.observe(
-        "George discussed cognitive memory algorithms",
-        metadata={"source": "conversation", "topic": "cognitive-memory"},
-        tags=["research", "memory"],
+    await memory.observe(
+        ObservationInput(
+            tenant_id=tenant_id,
+            source_namespace="direct",
+            source_record_id="1",
+            content="George discussed cognitive memory algorithms",
+            observed_at=datetime.now(UTC),
+            metadata={"source": "conversation", "tags": ["research", "memory"]},
+        )
     )
-    memory.observe("The team agreed to prototype deterministic recall first.")
+    await memory.observe(
+        ObservationInput(
+            tenant_id=tenant_id,
+            source_namespace="direct",
+            source_record_id="2",
+            content="The team agreed to prototype deterministic recall first.",
+            observed_at=datetime.now(UTC),
+        )
+    )
 
-    results = memory.recall("What did George discuss about memory?")
+    results = await memory.recall(
+        "What did George discuss about memory?",
+        tenant_id=tenant_id,
+    )
     for result in results:
-        print(f"{result.score:.2f} :: {result.event.content}")
+        print(f"{result.score:.2f} :: {result.observation.content}")
 
     memory.sleep()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

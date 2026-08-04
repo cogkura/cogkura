@@ -1,0 +1,15 @@
+---
+description: Core Cognema agent habits — AGENTS.md, validation, no collateral damage
+alwaysApply: true
+---
+
+# Cognema agent core
+
+- Read [AGENTS.md](AGENTS.md) before making structural or API changes.
+- After substantive edits under `src/`, `tests/`, `examples/`, or `pyproject.toml`, run CI-equivalent checks:
+  `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest`
+- Prefer surgical edits. Do not rewrite README, examples, or docs wholesale unless asked.
+- When editing docs/examples, preserve useful content (positioning sections, tags, second examples, contributing/build notes) unless the user explicitly removes it.
+- Before large doc rewrites, compare with `git show HEAD:<path>` or the prior file content.
+- Do not commit or push unless the user asks.
+- Core stays dependency-free; Postgres only behind `cognema[postgres]`.

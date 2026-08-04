@@ -1,93 +1,129 @@
+from datetime import UTC, datetime
+
 import pytest
 
-from cognema import Memory
+from cognema import Memory, ObservationInput
 from cognema.exceptions import ValidationError
-from cognema.storage import InMemoryStorage
+from cognema.observations.models import IngestStatus
 
 
-def test_observe_stores_event() -> None:
+def _obs(
+    content: str,
+    *,
+    record_id: str,
+    tenant_id: str = "local",
+) -> ObservationInput:
+    return ObservationInput(
+        tenant_id=tenant_id,
+        source_namespace="direct",
+        source_record_id=record_id,
+        content=content,
+        observed_at=datetime.now(UTC),
+    )
+
+
+@pytest.mark.asyncio
+async def test_observe_stores_observation() -> None:
     memory = Memory()
 
-    event = memory.observe("Cognema explores cognitive recall.")
+    status = await memory.observe(_obs("Cognema explores cognitive recall.", record_id="1"))
 
-    assert event.content == "Cognema explores cognitive recall."
-    assert len(memory.recall("cognitive")) == 1
+    assert status is IngestStatus.CREATED
+    results = await memory.recall("cognitive", tenant_id="local")
+    assert len(results) == 1
 
 
-def test_recall_matching_events() -> None:
+@pytest.mark.asyncio
+async def test_recall_matching_observations() -> None:
     memory = Memory()
-    first = memory.observe("George discussed cognitive memory algorithms.")
-    second = memory.observe("A weather report from London.")
+    await memory.observe(_obs("George discussed cognitive memory algorithms.", record_id="1"))
+    await memory.observe(_obs("A weather report from London.", record_id="2"))
 
-    results = memory.recall("cognitive memory")
+    results = await memory.recall("cognitive memory", tenant_id="local")
 
     assert len(results) == 1
-    assert results[0].event == first
+    assert results[0].observation.content == "George discussed cognitive memory algorithms."
     assert results[0].score > 0.0
-    assert second not in [result.event for result in results]
 
 
-def test_recall_is_deterministic_for_ties() -> None:
+@pytest.mark.asyncio
+async def test_recall_is_deterministic_for_ties() -> None:
     memory = Memory()
-    first = memory.observe("alpha beta")
-    second = memory.observe("alpha beta")
+    await memory.observe(_obs("alpha beta", record_id="a"))
+    await memory.observe(_obs("alpha beta", record_id="b"))
 
-    results = memory.recall("alpha beta", limit=2)
-    result_ids = [result.event.id for result in results]
+    results = await memory.recall("alpha beta", tenant_id="local", limit=2)
+    result_ids = [result.observation.id for result in results]
 
-    assert result_ids == sorted([first.id, second.id])
+    assert result_ids == sorted(result_ids)
 
 
-def test_recall_respects_limit() -> None:
+@pytest.mark.asyncio
+async def test_recall_respects_limit() -> None:
     memory = Memory()
-    memory.observe("alpha one")
-    memory.observe("alpha two")
-    memory.observe("alpha three")
+    await memory.observe(_obs("alpha one", record_id="1"))
+    await memory.observe(_obs("alpha two", record_id="2"))
+    await memory.observe(_obs("alpha three", record_id="3"))
 
-    results = memory.recall("alpha", limit=2)
+    results = await memory.recall("alpha", tenant_id="local", limit=2)
 
     assert len(results) == 2
 
 
 @pytest.mark.parametrize("query", ["", "   "])
-def test_recall_rejects_invalid_query(query: str) -> None:
+@pytest.mark.asyncio
+async def test_recall_rejects_invalid_query(query: str) -> None:
     memory = Memory()
 
     with pytest.raises(ValidationError, match="Query must not be empty"):
-        memory.recall(query)
+        await memory.recall(query, tenant_id="local")
 
 
 @pytest.mark.parametrize("limit", [0, -1])
-def test_recall_rejects_invalid_limit(limit: int) -> None:
+@pytest.mark.asyncio
+async def test_recall_rejects_invalid_limit(limit: int) -> None:
     memory = Memory()
-    memory.observe("alpha one")
+    await memory.observe(_obs("alpha one", record_id="1"))
 
     with pytest.raises(ValidationError, match="Limit must be greater than zero"):
-        memory.recall("alpha", limit=limit)
+        await memory.recall("alpha", tenant_id="local", limit=limit)
 
 
-def test_sleep_is_safe_to_call() -> None:
+@pytest.mark.asyncio
+async def test_recall_requires_tenant() -> None:
     memory = Memory()
-    memory.observe("alpha one")
+    with pytest.raises(ValidationError, match="tenant_id"):
+        await memory.recall("alpha", tenant_id="  ")
+
+
+@pytest.mark.asyncio
+async def test_sleep_is_safe_to_call() -> None:
+    memory = Memory()
+    await memory.observe(_obs("alpha one", record_id="1"))
 
     memory.sleep()
 
-    assert len(memory.recall("alpha")) == 1
+    assert len(await memory.recall("alpha", tenant_id="local")) == 1
 
 
-def test_clear_removes_events() -> None:
+@pytest.mark.asyncio
+async def test_clear_removes_observations() -> None:
     memory = Memory()
-    memory.observe("alpha one")
-    memory.observe("alpha two")
+    await memory.observe(_obs("alpha one", record_id="1"))
+    await memory.observe(_obs("alpha two", record_id="2"))
 
-    memory.clear()
+    await memory.clear(tenant_id="local")
 
-    assert memory.recall("alpha") == []
+    assert await memory.recall("alpha", tenant_id="local") == []
 
 
-def test_storage_injection() -> None:
-    storage = InMemoryStorage()
-    memory = Memory(storage=storage)
-    event = memory.observe("injected storage")
+@pytest.mark.asyncio
+async def test_tenant_isolation_in_recall() -> None:
+    memory = Memory()
+    await memory.observe(_obs("shared topic alpha", record_id="1", tenant_id="tenant_a"))
+    await memory.observe(_obs("shared topic beta", record_id="1", tenant_id="tenant_b"))
 
-    assert storage.get(event.id) == event
+    results = await memory.recall("shared topic", tenant_id="tenant_a")
+
+    assert len(results) == 1
+    assert results[0].observation.tenant_id == "tenant_a"

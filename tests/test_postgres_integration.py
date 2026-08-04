@@ -171,9 +171,9 @@ async def test_postgres_observation_insert_and_idempotency(memory_engine: AsyncE
         observed_at=datetime.now(UTC),
     )
     memory = Memory(observation_store=store)
-    status = await memory.observe_input(obs)
+    status = await memory.observe(obs)
     assert status is IngestStatus.CREATED
-    status = await memory.observe_input(obs)
+    status = await memory.observe(obs)
     assert status is IngestStatus.UNCHANGED
 
 
@@ -254,7 +254,7 @@ async def test_tenant_isolation(memory_engine: AsyncEngine) -> None:
         observed_at=datetime.now(UTC),
     )
     memory = Memory(observation_store=store)
-    await memory.observe_input(obs)
+    await memory.observe(obs)
     other = await store.get_by_source(
         tenant_id="tenant_b",
         source_namespace="public.messages",
@@ -340,7 +340,7 @@ async def test_soft_delete_restore_and_revision_history(
         content="Release planned for Thursday originally stated.",
         observed_at=datetime(2026, 8, 4, 16, 0, tzinfo=UTC),
     )
-    assert await memory.observe_input(base) is IngestStatus.CREATED
+    assert await memory.observe(base) is IngestStatus.CREATED
 
     updated = ObservationInput(
         tenant_id=TENANT,
@@ -352,7 +352,7 @@ async def test_soft_delete_restore_and_revision_history(
         content="Release planned for Friday after correction.",
         observed_at=datetime(2026, 8, 4, 16, 1, tzinfo=UTC),
     )
-    assert await memory.observe_input(updated) is IngestStatus.UPDATED
+    assert await memory.observe(updated) is IngestStatus.UPDATED
 
     deleted = ObservationInput(
         tenant_id=TENANT,
@@ -365,7 +365,7 @@ async def test_soft_delete_restore_and_revision_history(
         observed_at=datetime(2026, 8, 4, 16, 2, tzinfo=UTC),
         is_deleted=True,
     )
-    assert await memory.observe_input(deleted) is IngestStatus.DELETED
+    assert await memory.observe(deleted) is IngestStatus.DELETED
 
     restored = ObservationInput(
         tenant_id=TENANT,
@@ -378,7 +378,7 @@ async def test_soft_delete_restore_and_revision_history(
         observed_at=datetime(2026, 8, 4, 16, 3, tzinfo=UTC),
         is_deleted=False,
     )
-    assert await memory.observe_input(restored) is IngestStatus.RESTORED
+    assert await memory.observe(restored) is IngestStatus.RESTORED
 
     stored = await store.get_by_source(
         tenant_id=TENANT,

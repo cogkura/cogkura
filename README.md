@@ -42,25 +42,42 @@ PostgreSQL support:
 pip install "cognema[postgres]"
 ```
 
-## Quick start (transitional recall)
+## Quick start
 
 ```python
-from cognema import Memory
+import asyncio
+from datetime import UTC, datetime
 
-memory = Memory()
+from cognema import Memory, ObservationInput
 
-event = memory.observe(
-    "George discussed cognitive memory algorithms",
-    metadata={"source": "conversation", "topic": "cognitive-memory"},
-    tags=["research", "memory"],
-)
 
-results = memory.recall("What was discussed about cognitive memory?")
+async def main() -> None:
+    memory = Memory()
+    tenant_id = "local"
 
-for result in results:
-    print(result.score, result.event.content, result.reason)
+    await memory.observe(
+        ObservationInput(
+            tenant_id=tenant_id,
+            source_namespace="direct",
+            source_record_id="1",
+            content="George discussed cognitive memory algorithms",
+            observed_at=datetime.now(UTC),
+            metadata={"source": "conversation", "tags": ["research", "memory"]},
+        )
+    )
 
-memory.sleep()
+    results = await memory.recall(
+        "What was discussed about cognitive memory?",
+        tenant_id=tenant_id,
+    )
+
+    for result in results:
+        print(result.score, result.observation.content, result.reason)
+
+    memory.sleep()
+
+
+asyncio.run(main())
 ```
 
 ## Observation ingestion (PostgreSQL)
@@ -101,7 +118,7 @@ from datetime import UTC, datetime
 
 from cognema import ObservationInput
 
-status = await memory.observe_input(
+status = await memory.observe(
     ObservationInput(
         tenant_id="company_123",
         subject_id="user_456",
@@ -115,11 +132,49 @@ status = await memory.observe_input(
 )
 ```
 
-See [`examples/postgres_datasource/README.md`](examples/postgres_datasource/README.md) for the Docker-based demo.
+See [`examples/postgres_datasource/README.md`](examples/postgres_datasource/README.md) for the full Docker-based demo.
+
+### Postgres example environment
+
+Unit tests and the basic in-memory example do not need Docker or env vars.
+
+For the Postgres demo and `@pytest.mark.postgres` integration tests:
+
+```bash
+cd examples/postgres_datasource
+docker compose up -d
+cp .env.example .env
+```
+
+Example `.env` (also in [`.env.example`](examples/postgres_datasource/.env.example)):
+
+```bash
+# Read-only source DB (demo + most integration tests)
+COGNEMA_POSTGRES_SOURCE_URL=postgresql+asyncpg://cognema_reader:cognema_reader@localhost:5432/cognema_source
+
+# Cognema write DB (demo + most integration tests)
+COGNEMA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cognema_writer:cognema_writer@localhost:5432/cognema_memory
+
+# Optional: write access for mutate.py / admin test inserts
+COGNEMA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
+
+# Optional: same-DB schema mode tests
+COGNEMA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
+```
+
+Load the file into your shell before running the demo or Postgres tests:
+
+```bash
+set -a && source examples/postgres_datasource/.env && set +a
+uv run python examples/postgres_datasource/demo.py
+uv run pytest -m postgres
+```
+
+`mutate.py` needs write access to the source database. Prefer `COGNEMA_POSTGRES_SOURCE_ADMIN_URL`, or run with the script default (`postgres` on `cognema_source`), not the read-only `cognema_reader` URL.
 
 ## Current status
 
-Cognema is in early development. Version `0.1.0` adds PostgreSQL observation ingestion while keeping transitional token-overlap recall via `observe()` / `recall()`.
+Cognema is in early development. Version `0.1.0` uses a single observation-based API for ingest and tenant-scoped recall (token-overlap placeholder until cognitive retrieval).
 
 ## Scope of 0.1.0
 
@@ -127,9 +182,9 @@ Implemented in `0.1.0`:
 
 - observation models and ingestion pipeline;
 - `ObservationStore` and `CheckpointStore` protocols;
-- PostgreSQL schema, migrations, and stores;
+- in-memory and PostgreSQL observation stores;
 - `PostgresTableSource` with compound cursor pagination;
-- `Memory.observe()`, `Memory.observe_input()`, and `Memory.ingest()`;
+- `Memory.observe()`, `Memory.ingest()`, and tenant-scoped `Memory.recall()`;
 - revision history for create, update, delete, and restore;
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
@@ -202,6 +257,8 @@ uvx twine check dist/*
 ## Contributing
 
 Contributions are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), then open an issue or pull request.
+
+Agent and editor guidance lives in [`AGENTS.md`](AGENTS.md) (primary). [`CLAUDE.md`](CLAUDE.md) points there.
 
 ## License
 

@@ -1,28 +1,11 @@
-"""Storage interface for memory events and observations."""
+"""Storage interfaces for observations and checkpoints."""
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
-from cognema.event import MemoryEvent
 from cognema.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cognema.observations.retention import RetainedObservation
-
-
-class MemoryStorage(Protocol):
-    """Minimal storage protocol used by transitional recall."""
-
-    def store(self, event: MemoryEvent) -> None:
-        """Persist a memory event."""
-
-    def get(self, event_id: str) -> MemoryEvent | None:
-        """Fetch a single event by id."""
-
-    def list(self) -> list[MemoryEvent]:
-        """Return all stored events."""
-
-    def clear(self) -> None:
-        """Remove all stored events."""
 
 
 class ObservationStore(Protocol):
@@ -44,6 +27,18 @@ class ObservationStore(Protocol):
         source_record_id: str,
     ) -> StoredObservation | None:
         """Fetch the current observation for a source record."""
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_deleted: bool = False,
+    ) -> list[StoredObservation]:
+        """List observations for a tenant, optionally filtered by subject."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove all observations for a tenant."""
 
 
 class CheckpointStore(Protocol):

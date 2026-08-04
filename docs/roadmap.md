@@ -14,7 +14,7 @@
 - `ObservationInput` and observation storage protocols;
 - PostgreSQL schema, migrations, observation store, checkpoint store;
 - `PostgresTableSource` with compound cursor pagination;
-- `Memory.observe()`, `Memory.observe_input()`, and `Memory.ingest()`;
+- `Memory.observe()`, `Memory.ingest()`, and tenant-scoped `Memory.recall()`;
 - revision history for create, update, delete, restore;
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/format-python.sh",
+        "matcher": "Write|TabWrite"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/validate.sh",
+        "timeout": 300,
+        "loop_limit": 3
+      }
+    ]
+  }
+}

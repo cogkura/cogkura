@@ -50,20 +50,6 @@ class _Mapper:
 
 
 @pytest.mark.asyncio
-async def test_observe_input_requires_store() -> None:
-    memory = Memory()
-    obs = ObservationInput(
-        tenant_id="t1",
-        source_namespace="ns",
-        source_record_id="1",
-        content="hello world",
-        observed_at=datetime.now(UTC),
-    )
-    with pytest.raises(ValidationError, match="observation_store"):
-        await memory.observe_input(obs)
-
-
-@pytest.mark.asyncio
 async def test_ingest_advances_checkpoint() -> None:
     ts = datetime(2026, 8, 4, 10, 0, tzinfo=UTC)
     source = _ListSource(
@@ -92,9 +78,8 @@ async def test_ingest_advances_checkpoint() -> None:
 
 
 @pytest.mark.asyncio
-async def test_observe_input_creates_observation() -> None:
-    observation_store = InMemoryObservationStore()
-    memory = Memory(observation_store=observation_store)
+async def test_observe_creates_observation() -> None:
+    memory = Memory()
     obs = ObservationInput(
         tenant_id="company_123",
         source_namespace="public.messages",
@@ -102,5 +87,19 @@ async def test_observe_input_creates_observation() -> None:
         content="George prefers PostgreSQL.",
         observed_at=datetime.now(UTC),
     )
-    status = await memory.observe_input(obs)
+    status = await memory.observe(obs)
     assert status is IngestStatus.CREATED
+
+
+@pytest.mark.asyncio
+async def test_observe_rejects_short_content() -> None:
+    memory = Memory()
+    obs = ObservationInput(
+        tenant_id="company_123",
+        source_namespace="public.messages",
+        source_record_id="1",
+        content="ok",
+        observed_at=datetime.now(UTC),
+    )
+    with pytest.raises(ValidationError, match="rejected by policy"):
+        await memory.observe(obs)

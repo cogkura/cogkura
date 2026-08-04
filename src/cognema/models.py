@@ -5,15 +5,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from cognema.event import MemoryEvent
 from cognema.exceptions import ValidationError
+from cognema.observations.models import StoredObservation
 
 
 @dataclass(frozen=True, slots=True)
 class RecallResult:
     """A scored recall match for a query."""
 
-    event: MemoryEvent
+    observation: StoredObservation
     score: float
     reason: str | None = None
 

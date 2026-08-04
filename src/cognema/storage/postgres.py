@@ -266,6 +266,50 @@ class PostgresObservationStore(ObservationStore):
             row = result.mappings().first()
         if row is None:
             return None
+        return self._to_stored(row)
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_deleted: bool = False,
+    ) -> list[StoredObservation]:
+        clauses = ["tenant_id = :tenant_id"]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if subject_id is not None:
+            clauses.append("subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        if not include_deleted:
+            clauses.append("is_deleted = FALSE")
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        id, tenant_id, subject_id, actor_id,
+                        source_type, source_namespace, source_record_id, source_version,
+                        event_type, content, content_hash, metadata,
+                        source_created_at, source_updated_at, last_observed_at,
+                        current_revision, is_deleted
+                    FROM {self._table("observations")}
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY last_observed_at, id
+                    """
+                ),
+                params,
+            )
+            rows = result.mappings().all()
+        return [self._to_stored(row) for row in rows]
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"DELETE FROM {self._table('observations')} WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+
+    def _to_stored(self, row: Any) -> StoredObservation:
         metadata = row["metadata"]
         if isinstance(metadata, str):
             metadata = json.loads(metadata)

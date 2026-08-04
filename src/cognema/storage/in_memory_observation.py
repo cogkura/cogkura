@@ -152,6 +152,30 @@ class InMemoryObservationStore(ObservationStore):
     ) -> StoredObservation | None:
         return self._observations.get(self._key(tenant_id, source_namespace, source_record_id))
 
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_deleted: bool = False,
+    ) -> list[StoredObservation]:
+        results: list[StoredObservation] = []
+        for observation in self._observations.values():
+            if observation.tenant_id != tenant_id:
+                continue
+            if subject_id is not None and observation.subject_id != subject_id:
+                continue
+            if not include_deleted and observation.is_deleted:
+                continue
+            results.append(observation)
+        return results
+
+    async def clear(self, *, tenant_id: str) -> None:
+        keys = [key for key in self._observations if key[0] == tenant_id]
+        for key in keys:
+            observation = self._observations.pop(key)
+            self._revisions.pop(observation.id, None)
+
 
 class InMemoryCheckpointStore(CheckpointStore):
     """In-memory checkpoint store for tests."""

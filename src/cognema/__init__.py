@@ -1,6 +1,5 @@
 """Cognema public package API."""
 
-from cognema.event import MemoryEvent
 from cognema.memory import Memory
 from cognema.models import RecallResult
 from cognema.observations import (
@@ -18,7 +17,6 @@ __all__ = [
     "IngestionResult",
     "IngestStatus",
     "Memory",
-    "MemoryEvent",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",

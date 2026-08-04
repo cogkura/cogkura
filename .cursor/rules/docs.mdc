@@ -1,0 +1,14 @@
+---
+description: Protect README, docs, examples, and changelog from collateral rewrites
+globs: README.md,docs/**/*.md,examples/**/*.py,CHANGELOG.md,AGENTS.md,CLAUDE.md
+alwaysApply: false
+---
+
+# Docs and examples
+
+- Prefer additive or surgical edits over full-file rewrites.
+- When updating for a release, add or refresh sections; do not delete positioning, roadmap, architecture, or contributor/build material unless superseded and replaced.
+- Examples should show the observation API (`ObservationInput`, tenant-scoped `recall`).
+- Keep CHANGELOG in Keep a Changelog format with Added/Changed/Fixed as appropriate.
+- `CLAUDE.md` must remain a thin pointer to `AGENTS.md`.
+- If aligning docs to a PRD, still follow shipped code and existing repo structure.
