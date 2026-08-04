@@ -1,5 +1,5 @@
-"""Cognitive algorithm modules.
+"""Cognitive algorithm modules."""
 
-Advanced algorithms are intentionally deferred. Future versions will add
-consolidation, decay, and retrieval mechanisms here.
-"""
+from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+
+__all__ = ["DeterministicEpisodicEncoder", "EpisodicEncoder"]

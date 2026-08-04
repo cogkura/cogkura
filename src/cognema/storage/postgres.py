@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
@@ -12,9 +13,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from cognema.exceptions import StorageError
+from cognema.models import (
+    EpisodeEntity,
+    EpisodeEvidenceInput,
+    EpisodeInput,
+    EpisodeWriteStatus,
+    StoredEpisode,
+)
 from cognema.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cognema.observations.retention import RetainedObservation
-from cognema.storage.base import CheckpointStore, ObservationStore
+from cognema.storage.base import CheckpointStore, EpisodeStore, ObservationStore
 
 
 class PostgresObservationStore(ObservationStore):
@@ -62,14 +70,18 @@ class PostgresObservationStore(ObservationStore):
                         event_type, content, content_hash, metadata,
                         source_created_at, source_updated_at,
                         first_observed_at, last_observed_at,
-                        current_revision, is_deleted, created_at, updated_at
+                        current_revision, is_deleted,
+                        attention_score, retention_class, policy_reasons,
+                        created_at, updated_at
                     ) VALUES (
                         :id, :tenant_id, :subject_id, :actor_id,
                         :source_type, :source_namespace, :source_record_id, :source_version,
                         :event_type, :content, :content_hash, CAST(:metadata AS jsonb),
                         :source_created_at, :source_updated_at,
                         :first_observed_at, :last_observed_at,
-                        1, :is_deleted, :now, :now
+                        1, :is_deleted,
+                        :attention_score, :retention_class, CAST(:policy_reasons AS jsonb),
+                        :now, :now
                     )
                     """
                 ),
@@ -154,6 +166,9 @@ class PostgresObservationStore(ObservationStore):
                         last_observed_at = :last_observed_at,
                         current_revision = :current_revision,
                         is_deleted = :is_deleted,
+                        attention_score = :attention_score,
+                        retention_class = :retention_class,
+                        policy_reasons = CAST(:policy_reasons AS jsonb),
                         updated_at = :now
                     WHERE id = :id
                     """
@@ -173,6 +188,9 @@ class PostgresObservationStore(ObservationStore):
                     "last_observed_at": observed_at,
                     "current_revision": revision_number,
                     "is_deleted": observation.is_deleted,
+                    "attention_score": retained.attention_score,
+                    "retention_class": retained.retention_class,
+                    "policy_reasons": json.dumps(list(retained.policy_reasons)),
                     "now": observed_at,
                 },
             )
@@ -230,6 +248,9 @@ class PostgresObservationStore(ObservationStore):
             "first_observed_at": observed_at,
             "last_observed_at": observed_at,
             "is_deleted": observation.is_deleted,
+            "attention_score": retained.attention_score,
+            "retention_class": retained.retention_class,
+            "policy_reasons": json.dumps(list(retained.policy_reasons)),
             "now": observed_at,
             "revision": revision,
         }
@@ -250,7 +271,8 @@ class PostgresObservationStore(ObservationStore):
                         source_type, source_namespace, source_record_id, source_version,
                         event_type, content, content_hash, metadata,
                         source_created_at, source_updated_at, last_observed_at,
-                        current_revision, is_deleted
+                        current_revision, is_deleted,
+                        attention_score, retention_class, policy_reasons
                     FROM {self._table("observations")}
                     WHERE tenant_id = :tenant_id
                       AND source_namespace = :source_namespace
@@ -291,7 +313,8 @@ class PostgresObservationStore(ObservationStore):
                         source_type, source_namespace, source_record_id, source_version,
                         event_type, content, content_hash, metadata,
                         source_created_at, source_updated_at, last_observed_at,
-                        current_revision, is_deleted
+                        current_revision, is_deleted,
+                        attention_score, retention_class, policy_reasons
                     FROM {self._table("observations")}
                     WHERE {" AND ".join(clauses)}
                     ORDER BY last_observed_at, id
@@ -313,6 +336,9 @@ class PostgresObservationStore(ObservationStore):
         metadata = row["metadata"]
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
+        policy_reasons = row.get("policy_reasons", [])
+        if isinstance(policy_reasons, str):
+            policy_reasons = json.loads(policy_reasons)
         return StoredObservation(
             id=str(row["id"]),
             tenant_id=row["tenant_id"],
@@ -331,6 +357,9 @@ class PostgresObservationStore(ObservationStore):
             observed_at=row["last_observed_at"],
             current_revision=row["current_revision"],
             is_deleted=row["is_deleted"],
+            attention_score=float(row.get("attention_score", 0.5)),
+            retention_class=row.get("retention_class", "full"),
+            policy_reasons=tuple(policy_reasons),
         )
 
 
@@ -403,3 +432,374 @@ class PostgresCheckpointStore(CheckpointStore):
                 )
         except Exception as exc:  # noqa: BLE001
             raise StorageError(f"Failed to persist checkpoint: {exc}") from exc
+
+
+class PostgresEpisodeStore(EpisodeStore):
+    """PostgreSQL-backed episodic memory store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cognema") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def upsert(self, episode: EpisodeInput) -> EpisodeWriteStatus:
+        fingerprint = episode.metadata["episode"]["content_fingerprint"]
+        existing = await self._get_by_memory_key(
+            tenant_id=episode.tenant_id,
+            memory_key=episode.memory_key,
+        )
+        if existing is not None:
+            existing_fingerprint = existing.metadata["episode"]["content_fingerprint"]
+            if existing_fingerprint == fingerprint:
+                return EpisodeWriteStatus.UNCHANGED
+            await self._update(existing.id, episode)
+            return EpisodeWriteStatus.UPDATED
+
+        await self._create(episode)
+        return EpisodeWriteStatus.CREATED
+
+    async def _get_by_memory_key(
+        self,
+        *,
+        tenant_id: str,
+        memory_key: str,
+    ) -> StoredEpisode | None:
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id
+                    FROM {self._table("memories")}
+                    WHERE tenant_id = :tenant_id
+                      AND memory_type = 'episodic'
+                      AND memory_key = :memory_key
+                    """
+                ),
+                {"tenant_id": tenant_id, "memory_key": memory_key},
+            )
+            row = result.first()
+        if row is None:
+            return None
+        return await self._load_episode(str(row[0]))
+
+    async def _load_episode(self, memory_id: str) -> StoredEpisode:
+        async with self._engine.connect() as conn:
+            memory = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        id, tenant_id, subject_id, memory_key, statement,
+                        confidence, importance, valid_from, valid_until,
+                        is_active, metadata, created_at, updated_at
+                    FROM {self._table("memories")}
+                    WHERE id = :id
+                    """
+                ),
+                {"id": memory_id},
+            )
+            memory_row = memory.mappings().first()
+            if memory_row is None:
+                raise StorageError(f"Episode {memory_id} not found.")
+
+            evidence_result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        observation_id, observation_revision,
+                        sequence_number, contribution_score
+                    FROM {self._table("memory_evidence")}
+                    WHERE memory_id = :memory_id
+                    ORDER BY sequence_number
+                    """
+                ),
+                {"memory_id": memory_id},
+            )
+            entity_result = await conn.execute(
+                text(
+                    f"""
+                    SELECT entity_id, entity_role
+                    FROM {self._table("memory_entities")}
+                    WHERE memory_id = :memory_id
+                    ORDER BY entity_id, entity_role
+                    """
+                ),
+                {"memory_id": memory_id},
+            )
+        return self._to_stored(
+            memory_row, evidence_result.mappings().all(), entity_result.mappings().all()
+        )
+
+    async def _create(self, episode: EpisodeInput) -> None:
+        memory_id = str(uuid4())
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memories")} (
+                        id, tenant_id, subject_id, memory_type, memory_key,
+                        statement, confidence, importance,
+                        valid_from, valid_until, is_active, metadata,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :tenant_id, :subject_id, 'episodic', :memory_key,
+                        :statement, :confidence, :importance,
+                        :valid_from, :valid_until, TRUE, CAST(:metadata AS jsonb),
+                        :now, :now
+                    )
+                    """
+                ),
+                self._memory_params(memory_id, episode),
+            )
+            await self._replace_evidence(conn, memory_id, episode.evidence)
+            await self._replace_entities(conn, memory_id, episode.entities)
+
+    async def _update(self, memory_id: str, episode: EpisodeInput) -> None:
+        metadata_json = json.dumps(dict(episode.metadata))
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    UPDATE {self._table("memories")}
+                    SET
+                        subject_id = :subject_id,
+                        statement = :statement,
+                        confidence = :confidence,
+                        importance = :importance,
+                        valid_from = :valid_from,
+                        valid_until = :valid_until,
+                        is_active = TRUE,
+                        metadata = CAST(:metadata AS jsonb),
+                        updated_at = :now
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "id": memory_id,
+                    "subject_id": episode.subject_id,
+                    "statement": episode.statement,
+                    "confidence": episode.confidence,
+                    "importance": episode.importance,
+                    "valid_from": episode.started_at,
+                    "valid_until": episode.ended_at,
+                    "metadata": metadata_json,
+                    "now": datetime.now(UTC),
+                },
+            )
+            await self._replace_evidence(conn, memory_id, episode.evidence)
+            await self._replace_entities(conn, memory_id, episode.entities)
+
+    async def _replace_evidence(
+        self,
+        conn: Any,
+        memory_id: str,
+        evidence: tuple[EpisodeEvidenceInput, ...],
+    ) -> None:
+        await conn.execute(
+            text(f"DELETE FROM {self._table('memory_evidence')} WHERE memory_id = :memory_id"),
+            {"memory_id": memory_id},
+        )
+        for item in evidence:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_evidence")} (
+                        memory_id, observation_id, observation_revision,
+                        sequence_number, contribution_score
+                    ) VALUES (
+                        :memory_id, :observation_id, :observation_revision,
+                        :sequence_number, :contribution_score
+                    )
+                    """
+                ),
+                {
+                    "memory_id": memory_id,
+                    "observation_id": item.observation_id,
+                    "observation_revision": item.observation_revision,
+                    "sequence_number": item.sequence_number,
+                    "contribution_score": item.contribution_score,
+                },
+            )
+
+    async def _replace_entities(
+        self,
+        conn: Any,
+        memory_id: str,
+        entities: tuple[EpisodeEntity, ...],
+    ) -> None:
+        await conn.execute(
+            text(f"DELETE FROM {self._table('memory_entities')} WHERE memory_id = :memory_id"),
+            {"memory_id": memory_id},
+        )
+        for entity in entities:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_entities")} (
+                        memory_id, entity_id, entity_role
+                    ) VALUES (
+                        :memory_id, :entity_id, :entity_role
+                    )
+                    """
+                ),
+                {
+                    "memory_id": memory_id,
+                    "entity_id": entity.entity_id,
+                    "entity_role": entity.role,
+                },
+            )
+
+    def _memory_params(self, memory_id: str, episode: EpisodeInput) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        return {
+            "id": memory_id,
+            "tenant_id": episode.tenant_id,
+            "subject_id": episode.subject_id,
+            "memory_key": episode.memory_key,
+            "statement": episode.statement,
+            "confidence": episode.confidence,
+            "importance": episode.importance,
+            "valid_from": episode.started_at,
+            "valid_until": episode.ended_at,
+            "metadata": json.dumps(dict(episode.metadata)),
+            "now": now,
+        }
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_inactive: bool = False,
+        limit: int | None = None,
+    ) -> list[StoredEpisode]:
+        clauses = ["tenant_id = :tenant_id", "memory_type = 'episodic'"]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if subject_id is not None:
+            clauses.append("subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        if not include_inactive:
+            clauses.append("is_active = TRUE")
+        limit_clause = ""
+        if limit is not None:
+            limit_clause = " LIMIT :limit"
+            params["limit"] = limit
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id
+                    FROM {self._table("memories")}
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY valid_from, id
+                    {limit_clause}
+                    """
+                ),
+                params,
+            )
+            memory_ids = [str(row[0]) for row in result.all()]
+        episodes: list[StoredEpisode] = []
+        for memory_id in memory_ids:
+            episodes.append(await self._load_episode(memory_id))
+        return episodes
+
+    async def deactivate_missing(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        active_memory_keys: set[str],
+    ) -> int:
+        clauses = [
+            "tenant_id = :tenant_id",
+            "memory_type = 'episodic'",
+            "is_active = TRUE",
+        ]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if subject_id is not None:
+            clauses.append("subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id, memory_key
+                    FROM {self._table("memories")}
+                    WHERE {" AND ".join(clauses)}
+                    """
+                ),
+                params,
+            )
+            rows = result.mappings().all()
+
+        deactivated = 0
+        for row in rows:
+            memory_key = row["memory_key"]
+            if memory_key in active_memory_keys:
+                continue
+            async with self._engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        f"""
+                        UPDATE {self._table("memories")}
+                        SET is_active = FALSE, updated_at = :now
+                        WHERE id = :id
+                        """
+                    ),
+                    {"id": str(row["id"]), "now": datetime.now(UTC)},
+                )
+            deactivated += 1
+        return deactivated
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memories")}
+                    WHERE tenant_id = :tenant_id AND memory_type = 'episodic'
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+
+    def _to_stored(
+        self,
+        row: Any,
+        evidence_items: Sequence[Any],
+        entity_items: Sequence[Any],
+    ) -> StoredEpisode:
+        metadata = row["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        evidence = tuple(
+            EpisodeEvidenceInput(
+                observation_id=str(item["observation_id"]),
+                observation_revision=int(item["observation_revision"]),
+                sequence_number=int(item["sequence_number"]),
+                contribution_score=float(item["contribution_score"] or 1.0),
+            )
+            for item in evidence_items
+        )
+        entities = tuple(
+            EpisodeEntity(entity_id=item["entity_id"], role=item["entity_role"])
+            for item in entity_items
+        )
+        return StoredEpisode(
+            id=str(row["id"]),
+            tenant_id=row["tenant_id"],
+            subject_id=row["subject_id"],
+            memory_key=row["memory_key"],
+            statement=row["statement"],
+            started_at=row["valid_from"],
+            ended_at=row["valid_until"],
+            confidence=float(row["confidence"]),
+            importance=float(row["importance"]),
+            is_active=row["is_active"],
+            evidence=evidence,
+            entities=entities,
+            metadata=MappingProxyType(dict(metadata)),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )

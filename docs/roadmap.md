@@ -19,13 +19,14 @@
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-## 0.2 - Episodic memory
+## 0.2 - Episodic memory (done)
 
-- richer event encoding from observations;
-- temporal context handling;
-- source and entity relationship links;
-- importance and salience scoring;
-- episodic clustering foundations.
+- deterministic episodic encoding from observations;
+- temporal context and conversation/thread grouping;
+- source observation evidence and entity links;
+- attention-based salience scoring;
+- in-memory and PostgreSQL episode stores;
+- `Memory.encode_episodes()` and `Memory.list_episodes()`.
 
 ## 0.3 - Semantic consolidation
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -10,6 +11,13 @@ from types import MappingProxyType
 from typing import Any
 
 from cognema.exceptions import ValidationError
+
+
+def _validate_attention_score(score: float) -> None:
+    if not math.isfinite(score):
+        raise ValidationError("attention_score must be finite.")
+    if not 0.0 <= score <= 1.0:
+        raise ValidationError("attention_score must be between 0.0 and 1.0.")
 
 
 class IngestStatus(StrEnum):
@@ -84,6 +92,14 @@ class StoredObservation:
     observed_at: datetime
     current_revision: int
     is_deleted: bool
+    attention_score: float = 0.5
+    retention_class: str = "full"
+    policy_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _validate_attention_score(self.attention_score)
+        if not self.retention_class.strip():
+            raise ValidationError("retention_class must not be empty.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +110,11 @@ class ObservationDecision:
     attention_score: float
     retention_class: str
     reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _validate_attention_score(self.attention_score)
+        if not self.retention_class.strip():
+            raise ValidationError("retention_class must not be empty.")
 
 
 @dataclass(frozen=True, slots=True)

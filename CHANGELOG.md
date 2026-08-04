@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-04
+
+### Added
+
+- Observation policy output persisted on `StoredObservation` (`attention_score`, `retention_class`, `policy_reasons`).
+- Episode domain models (`EpisodeInput`, `StoredEpisode`, `EpisodeEncodingResult`, and related types).
+- `DeterministicEpisodicEncoder` with conversation/thread grouping, time-gap segmentation, salience scoring, and evidence links.
+- `EpisodeStore` protocol with in-memory and PostgreSQL backends (`cognema.memories`, `memory_evidence`, `memory_entities`).
+- `Memory.encode_episodes()` and `Memory.list_episodes()` public APIs.
+- Migration `002_episodic_memory.sql` and multi-file `apply_migrations()` runner.
+- Unit tests for episode models, encoder, stores, facade, and migration runner.
+
+### Changed
+
+- Package version bumped to `0.2.0`.
+- `Memory.clear()` now clears episodes before observations.
+- PostgreSQL example init SQL synced with `002` schema for fresh Docker volumes.
+
 ## [0.1.0] - 2026-08-04
 
 ### Added

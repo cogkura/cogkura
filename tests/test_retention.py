@@ -31,6 +31,25 @@ def test_hash_only_retention_drops_content() -> None:
     assert retained.content_hash
 
 
+def test_retention_preserves_policy_fields() -> None:
+    from cognema.observations.models import ObservationDecision
+
+    decision = ObservationDecision(
+        accept=True,
+        attention_score=0.8,
+        retention_class="hash_only",
+        reasons=("high_signal",),
+    )
+    retained = apply_retention(
+        _observation(),
+        mode=ObservationRetentionMode.FULL,
+        decision=decision,
+    )
+    assert retained.attention_score == 0.8
+    assert retained.retention_class == "hash_only"
+    assert retained.policy_reasons == ("high_signal",)
+
+
 def test_reference_only_not_implemented() -> None:
     with pytest.raises(ValidationError, match="REFERENCE_ONLY"):
         apply_retention(_observation(), mode=ObservationRetentionMode.REFERENCE_ONLY)

@@ -76,6 +76,9 @@ class InMemoryObservationStore(ObservationStore):
                 observed_at=observation.observed_at.astimezone(UTC),
                 current_revision=1,
                 is_deleted=observation.is_deleted,
+                attention_score=retained.attention_score,
+                retention_class=retained.retention_class,
+                policy_reasons=retained.policy_reasons,
             )
             self._observations[key] = stored
             self._revisions[obs_id] = [
@@ -128,6 +131,9 @@ class InMemoryObservationStore(ObservationStore):
             observed_at=observation.observed_at.astimezone(UTC),
             current_revision=revision_number,
             is_deleted=observation.is_deleted,
+            attention_score=retained.attention_score,
+            retention_class=retained.retention_class,
+            policy_reasons=retained.policy_reasons,
         )
         self._observations[key] = stored
         self._revisions[existing.id].append(

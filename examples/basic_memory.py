@@ -13,20 +13,27 @@ async def main() -> None:
     await memory.observe(
         ObservationInput(
             tenant_id=tenant_id,
+            subject_id="george",
             source_namespace="direct",
             source_record_id="1",
             content="George discussed cognitive memory algorithms",
             observed_at=datetime.now(UTC),
-            metadata={"source": "conversation", "tags": ["research", "memory"]},
+            metadata={
+                "conversation_id": "research",
+                "source": "conversation",
+                "tags": ["research", "memory"],
+            },
         )
     )
     await memory.observe(
         ObservationInput(
             tenant_id=tenant_id,
+            subject_id="george",
             source_namespace="direct",
             source_record_id="2",
             content="The team agreed to prototype deterministic recall first.",
             observed_at=datetime.now(UTC),
+            metadata={"conversation_id": "research"},
         )
     )
 
@@ -36,6 +43,12 @@ async def main() -> None:
     )
     for result in results:
         print(f"{result.score:.2f} :: {result.observation.content}")
+
+    encoding = await memory.encode_episodes(tenant_id=tenant_id)
+    episodes = await memory.list_episodes(tenant_id=tenant_id)
+    print(f"episodes created={encoding.created} listed={len(episodes)}")
+    if episodes:
+        print(episodes[0].statement)
 
     memory.sleep()
 

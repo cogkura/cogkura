@@ -15,7 +15,11 @@ from cognema.memory import Memory
 from cognema.migrations import apply_migrations
 from cognema.observations.models import IngestStatus, ObservationInput
 from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import PostgresCheckpointStore, PostgresObservationStore
+from cognema.storage.postgres import (
+    PostgresCheckpointStore,
+    PostgresEpisodeStore,
+    PostgresObservationStore,
+)
 
 pytestmark = pytest.mark.postgres
 
@@ -456,3 +460,45 @@ async def test_read_only_source_role(source_engine: AsyncEngine) -> None:
                 },
             )
             await conn.commit()
+
+
+@pytest.mark.asyncio
+async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
+    observation_store = PostgresObservationStore(memory_engine)
+    episode_store = PostgresEpisodeStore(memory_engine)
+    memory = Memory(
+        observation_store=observation_store,
+        checkpoint_store=PostgresCheckpointStore(memory_engine),
+        episode_store=episode_store,
+    )
+    await memory.observe(
+        ObservationInput(
+            tenant_id=TENANT,
+            subject_id=USER_ID,
+            actor_id=USER_ID,
+            source_namespace="direct",
+            source_record_id=str(uuid4()),
+            event_type="message",
+            content="PostgreSQL episodic encoding integration test message one.",
+            observed_at=datetime.now(UTC),
+            metadata={"conversation_id": CONVERSATION_ID},
+        )
+    )
+    await memory.observe(
+        ObservationInput(
+            tenant_id=TENANT,
+            subject_id=USER_ID,
+            actor_id=USER_ID,
+            source_namespace="direct",
+            source_record_id=str(uuid4()),
+            event_type="message",
+            content="PostgreSQL episodic encoding integration test message two.",
+            observed_at=datetime.now(UTC),
+            metadata={"conversation_id": CONVERSATION_ID, "terminal_event": True},
+        )
+    )
+    result = await memory.encode_episodes(tenant_id=TENANT, subject_id=USER_ID)
+    episodes = await memory.list_episodes(tenant_id=TENANT, subject_id=USER_ID)
+    assert result.created == 1
+    assert len(episodes) == 1
+    assert len(episodes[0].evidence) == 2

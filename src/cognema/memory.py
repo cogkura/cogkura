@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Any
 
+from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cognema.exceptions import ValidationError
 from cognema.mappers.base import ObservationMapper
-from cognema.models import RecallResult
+from cognema.models import EpisodeEncodingResult, RecallResult, StoredEpisode
 from cognema.observations.models import IngestionResult, IngestStatus, ObservationInput
 from cognema.observations.pipeline import ObservationPipeline
 from cognema.observations.policies import DefaultObservationPolicy, ObservationPolicy
 from cognema.observations.retention import ObservationRetentionMode
 from cognema.sources.base import SourceConnector
-from cognema.storage import CheckpointStore, ObservationStore
+from cognema.storage import CheckpointStore, EpisodeStore, ObservationStore
+from cognema.storage.in_memory_episode import InMemoryEpisodeStore
 from cognema.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
@@ -28,6 +31,8 @@ class Memory:
         *,
         observation_store: ObservationStore | None = None,
         checkpoint_store: CheckpointStore | None = None,
+        episode_store: EpisodeStore | None = None,
+        episodic_encoder: EpisodicEncoder | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -36,6 +41,10 @@ class Memory:
         )
         self._checkpoint_store = (
             checkpoint_store if checkpoint_store is not None else InMemoryCheckpointStore()
+        )
+        self._episode_store = episode_store if episode_store is not None else InMemoryEpisodeStore()
+        self._episodic_encoder = (
+            episodic_encoder if episodic_encoder is not None else DeterministicEpisodicEncoder()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -202,10 +211,63 @@ class Memory:
     def sleep(self) -> None:
         """Run deferred memory maintenance (no-op in this release)."""
 
-    async def clear(self, *, tenant_id: str) -> None:
-        """Clear observations for a tenant."""
+    async def encode_episodes(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+    ) -> EpisodeEncodingResult:
+        """Build current episodic memories from stored observations."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
+
+        observations = await self._observation_store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+        candidates = self._episodic_encoder.encode(observations)
+        result = EpisodeEncodingResult(
+            observations=len(observations),
+            candidates=len(candidates),
+        )
+        active_keys: set[str] = set()
+        for candidate in candidates:
+            active_keys.add(candidate.memory_key)
+            status = await self._episode_store.upsert(candidate)
+            result = result.record(status)
+
+        deactivated = await self._episode_store.deactivate_missing(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            active_memory_keys=active_keys,
+        )
+        return replace(result, deactivated=deactivated)
+
+    async def list_episodes(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_inactive: bool = False,
+        limit: int | None = None,
+    ) -> list[StoredEpisode]:
+        """List encoded episodes for a tenant."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if limit is not None and limit <= 0:
+            raise ValidationError("Limit must be greater than zero.")
+        return await self._episode_store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=include_inactive,
+            limit=limit,
+        )
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Clear episodes and observations for a tenant."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
 
 

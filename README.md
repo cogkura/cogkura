@@ -80,6 +80,37 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## Episodic memory encoding
+
+After observations are stored, encode them into context-bound episodes:
+
+```python
+from datetime import UTC, datetime
+
+from cognema import Memory, ObservationInput
+
+memory = Memory()
+
+await memory.observe(
+    ObservationInput(
+        tenant_id="company_123",
+        subject_id="customer_42",
+        source_namespace="direct",
+        source_record_id="message_1",
+        content="Redis would add too much operational complexity.",
+        observed_at=datetime.now(UTC),
+        metadata={"conversation_id": "architecture_123"},
+    )
+)
+
+result = await memory.encode_episodes(tenant_id="company_123", subject_id="customer_42")
+episodes = await memory.list_episodes(tenant_id="company_123", subject_id="customer_42")
+
+print(result.created, len(episodes[0].evidence))
+```
+
+For PostgreSQL, pass both `PostgresObservationStore` and `PostgresEpisodeStore` to `Memory`.
+
 ## Observation ingestion (PostgreSQL)
 
 ```python
@@ -87,7 +118,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from cognema import Memory
 from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import PostgresCheckpointStore, PostgresObservationStore
+from cognema.storage.postgres import (
+    PostgresCheckpointStore,
+    PostgresEpisodeStore,
+    PostgresObservationStore,
+)
 
 memory_engine = create_async_engine("postgresql+asyncpg://...")
 source_engine = create_async_engine("postgresql+asyncpg://...")
@@ -95,6 +130,7 @@ source_engine = create_async_engine("postgresql+asyncpg://...")
 memory = Memory(
     observation_store=PostgresObservationStore(memory_engine),
     checkpoint_store=PostgresCheckpointStore(memory_engine),
+    episode_store=PostgresEpisodeStore(memory_engine),
 )
 
 source = PostgresTableSource(
@@ -158,6 +194,9 @@ COGNEMA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cognema_writer:cognema_writer@l
 # Optional: write access for mutate.py / admin test inserts
 COGNEMA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
 
+# Optional: owner role for schema migrations / upgrade tests
+COGNEMA_POSTGRES_MEMORY_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_memory
+
 # Optional: same-DB schema mode tests
 COGNEMA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
 ```
@@ -174,7 +213,7 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cognema is in early development. Version `0.1.0` uses a single observation-based API for ingest and tenant-scoped recall (token-overlap placeholder until cognitive retrieval).
+Cognema is in early development. Version `0.2.0` adds deterministic episodic encoding on top of the observation-based ingest and tenant-scoped recall APIs.
 
 ## Scope of 0.1.0
 
@@ -184,7 +223,7 @@ Implemented in `0.1.0`:
 - `ObservationStore` and `CheckpointStore` protocols;
 - in-memory and PostgreSQL observation stores;
 - `PostgresTableSource` with compound cursor pagination;
-- `Memory.observe()`, `Memory.ingest()`, and tenant-scoped `Memory.recall()`;
+- `Memory.observe()`, `Memory.ingest()`, `Memory.encode_episodes()`, `Memory.list_episodes()`, and tenant-scoped `Memory.recall()`;
 - revision history for create, update, delete, and restore;
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
@@ -225,7 +264,8 @@ LLM reasoning and planning
 ## Roadmap
 
 - `0.1`: PostgreSQL observation ingestion and provenance.
-- `0.2`: episodic memory encoding, salience, and temporal context.
+- `0.2`: episodic memory encoding, salience, temporal context, and evidence links (done).
+- `0.3`: semantic consolidation.
 - `0.3`: semantic consolidation pipelines.
 - `0.4`: cognitive retrieval and working-memory selection.
 - later: additional source connectors, model interfaces, and integrations.

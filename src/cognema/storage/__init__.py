@@ -1,6 +1,6 @@
 """Storage backends and interfaces."""
 
-from cognema.storage.base import CheckpointStore, ObservationStore
+from cognema.storage.base import CheckpointStore, EpisodeStore, ObservationStore
 from cognema.storage.in_memory_observation import (
     InMemoryCheckpointStore,
     InMemoryObservationStore,
@@ -8,6 +8,7 @@ from cognema.storage.in_memory_observation import (
 
 __all__ = [
     "CheckpointStore",
+    "EpisodeStore",
     "InMemoryCheckpointStore",
     "InMemoryObservationStore",
     "ObservationStore",

@@ -36,10 +36,13 @@ class ObservationPipeline:
                 f"expected {expected_tenant_id!r}."
             )
 
-        if self._policy is not None:
-            decision = await self._policy.evaluate(observation)
-            if not decision.accept:
-                return None
+        decision = await self._policy.evaluate(observation)
+        if not decision.accept:
+            return None
 
-        retained = apply_retention(observation, mode=self._retention_mode)
+        retained = apply_retention(
+            observation,
+            mode=self._retention_mode,
+            decision=decision,
+        )
         return await self._store.ingest(observation, retained=retained)

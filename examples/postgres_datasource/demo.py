@@ -1,4 +1,4 @@
-"""PostgreSQL observation ingestion demo."""
+"""PostgreSQL observation ingestion and episodic encoding demo."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from cognema import Memory
 from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import PostgresCheckpointStore, PostgresObservationStore
+from cognema.storage.postgres import (
+    PostgresCheckpointStore,
+    PostgresEpisodeStore,
+    PostgresObservationStore,
+)
 
 SOURCE_URL = os.environ.get(
     "COGNEMA_POSTGRES_SOURCE_URL",
@@ -60,9 +64,11 @@ async def main() -> None:
     memory_engine = create_async_engine(MEMORY_URL)
     observation_store = PostgresObservationStore(memory_engine)
     checkpoint_store = PostgresCheckpointStore(memory_engine)
+    episode_store = PostgresEpisodeStore(memory_engine)
     memory = Memory(
         observation_store=observation_store,
         checkpoint_store=checkpoint_store,
+        episode_store=episode_store,
     )
     source = PostgresTableSource(
         connector_id="application-messages",
@@ -78,6 +84,12 @@ async def main() -> None:
         tenant_id=TENANT_ID,
     )
     print(result)
+
+    encoding = await memory.encode_episodes(tenant_id=TENANT_ID)
+    episodes = await memory.list_episodes(tenant_id=TENANT_ID)
+    print(encoding)
+    print(f"episodes={len(episodes)}")
+
     await source_engine.dispose()
     await memory_engine.dispose()
 
