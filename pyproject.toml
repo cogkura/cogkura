@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognema"
-version = "0.0.1"
+version = "0.1.0"
 description = "Research-driven cognitive memory framework for AI systems."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,12 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+postgres = [
+  "sqlalchemy[asyncio]>=2.0.51",
+  "asyncpg>=0.31.0",
+]
+
 [project.urls]
 Homepage = "https://cognema.io"
 Repository = "https://github.com/cognema/cognema"
@@ -39,6 +45,7 @@ Documentation = "https://cognema.io"
 dev = [
   "mypy>=2.3.0",
   "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
   "ruff>=0.16.1",
   "twine>=7.0.0",
@@ -60,8 +67,13 @@ include = [
   "README.md",
   "SECURITY.md",
   "docs/*.md",
-  "examples/*.py",
+  "examples/**/*.py",
+  "examples/**/*.md",
+  "examples/**/*.sql",
+  "examples/**/*.yml",
+  "examples/**/.env.example",
   "src/cognema/**/*.py",
+  "src/cognema/**/*.sql",
   "src/cognema/py.typed",
   "tests/*.py",
 ]
@@ -87,6 +99,10 @@ packages = ["cognema"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=cognema --cov-report=term-missing"
+asyncio_mode = "auto"
+markers = [
+  "postgres: integration tests requiring a running PostgreSQL instance",
+]
 
 [tool.coverage.run]
 branch = true

@@ -2,10 +2,6 @@
 
 Research-driven cognitive memory framework for AI systems.
 
-## Tagline
-
-> Research-driven cognitive memory framework for AI systems.
-
 ## Why Cognema exists
 
 Most AI applications keep useful data, but retrieval is often shallow. You either do direct lookup, keyword search, or vector similarity, and then pass results to an LLM with little memory structure.
@@ -32,13 +28,21 @@ Cognema focuses on cognitive memory algorithms that sit between your data and yo
 
 You bring your own storage, ingestion, embeddings, and LLM provider. Cognema supplies memory behavior and orchestration.
 
+Cognema owns observations and derived memories, not customer application records. Source connectors read customer data; Cognema writes only to Cognema-owned storage.
+
 ## Installation
 
 ```bash
 pip install cognema
 ```
 
-## Quick start
+PostgreSQL support:
+
+```bash
+pip install "cognema[postgres]"
+```
+
+## Quick start (transitional recall)
 
 ```python
 from cognema import Memory
@@ -48,6 +52,7 @@ memory = Memory()
 event = memory.observe(
     "George discussed cognitive memory algorithms",
     metadata={"source": "conversation", "topic": "cognitive-memory"},
+    tags=["research", "memory"],
 )
 
 results = memory.recall("What was discussed about cognitive memory?")
@@ -58,26 +63,85 @@ for result in results:
 memory.sleep()
 ```
 
+## Observation ingestion (PostgreSQL)
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from cognema import Memory
+from cognema.sources.postgres import PostgresTableSource
+from cognema.storage.postgres import PostgresCheckpointStore, PostgresObservationStore
+
+memory_engine = create_async_engine("postgresql+asyncpg://...")
+source_engine = create_async_engine("postgresql+asyncpg://...")
+
+memory = Memory(
+    observation_store=PostgresObservationStore(memory_engine),
+    checkpoint_store=PostgresCheckpointStore(memory_engine),
+)
+
+source = PostgresTableSource(
+    connector_id="application-messages",
+    engine=source_engine,
+    table="public.messages",
+    cursor_columns=("updated_at", "id"),
+)
+
+result = await memory.ingest(
+    source=source,
+    mapper=MessageMapper("company_123"),
+    tenant_id="company_123",
+)
+```
+
+Direct observation:
+
+```python
+from datetime import UTC, datetime
+
+from cognema import ObservationInput
+
+status = await memory.observe_input(
+    ObservationInput(
+        tenant_id="company_123",
+        subject_id="user_456",
+        source_namespace="chat.messages",
+        source_record_id="message_789",
+        source_version="1",
+        event_type="message",
+        content="I prefer PostgreSQL for production services.",
+        observed_at=datetime.now(UTC),
+    )
+)
+```
+
+See [`examples/postgres_datasource/README.md`](examples/postgres_datasource/README.md) for the Docker-based demo.
+
 ## Current status
 
-Cognema is in early development. Version `0.0.1` is an initial foundation release intended to establish package structure, public API shape, and project standards.
+Cognema is in early development. Version `0.1.0` adds PostgreSQL observation ingestion while keeping transitional token-overlap recall via `observe()` / `recall()`.
 
-## Scope of 0.0.1
+## Scope of 0.1.0
 
-Implemented in `0.0.1`:
+Implemented in `0.1.0`:
 
-- package structure and typed public API;
-- `MemoryEvent` and `RecallResult` models;
-- storage abstraction and in-memory backend;
-- deterministic token-overlap recall;
-- basic tests, CI workflows, and documentation.
+- observation models and ingestion pipeline;
+- `ObservationStore` and `CheckpointStore` protocols;
+- PostgreSQL schema, migrations, and stores;
+- `PostgresTableSource` with compound cursor pagination;
+- `Memory.observe()`, `Memory.observe_input()`, and `Memory.ingest()`;
+- revision history for create, update, delete, and restore;
+- Docker PostgreSQL example with seed and mutation scripts;
+- unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.0.1`:
+Not implemented in `0.1.0`:
 
 - episodic-to-semantic consolidation;
 - spreading activation;
 - memory decay and forgetting curves;
-- goal-aware retrieval and working-memory selection.
+- goal-aware retrieval and working-memory selection;
+- full REDACTED / REFERENCE_ONLY retention modes;
+- non-PostgreSQL source connectors.
 
 ## Long-term cognitive architecture
 
@@ -105,18 +169,18 @@ LLM reasoning and planning
 
 ## Roadmap
 
-- `0.0.x`: foundation and package hardening.
-- `0.1`: richer episodic memory and salience scoring.
-- `0.2`: semantic consolidation pipelines.
-- `0.3`: cognitive retrieval and working-memory selection.
-- later: additional storage adapters, model interfaces, and integrations.
+- `0.1`: PostgreSQL observation ingestion and provenance.
+- `0.2`: episodic memory encoding, salience, and temporal context.
+- `0.3`: semantic consolidation pipelines.
+- `0.4`: cognitive retrieval and working-memory selection.
+- later: additional source connectors, model interfaces, and integrations.
 
-See [`docs/roadmap.md`](docs/roadmap.md) for details.
+See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
 
 ## Development setup with uv
 
 ```bash
-uv sync --dev
+uv sync --all-extras --dev
 ```
 
 ## Validation commands
@@ -138,16 +202,6 @@ uvx twine check dist/*
 ## Contributing
 
 Contributions are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), then open an issue or pull request.
-
-## Release and PyPI namespace claim notes
-
-To secure the `cognema` PyPI namespace with Trusted Publishing:
-
-1. Configure GitHub environment `pypi`.
-2. Add a pending Trusted Publisher in PyPI for owner `cognema`, repo `cognema`, workflow `publish.yml`, environment `pypi`.
-3. Publish `v0.0.1` through the GitHub release workflow.
-
-A pending publisher does not reserve the package name until the first successful upload.
 
 ## License
 

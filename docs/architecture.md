@@ -2,68 +2,95 @@
 
 ## Design direction
 
-Cognema is designed as a thin cognitive layer between application data and AI reasoning components.
+Cognema is a thin cognitive layer between application data and AI reasoning.
 
-The architecture separates concerns so applications can keep their own persistence and model infrastructure.
+Applications keep their own persistence and model infrastructure. Customer data stays in customer-owned schemas. Cognema owns observations, revisions, checkpoints, and (later) derived memories.
+
+The public API should remain stable even as internals evolve.
 
 ## Layers
 
 ### Public API
 
-The public package API starts with:
+- `Memory`: facade for observation ingestion and transitional recall
+- `observe(str)`: transitional `MemoryEvent` path
+- `observe_input(ObservationInput)` / `ingest(...)`: Cognema observation path
+- `ObservationInput`, `IngestionResult`, `IngestStatus`
+- `MemoryEvent`, `RecallResult` (transitional recall path)
 
-- `Memory`
-- `MemoryEvent`
-- `RecallResult`
+These models are typed and validated so behavior stays explicit.
 
-This API should remain stable even as internals evolve.
+### Observation pipeline
 
-### Memory models
+1. Source connector reads customer records (read-only)
+2. Application mapper converts records to `ObservationInput`
+3. Policy evaluates attention and acceptance
+4. Retention mode transforms content before storage
+5. Observation store persists with revision history
+6. Checkpoint store advances only after successful batches
 
-`MemoryEvent` and `RecallResult` capture event observations and scored recall outputs.
+### Storage protocols
 
-These models are typed and validated to keep behavior explicit.
+[`src/cognema/storage/base.py`](../src/cognema/storage/base.py):
 
-### Storage adapters
+- `MemoryStorage`: transitional in-memory events (`store`, `get`, `list`, `clear`)
+- `InMemoryStorage`: default `MemoryStorage` backend for transitional recall
+- `ObservationStore`: normalized observations + revisions
+- `CheckpointStore`: per-tenant connector checkpoints
 
-Storage is abstracted behind a small protocol:
+PostgreSQL implementations live in [`src/cognema/storage/postgres.py`](../src/cognema/storage/postgres.py) behind the optional `cognema[postgres]` extra.
 
-- `store(event)`
-- `get(event_id)`
-- `list()`
-- `clear()`
+Custom stores can satisfy the same protocols without requiring PostgreSQL.
 
-`0.0.1` implements only `InMemoryStorage`.
+### Source connectors
 
-SQLite and PostgreSQL adapters are planned and should not require public API changes.
+[`SourceConnector`](../src/cognema/sources/base.py) protocol with `PostgresTableSource` as the first implementation.
+
+Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detected; soft-delete columns are the supported path. When `soft_delete_column` is configured with an explicit column list, that column is always included in the SELECT so mappers can set `is_deleted`.
 
 ### Cognitive algorithms
 
-Future modules will implement consolidation, decay, attention, and association mechanics.
-
-In `0.0.1`, this layer is intentionally a stub.
+[`src/cognema/algorithms/`](../src/cognema/algorithms/) remains a stub. Future modules will implement consolidation, decay, attention, and association mechanics.
 
 ### Retrieval
 
-`0.0.1` uses deterministic token overlap scoring as a placeholder retrieval strategy.
-
-It is dependency-free and transparent so it can be replaced by cognitive retrieval methods in later versions.
+`recall()` still uses deterministic token overlap over transitional `MemoryEvent` records. That placeholder is dependency-free and transparent so cognitive retrieval can replace it later.
 
 ### Embeddings and LLM integrations
 
-Embedding providers and LLM providers are planned integration points, not implemented features in `0.0.1`.
+Embedding providers and LLM providers are planned integration points, not implemented features in `0.1.0`.
 
-The goal is for Cognema to orchestrate memory behavior without forcing specific providers.
+Cognema should orchestrate memory behavior without forcing specific providers.
+
+## Deployment models
+
+1. Same database, separate `cognema` schema
+2. Separate source and memory databases (canonical Docker example)
+3. Custom storage via `ObservationStore` / `CheckpointStore` protocols
+
+## Package layout
+
+```text
+src/cognema/
+  memory.py
+  observations/
+  sources/
+  mappers/
+  storage/
+  migrations/postgres/
+  algorithms/
+```
 
 ## Current implementation boundary
 
 Implemented now:
 
-- public API;
-- core models and exceptions;
-- storage abstraction and in-memory backend;
-- deterministic recall;
-- tests and CI.
+- public API and observation models;
+- observation pipeline, policies, and retention modes;
+- storage protocols with in-memory and PostgreSQL backends;
+- `PostgresTableSource` and connector checkpoints;
+- transitional token-overlap recall;
+- Docker example, tests, and documentation.
 
 Planned later:
 
@@ -71,4 +98,4 @@ Planned later:
 - consolidation pipelines;
 - spreading activation and associative recall;
 - goal-aware filtering and working-memory selection;
-- external adapters and integrations.
+- additional source connectors and provider interfaces.

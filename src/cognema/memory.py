@@ -3,20 +3,54 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from cognema.event import MemoryEvent
 from cognema.exceptions import ValidationError
+from cognema.mappers.base import ObservationMapper
 from cognema.models import RecallResult
-from cognema.storage import InMemoryStorage, MemoryStorage
+from cognema.observations.models import IngestionResult, IngestStatus, ObservationInput
+from cognema.observations.pipeline import ObservationPipeline
+from cognema.observations.policies import DefaultObservationPolicy, ObservationPolicy
+from cognema.observations.retention import ObservationRetentionMode
+from cognema.sources.base import SourceConnector
+from cognema.storage import (
+    CheckpointStore,
+    InMemoryStorage,
+    MemoryStorage,
+    ObservationStore,
+)
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+_DEFAULT_BATCH_SIZE = 500
 
 
 class Memory:
-    """A minimal cognitive memory facade for observing and recalling events."""
+    """Cognitive memory facade for observations, ingestion, and transitional recall."""
 
-    def __init__(self, storage: MemoryStorage | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        storage: MemoryStorage | None = None,
+        observation_store: ObservationStore | None = None,
+        checkpoint_store: CheckpointStore | None = None,
+        policy: ObservationPolicy | None = None,
+        retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
+    ) -> None:
         self._storage = storage if storage is not None else InMemoryStorage()
+        self._observation_store = observation_store
+        self._checkpoint_store = checkpoint_store
+        self._policy = policy if policy is not None else DefaultObservationPolicy()
+        self._retention_mode = retention_mode
+        self._pipeline = (
+            ObservationPipeline(
+                observation_store,
+                policy=self._policy,
+                retention_mode=retention_mode,
+            )
+            if observation_store is not None
+            else None
+        )
 
     def observe(
         self,
@@ -26,7 +60,7 @@ class Memory:
         importance: float | None = None,
         tags: list[str] | None = None,
     ) -> MemoryEvent:
-        """Create and store a memory event."""
+        """Create and store a transitional memory event for token-overlap recall."""
         event = MemoryEvent(
             content=content,
             metadata={} if metadata is None else metadata,
@@ -36,12 +70,131 @@ class Memory:
         self._storage.store(event)
         return event
 
-    def recall(self, query: str, *, limit: int = 5) -> list[RecallResult]:
-        """Recall events by deterministic token-overlap scoring.
+    async def observe_input(self, observation: ObservationInput) -> IngestStatus:
+        """Ingest a single normalized observation."""
+        pipeline = self._require_pipeline()
+        status = await pipeline.ingest(observation)
+        if status is None:
+            raise ValidationError("Observation was rejected by policy.")
+        return status
 
-        This `0.0.1` retrieval method is a placeholder for future cognitive
-        retrieval algorithms such as spreading activation and goal filtering.
-        """
+    async def ingest(
+        self,
+        *,
+        source: SourceConnector,
+        mapper: ObservationMapper,
+        tenant_id: str,
+        batch_size: int = _DEFAULT_BATCH_SIZE,
+    ) -> IngestionResult:
+        """Ingest observations from a source connector with checkpointing."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        pipeline = self._require_pipeline()
+        checkpoint_store = self._require_checkpoint_store()
+
+        result = IngestionResult()
+        checkpoint = await checkpoint_store.get(
+            tenant_id=tenant_id,
+            connector_id=source.connector_id,
+        )
+        batch: list[Any] = []
+        last_checkpoint: dict[str, Any] | None = checkpoint
+
+        async for record in source.records(checkpoint):
+            result = IngestionResult(
+                discovered=result.discovered + 1,
+                created=result.created,
+                updated=result.updated,
+                deleted=result.deleted,
+                unchanged=result.unchanged,
+                restored=result.restored,
+                rejected=result.rejected,
+                failed=result.failed,
+            )
+            batch.append(record)
+            if len(batch) >= batch_size:
+                result, last_checkpoint = await self._process_batch(
+                    pipeline,
+                    mapper,
+                    tenant_id,
+                    source,
+                    batch,
+                    result,
+                    checkpoint_store,
+                    last_checkpoint,
+                )
+                batch = []
+
+        if batch:
+            result, last_checkpoint = await self._process_batch(
+                pipeline,
+                mapper,
+                tenant_id,
+                source,
+                batch,
+                result,
+                checkpoint_store,
+                last_checkpoint,
+            )
+
+        return result
+
+    async def _process_batch(
+        self,
+        pipeline: ObservationPipeline,
+        mapper: ObservationMapper,
+        tenant_id: str,
+        source: SourceConnector,
+        batch: list[Any],
+        result: IngestionResult,
+        checkpoint_store: CheckpointStore,
+        last_checkpoint: dict[str, Any] | None,
+    ) -> tuple[IngestionResult, dict[str, Any] | None]:
+        batch_checkpoint = last_checkpoint
+        for record in batch:
+            try:
+                observation = mapper.map(record)
+                status = await pipeline.ingest(
+                    observation,
+                    expected_tenant_id=tenant_id,
+                )
+                if status is None:
+                    result = IngestionResult(
+                        discovered=result.discovered,
+                        created=result.created,
+                        updated=result.updated,
+                        deleted=result.deleted,
+                        unchanged=result.unchanged,
+                        restored=result.restored,
+                        rejected=result.rejected + 1,
+                        failed=result.failed,
+                    )
+                else:
+                    result = result.record(status)
+                batch_checkpoint = source.checkpoint_for(record)
+            except Exception:
+                result = IngestionResult(
+                    discovered=result.discovered,
+                    created=result.created,
+                    updated=result.updated,
+                    deleted=result.deleted,
+                    unchanged=result.unchanged,
+                    restored=result.restored,
+                    rejected=result.rejected,
+                    failed=result.failed + 1,
+                )
+                return result, last_checkpoint
+
+        if batch_checkpoint is not None:
+            await checkpoint_store.set(
+                tenant_id=tenant_id,
+                connector_id=source.connector_id,
+                checkpoint=batch_checkpoint,
+            )
+        return result, batch_checkpoint
+
+    def recall(self, query: str, *, limit: int = 5) -> list[RecallResult]:
+        """Recall transitional memory events by token-overlap scoring."""
         normalized_query = query.strip()
         if not normalized_query:
             raise ValidationError("Query must not be empty.")
@@ -61,20 +214,27 @@ class Memory:
             reason = f"Matched tokens: {', '.join(matched_tokens)}" if matched_tokens else None
             results.append(RecallResult(event=event, score=score, reason=reason))
 
-        results.sort(key=lambda result: (-result.score, result.event.id))
+        results.sort(key=lambda item: (-item.score, item.event.id))
         return results[:limit]
 
     def sleep(self) -> None:
-        """Run deferred memory maintenance.
-
-        For `0.0.1` this is a safe no-op. Future versions will use this hook for
-        consolidation, association strengthening, decay, summarization, and
-        duplicate merging.
-        """
+        """Run deferred memory maintenance (no-op in this release)."""
 
     def clear(self) -> None:
-        """Clear all events from the configured storage backend."""
+        """Clear transitional memory events from storage."""
         self._storage.clear()
+
+    def _require_pipeline(self) -> ObservationPipeline:
+        if self._pipeline is None:
+            raise ValidationError(
+                "Observation ingestion requires an observation_store to be configured."
+            )
+        return self._pipeline
+
+    def _require_checkpoint_store(self) -> CheckpointStore:
+        if self._checkpoint_store is None:
+            raise ValidationError("Source ingestion requires a checkpoint_store to be configured.")
+        return self._checkpoint_store
 
 
 def _tokenize(text: str) -> set[str]:
