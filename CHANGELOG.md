@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-05
+
+### Added
+
+- Semantic domain models (`SemanticMemoryInput`, `StoredSemanticMemory`, `SemanticConsolidationResult`, and related enums).
+- `MetadataSemanticExtractor` reading `observation.metadata["semantic_facts"]` with malformed-entry rejection counting.
+- `ComplementaryLearningSemanticConsolidator` with canonicalisation, recurrence promotion, contradiction handling, and deterministic statement projection.
+- `SemanticMemoryStore` protocol with in-memory and PostgreSQL backends (`semantic_claims`, `memory_derivations`).
+- `ObservationStore.get_many()` for tenant-scoped observation loads by Cognema ID.
+- `Memory.consolidate_semantics()` and `Memory.list_semantic_memories()` public APIs.
+- Migration `003_semantic_consolidation.sql` and example init SQL sync.
+- `examples/semantic_consolidation.py` and evaluation fixture tests.
+
+### Changed
+
+- Package version bumped to `0.3.0`.
+- `Memory.clear()` order is now semantic → episodic → observations.
+- PostgreSQL apps should pass `PostgresSemanticMemoryStore` alongside observation and episode stores.
+
 ## [0.2.0] - 2026-08-04
 
 ### Added

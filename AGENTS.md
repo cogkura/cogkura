@@ -10,8 +10,8 @@ It sits between application data and LLM reasoning.
 Cognema owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.2` episodic memory encoding + tenant-scoped recall placeholder
-- Next: `0.3` semantic consolidation — see [`docs/roadmap.md`](docs/roadmap.md)
+- Current release focus: `0.3` semantic consolidation + tenant-scoped recall placeholder
+- Next: `0.4` cognitive retrieval — see [`docs/roadmap.md`](docs/roadmap.md)
 
 ## Read first
 
@@ -29,9 +29,9 @@ src/cognema/
   observations/      # models, pipeline, policy, retention, hashing
   sources/           # SourceConnector + PostgresTableSource
   mappers/           # ObservationMapper protocol
-  storage/           # ObservationStore, CheckpointStore, EpisodeStore + backends
+  storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore
   migrations/        # Cognema-owned Postgres schema SQL
-  algorithms/        # DeterministicEpisodicEncoder (episodic.py)
+  algorithms/        # episodic.py, semantic.py
 tests/
 examples/
   basic_memory.py
@@ -48,7 +48,9 @@ docs/
 | `recall(query, tenant_id=...)` | Tenant-scoped placeholder retrieval over observations |
 | `encode_episodes(tenant_id=...)` | Build episodic memories from stored observations |
 | `list_episodes(tenant_id=...)` | List encoded episodes for a tenant |
-| `clear(tenant_id=...)` | Remove episodes and observations for a tenant |
+| `consolidate_semantics(tenant_id=...)` | Build semantic memories from active episodes |
+| `list_semantic_memories(tenant_id=...)` | List consolidated semantic memories |
+| `clear(tenant_id=...)` | Remove semantic memories, episodes, and observations |
 
 There is **no** parallel `MemoryEvent` / string-`observe` path. Cognitive work builds on observations.
 

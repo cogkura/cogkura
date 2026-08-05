@@ -50,6 +50,10 @@ async def main() -> None:
     if episodes:
         print(episodes[0].statement)
 
+    consolidation = await memory.consolidate_semantics(tenant_id=tenant_id)
+    semantic_memories = await memory.list_semantic_memories(tenant_id=tenant_id)
+    print(f"semantic promoted={consolidation.promoted} listed={len(semantic_memories)}")
+
     memory.sleep()
 
 

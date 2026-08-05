@@ -87,17 +87,16 @@ Implemented now:
 
 - public observation API (`observe`, `ingest`, `recall`);
 - episodic encoding API (`encode_episodes`, `list_episodes`);
+- semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
 - observation pipeline, policies, and retention modes;
 - storage protocols with in-memory and PostgreSQL backends;
-- `DeterministicEpisodicEncoder` and `EpisodeStore`;
+- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, and `SemanticMemoryStore`;
 - `PostgresTableSource` and connector checkpoints;
 - tenant-scoped token-overlap recall;
 - Docker example, tests, and documentation.
 
 Planned later:
 
-- semantic memory consolidation;
-- consolidation pipelines;
 - spreading activation and associative recall;
 - goal-aware filtering and working-memory selection;
 - additional source connectors and provider interfaces.

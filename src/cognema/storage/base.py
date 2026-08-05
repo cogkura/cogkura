@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from cognema.models import EpisodeInput, EpisodeWriteStatus, StoredEpisode
+    from cognema.models import (
+        EpisodeInput,
+        EpisodeWriteStatus,
+        SemanticMemoryInput,
+        SemanticMemoryStatus,
+        SemanticWriteStatus,
+        StoredEpisode,
+        StoredSemanticMemory,
+    )
 
 from cognema.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cognema.observations.retention import RetainedObservation
@@ -39,6 +48,14 @@ class ObservationStore(Protocol):
         include_deleted: bool = False,
     ) -> list[StoredObservation]:
         """List observations for a tenant, optionally filtered by subject."""
+
+    async def get_many(
+        self,
+        *,
+        tenant_id: str,
+        observation_ids: set[str],
+    ) -> Sequence[StoredObservation]:
+        """Load tenant-scoped observations by Cognema observation ID."""
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove all observations for a tenant."""
@@ -92,3 +109,33 @@ class EpisodeStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove episodic memories for a tenant."""
+
+
+class SemanticMemoryStore(Protocol):
+    """Persists derived semantic memories and their provenance."""
+
+    async def upsert(self, memory: SemanticMemoryInput) -> SemanticWriteStatus:
+        """Create, update, or preserve a semantic memory."""
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_inactive: bool = False,
+        status: SemanticMemoryStatus | None = None,
+        limit: int | None = None,
+    ) -> list[StoredSemanticMemory]:
+        """List tenant-scoped semantic memories."""
+
+    async def deactivate_missing(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        active_memory_keys: set[str],
+    ) -> int:
+        """Deactivate semantic memories no longer produced."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove semantic memories for a tenant."""

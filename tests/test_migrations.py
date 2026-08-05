@@ -34,7 +34,11 @@ async def memory_engine() -> AsyncIterator[AsyncEngine]:
 @pytest.mark.asyncio
 async def test_migration_files_are_ordered() -> None:
     files = migration_files()
-    assert [path.name for path in files] == ["001_initial.sql", "002_episodic_memory.sql"]
+    assert [path.name for path in files] == [
+        "001_initial.sql",
+        "002_episodic_memory.sql",
+        "003_semantic_consolidation.sql",
+    ]
 
 
 @pytest.mark.asyncio
@@ -46,7 +50,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
             text("SELECT version FROM cognema.schema_migrations ORDER BY version")
         )
         versions = [row[0] for row in result.all()]
-    assert versions == ["001_initial", "002_episodic_memory"]
+    assert versions == ["001_initial", "002_episodic_memory", "003_semantic_consolidation"]
 
 
 @pytest.mark.asyncio
@@ -84,6 +88,51 @@ async def test_episodic_schema_objects_exist(memory_engine: AsyncEngine) -> None
             )
         )
         assert entities.scalar() is True
+
+
+@pytest.mark.asyncio
+async def test_semantic_schema_objects_exist(memory_engine: AsyncEngine) -> None:
+    await apply_migrations(memory_engine)
+    async with memory_engine.connect() as conn:
+        claims = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'cognema'
+                      AND table_name = 'semantic_claims'
+                )
+                """
+            )
+        )
+        derivations = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'cognema'
+                      AND table_name = 'memory_derivations'
+                )
+                """
+            )
+        )
+        tenant_id_index = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_indexes
+                    WHERE schemaname = 'cognema'
+                      AND indexname = 'memories_tenant_id_memory_id_idx'
+                )
+                """
+            )
+        )
+        assert claims.scalar() is True
+        assert derivations.scalar() is True
+        assert tenant_id_index.scalar() is True
 
 
 @pytest.mark.asyncio

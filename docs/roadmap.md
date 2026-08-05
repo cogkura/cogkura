@@ -28,13 +28,13 @@
 - in-memory and PostgreSQL episode stores;
 - `Memory.encode_episodes()` and `Memory.list_episodes()`.
 
-## 0.3 - Semantic consolidation
+## 0.3 - Semantic consolidation (done)
 
-- episodic clustering from observations;
-- concept extraction;
-- semantic memory construction;
-- evidence links from memories to observations;
-- contradiction and duplicate handling.
+- metadata-driven semantic fact extraction (`semantic_facts` on observations);
+- `ComplementaryLearningSemanticConsolidator` with recurrence, contradiction, and promotion rules;
+- `SemanticMemoryStore` with in-memory and PostgreSQL backends;
+- `Memory.consolidate_semantics()` and `Memory.list_semantic_memories()`;
+- migration `003_semantic_consolidation.sql` (`semantic_claims`, `memory_derivations`).
 
 ## 0.4 - Cognitive retrieval
 

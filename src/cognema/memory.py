@@ -7,17 +7,31 @@ from dataclasses import replace
 from typing import Any
 
 from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cognema.algorithms.semantic import (
+    ComplementaryLearningSemanticConsolidator,
+    MetadataSemanticExtractor,
+    SemanticConsolidator,
+    SemanticExtractor,
+)
 from cognema.exceptions import ValidationError
 from cognema.mappers.base import ObservationMapper
-from cognema.models import EpisodeEncodingResult, RecallResult, StoredEpisode
+from cognema.models import (
+    EpisodeEncodingResult,
+    RecallResult,
+    SemanticConsolidationResult,
+    SemanticMemoryStatus,
+    StoredEpisode,
+    StoredSemanticMemory,
+)
 from cognema.observations.models import IngestionResult, IngestStatus, ObservationInput
 from cognema.observations.pipeline import ObservationPipeline
 from cognema.observations.policies import DefaultObservationPolicy, ObservationPolicy
 from cognema.observations.retention import ObservationRetentionMode
 from cognema.sources.base import SourceConnector
-from cognema.storage import CheckpointStore, EpisodeStore, ObservationStore
+from cognema.storage import CheckpointStore, EpisodeStore, ObservationStore, SemanticMemoryStore
 from cognema.storage.in_memory_episode import InMemoryEpisodeStore
 from cognema.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
+from cognema.storage.in_memory_semantic import InMemorySemanticMemoryStore
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 _DEFAULT_BATCH_SIZE = 500
@@ -32,7 +46,10 @@ class Memory:
         observation_store: ObservationStore | None = None,
         checkpoint_store: CheckpointStore | None = None,
         episode_store: EpisodeStore | None = None,
+        semantic_store: SemanticMemoryStore | None = None,
         episodic_encoder: EpisodicEncoder | None = None,
+        semantic_extractor: SemanticExtractor | None = None,
+        semantic_consolidator: SemanticConsolidator | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -43,8 +60,19 @@ class Memory:
             checkpoint_store if checkpoint_store is not None else InMemoryCheckpointStore()
         )
         self._episode_store = episode_store if episode_store is not None else InMemoryEpisodeStore()
+        self._semantic_store = (
+            semantic_store if semantic_store is not None else InMemorySemanticMemoryStore()
+        )
         self._episodic_encoder = (
             episodic_encoder if episodic_encoder is not None else DeterministicEpisodicEncoder()
+        )
+        self._semantic_extractor = (
+            semantic_extractor if semantic_extractor is not None else MetadataSemanticExtractor()
+        )
+        self._semantic_consolidator = (
+            semantic_consolidator
+            if semantic_consolidator is not None
+            else ComplementaryLearningSemanticConsolidator()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -263,10 +291,83 @@ class Memory:
             limit=limit,
         )
 
-    async def clear(self, *, tenant_id: str) -> None:
-        """Clear episodes and observations for a tenant."""
+    async def consolidate_semantics(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+    ) -> SemanticConsolidationResult:
+        """Build semantic memories from active episodic memories."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
+
+        episodes = await self._episode_store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=False,
+        )
+        observation_ids = {
+            evidence.observation_id for episode in episodes for evidence in episode.evidence
+        }
+        observations = await self._observation_store.get_many(
+            tenant_id=tenant_id,
+            observation_ids=observation_ids,
+        )
+        observations_by_id = {observation.id: observation for observation in observations}
+        extraction = await self._semantic_extractor.extract(
+            episodes,
+            observations=observations_by_id,
+        )
+        semantic_memories = self._semantic_consolidator.consolidate(
+            episodes,
+            extraction.candidates,
+        )
+        result = SemanticConsolidationResult(
+            episodes=len(episodes),
+            extracted_candidates=len(extraction.candidates),
+            extracted_failures=extraction.failed,
+            canonical_claims=len(semantic_memories),
+        )
+        active_keys: set[str] = set()
+        for semantic_memory in semantic_memories:
+            active_keys.add(semantic_memory.memory_key)
+            status = await self._semantic_store.upsert(semantic_memory)
+            result = result.record(status, semantic_memory.status)
+
+        deactivated = await self._semantic_store.deactivate_missing(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            active_memory_keys=active_keys,
+        )
+        return replace(result, deactivated=deactivated)
+
+    async def list_semantic_memories(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_inactive: bool = False,
+        status: SemanticMemoryStatus | None = None,
+        limit: int | None = None,
+    ) -> list[StoredSemanticMemory]:
+        """List consolidated semantic memories for a tenant."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if limit is not None and limit <= 0:
+            raise ValidationError("Limit must be greater than zero.")
+        return await self._semantic_store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=include_inactive,
+            status=status,
+            limit=limit,
+        )
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Clear semantic memories, episodes, and observations for a tenant."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        await self._semantic_store.clear(tenant_id=tenant_id)
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
 

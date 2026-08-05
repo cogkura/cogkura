@@ -109,7 +109,43 @@ episodes = await memory.list_episodes(tenant_id="company_123", subject_id="custo
 print(result.created, len(episodes[0].evidence))
 ```
 
-For PostgreSQL, pass both `PostgresObservationStore` and `PostgresEpisodeStore` to `Memory`.
+## Semantic consolidation
+
+Attach structured facts to observation metadata, encode episodes, then consolidate:
+
+```python
+semantic_fact = {
+    "predicate": "preferred_database",
+    "object_value": "postgresql",
+    "object_entity_id": "postgresql",
+    "cardinality": "one",
+    "polarity": "affirm",
+    "qualifiers": {"environment": "production"},
+}
+
+await memory.observe(
+    ObservationInput(
+        tenant_id="company_123",
+        subject_id="customer_42",
+        source_namespace="direct",
+        source_record_id="message_1",
+        content="PostgreSQL fits our operational constraints.",
+        observed_at=datetime.now(UTC),
+        metadata={
+            "conversation_id": "architecture_123",
+            "semantic_facts": [semantic_fact],
+        },
+    )
+)
+
+await memory.encode_episodes(tenant_id="company_123", subject_id="customer_42")
+result = await memory.consolidate_semantics(tenant_id="company_123", subject_id="customer_42")
+memories = await memory.list_semantic_memories(tenant_id="company_123", subject_id="customer_42")
+
+print(result.promoted, memories[0].statement)
+```
+
+For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, and `PostgresSemanticMemoryStore` to `Memory`.
 
 ## Observation ingestion (PostgreSQL)
 
@@ -122,6 +158,7 @@ from cognema.storage.postgres import (
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
+    PostgresSemanticMemoryStore,
 )
 
 memory_engine = create_async_engine("postgresql+asyncpg://...")
@@ -131,6 +168,7 @@ memory = Memory(
     observation_store=PostgresObservationStore(memory_engine),
     checkpoint_store=PostgresCheckpointStore(memory_engine),
     episode_store=PostgresEpisodeStore(memory_engine),
+    semantic_store=PostgresSemanticMemoryStore(memory_engine),
 )
 
 source = PostgresTableSource(
@@ -213,7 +251,7 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cognema is in early development. Version `0.2.0` adds deterministic episodic encoding on top of the observation-based ingest and tenant-scoped recall APIs.
+Cognema is in early development. Version `0.3.0` adds deterministic semantic consolidation (CLS-inspired) on top of episodic encoding, observation ingest, and tenant-scoped recall.
 
 ## Scope of 0.1.0
 
@@ -265,8 +303,7 @@ LLM reasoning and planning
 
 - `0.1`: PostgreSQL observation ingestion and provenance.
 - `0.2`: episodic memory encoding, salience, temporal context, and evidence links (done).
-- `0.3`: semantic consolidation.
-- `0.3`: semantic consolidation pipelines.
+- `0.3`: semantic consolidation from episodic memories (done).
 - `0.4`: cognitive retrieval and working-memory selection.
 - later: additional source connectors, model interfaces, and integrations.
 

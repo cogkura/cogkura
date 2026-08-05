@@ -1,6 +1,12 @@
 """Cognema public package API."""
 
 from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cognema.algorithms.semantic import (
+    ComplementaryLearningSemanticConsolidator,
+    MetadataSemanticExtractor,
+    SemanticConsolidator,
+    SemanticExtractor,
+)
 from cognema.memory import Memory
 from cognema.models import (
     EpisodeEncodingResult,
@@ -9,7 +15,18 @@ from cognema.models import (
     EpisodeInput,
     EpisodeWriteStatus,
     RecallResult,
+    SemanticCardinality,
+    SemanticConsolidationResult,
+    SemanticDerivationInput,
+    SemanticDerivationRelation,
+    SemanticExtractionResult,
+    SemanticFactCandidate,
+    SemanticMemoryInput,
+    SemanticMemoryStatus,
+    SemanticPolarity,
+    SemanticWriteStatus,
     StoredEpisode,
+    StoredSemanticMemory,
 )
 from cognema.observations import (
     DefaultObservationPolicy,
@@ -22,6 +39,7 @@ from cognema.observations import (
 )
 
 __all__ = [
+    "ComplementaryLearningSemanticConsolidator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
     "EpisodeEncodingResult",
@@ -33,11 +51,25 @@ __all__ = [
     "IngestionResult",
     "IngestStatus",
     "Memory",
+    "MetadataSemanticExtractor",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",
     "RecallResult",
+    "SemanticCardinality",
+    "SemanticConsolidationResult",
+    "SemanticConsolidator",
+    "SemanticDerivationInput",
+    "SemanticDerivationRelation",
+    "SemanticExtractionResult",
+    "SemanticExtractor",
+    "SemanticFactCandidate",
+    "SemanticMemoryInput",
+    "SemanticMemoryStatus",
+    "SemanticPolarity",
+    "SemanticWriteStatus",
     "StoredEpisode",
+    "StoredSemanticMemory",
     "StoredObservation",
 ]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

@@ -13,6 +13,7 @@ from cognema.storage.postgres import (
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
+    PostgresSemanticMemoryStore,
 )
 
 SOURCE_URL = os.environ.get(
@@ -65,10 +66,12 @@ async def main() -> None:
     observation_store = PostgresObservationStore(memory_engine)
     checkpoint_store = PostgresCheckpointStore(memory_engine)
     episode_store = PostgresEpisodeStore(memory_engine)
+    semantic_store = PostgresSemanticMemoryStore(memory_engine)
     memory = Memory(
         observation_store=observation_store,
         checkpoint_store=checkpoint_store,
         episode_store=episode_store,
+        semantic_store=semantic_store,
     )
     source = PostgresTableSource(
         connector_id="application-messages",
@@ -89,6 +92,11 @@ async def main() -> None:
     episodes = await memory.list_episodes(tenant_id=TENANT_ID)
     print(encoding)
     print(f"episodes={len(episodes)}")
+
+    consolidation = await memory.consolidate_semantics(tenant_id=TENANT_ID)
+    semantic_memories = await memory.list_semantic_memories(tenant_id=TENANT_ID)
+    print(consolidation)
+    print(f"semantic_memories={len(semantic_memories)}")
 
     await source_engine.dispose()
     await memory_engine.dispose()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
 from types import MappingProxyType
@@ -175,6 +176,20 @@ class InMemoryObservationStore(ObservationStore):
                 continue
             results.append(observation)
         return results
+
+    async def get_many(
+        self,
+        *,
+        tenant_id: str,
+        observation_ids: set[str],
+    ) -> Sequence[StoredObservation]:
+        if not observation_ids:
+            return []
+        return [
+            observation
+            for observation in self._observations.values()
+            if observation.tenant_id == tenant_id and observation.id in observation_ids
+        ]
 
     async def clear(self, *, tenant_id: str) -> None:
         keys = [key for key in self._observations if key[0] == tenant_id]

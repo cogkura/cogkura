@@ -18,11 +18,24 @@ from cognema.models import (
     EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
+    SemanticCardinality,
+    SemanticDerivationInput,
+    SemanticDerivationRelation,
+    SemanticMemoryInput,
+    SemanticMemoryStatus,
+    SemanticPolarity,
+    SemanticWriteStatus,
     StoredEpisode,
+    StoredSemanticMemory,
 )
 from cognema.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cognema.observations.retention import RetainedObservation
-from cognema.storage.base import CheckpointStore, EpisodeStore, ObservationStore
+from cognema.storage.base import (
+    CheckpointStore,
+    EpisodeStore,
+    ObservationStore,
+    SemanticMemoryStore,
+)
 
 
 class PostgresObservationStore(ObservationStore):
@@ -321,6 +334,36 @@ class PostgresObservationStore(ObservationStore):
                     """
                 ),
                 params,
+            )
+            rows = result.mappings().all()
+        return [self._to_stored(row) for row in rows]
+
+    async def get_many(
+        self,
+        *,
+        tenant_id: str,
+        observation_ids: set[str],
+    ) -> Sequence[StoredObservation]:
+        if not observation_ids:
+            return []
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        id, tenant_id, subject_id, actor_id,
+                        source_type, source_namespace, source_record_id, source_version,
+                        event_type, content, content_hash, metadata,
+                        source_created_at, source_updated_at, last_observed_at,
+                        current_revision, is_deleted,
+                        attention_score, retention_class, policy_reasons
+                    FROM {self._table("observations")}
+                    WHERE tenant_id = :tenant_id
+                      AND id = ANY(CAST(:observation_ids AS uuid[]))
+                    ORDER BY last_observed_at, id
+                    """
+                ),
+                {"tenant_id": tenant_id, "observation_ids": list(observation_ids)},
             )
             rows = result.mappings().all()
         return [self._to_stored(row) for row in rows]
@@ -798,6 +841,527 @@ class PostgresEpisodeStore(EpisodeStore):
             importance=float(row["importance"]),
             is_active=row["is_active"],
             evidence=evidence,
+            entities=entities,
+            metadata=MappingProxyType(dict(metadata)),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+
+class PostgresSemanticMemoryStore(SemanticMemoryStore):
+    """PostgreSQL-backed semantic memory store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cognema") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def upsert(self, memory: SemanticMemoryInput) -> SemanticWriteStatus:
+        fingerprint = memory.metadata["semantic"]["content_fingerprint"]
+        existing = await self._get_by_memory_key(
+            tenant_id=memory.tenant_id,
+            memory_key=memory.memory_key,
+        )
+        if existing is not None:
+            existing_fingerprint = existing.metadata["semantic"]["content_fingerprint"]
+            if existing_fingerprint == fingerprint:
+                return SemanticWriteStatus.UNCHANGED
+            await self._update(existing.id, memory)
+            return SemanticWriteStatus.UPDATED
+
+        await self._create(memory)
+        return SemanticWriteStatus.CREATED
+
+    async def _get_by_memory_key(
+        self,
+        *,
+        tenant_id: str,
+        memory_key: str,
+    ) -> StoredSemanticMemory | None:
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id
+                    FROM {self._table("memories")}
+                    WHERE tenant_id = :tenant_id
+                      AND memory_type = 'semantic'
+                      AND memory_key = :memory_key
+                    """
+                ),
+                {"tenant_id": tenant_id, "memory_key": memory_key},
+            )
+            row = result.first()
+        if row is None:
+            return None
+        return await self._load_semantic(str(row[0]))
+
+    async def _load_semantic(self, memory_id: str) -> StoredSemanticMemory:
+        async with self._engine.connect() as conn:
+            memory = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        m.id, m.tenant_id, m.subject_id, m.memory_key, m.statement,
+                        m.confidence, m.importance, m.valid_from, m.valid_until,
+                        m.is_active, m.metadata, m.created_at, m.updated_at,
+                        c.slot_key, c.subject_entity_id, c.predicate, c.object_value,
+                        c.object_entity_id, c.polarity, c.cardinality, c.qualifiers,
+                        c.status, c.support_count, c.contradiction_count,
+                        c.first_supported_at, c.last_supported_at
+                    FROM {self._table("memories")} AS m
+                    JOIN {self._table("semantic_claims")} AS c
+                      ON c.memory_id = m.id
+                    WHERE m.id = :id
+                    """
+                ),
+                {"id": memory_id},
+            )
+            memory_row = memory.mappings().first()
+            if memory_row is None:
+                raise StorageError(f"Semantic memory {memory_id} not found.")
+
+            derivation_result = await conn.execute(
+                text(
+                    f"""
+                    SELECT source_memory_id, relation, contribution_score
+                    FROM {self._table("memory_derivations")}
+                    WHERE target_memory_id = :memory_id
+                    ORDER BY source_memory_id, relation
+                    """
+                ),
+                {"memory_id": memory_id},
+            )
+            evidence_result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        observation_id, observation_revision,
+                        sequence_number, contribution_score
+                    FROM {self._table("memory_evidence")}
+                    WHERE memory_id = :memory_id
+                    ORDER BY sequence_number
+                    """
+                ),
+                {"memory_id": memory_id},
+            )
+            entity_result = await conn.execute(
+                text(
+                    f"""
+                    SELECT entity_id, entity_role
+                    FROM {self._table("memory_entities")}
+                    WHERE memory_id = :memory_id
+                    ORDER BY entity_id, entity_role
+                    """
+                ),
+                {"memory_id": memory_id},
+            )
+        return self._to_stored(
+            memory_row,
+            derivation_result.mappings().all(),
+            evidence_result.mappings().all(),
+            entity_result.mappings().all(),
+        )
+
+    async def _create(self, memory: SemanticMemoryInput) -> None:
+        memory_id = str(uuid4())
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memories")} (
+                        id, tenant_id, subject_id, memory_type, memory_key,
+                        statement, confidence, importance,
+                        valid_from, valid_until, is_active, metadata,
+                        created_at, updated_at
+                    ) VALUES (
+                        :id, :tenant_id, :subject_id, 'semantic', :memory_key,
+                        :statement, :confidence, :importance,
+                        :valid_from, :valid_until, TRUE, CAST(:metadata AS jsonb),
+                        :now, :now
+                    )
+                    """
+                ),
+                self._memory_params(memory_id, memory),
+            )
+            await self._upsert_claim(conn, memory_id, memory)
+            await self._replace_derivations(conn, memory.tenant_id, memory_id, memory.derivations)
+            await self._replace_evidence(conn, memory_id, memory.observation_evidence)
+            await self._replace_entities(conn, memory_id, memory.entities)
+
+    async def _update(self, memory_id: str, memory: SemanticMemoryInput) -> None:
+        metadata_json = json.dumps(dict(memory.metadata))
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    UPDATE {self._table("memories")}
+                    SET
+                        subject_id = :subject_id,
+                        statement = :statement,
+                        confidence = :confidence,
+                        importance = :importance,
+                        valid_from = :valid_from,
+                        valid_until = :valid_until,
+                        is_active = TRUE,
+                        metadata = CAST(:metadata AS jsonb),
+                        updated_at = :now
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "id": memory_id,
+                    "subject_id": memory.subject_id,
+                    "statement": memory.statement,
+                    "confidence": memory.confidence,
+                    "importance": memory.importance,
+                    "valid_from": memory.first_supported_at,
+                    "valid_until": memory.last_supported_at,
+                    "metadata": metadata_json,
+                    "now": datetime.now(UTC),
+                },
+            )
+            await self._upsert_claim(conn, memory_id, memory)
+            await self._replace_derivations(conn, memory.tenant_id, memory_id, memory.derivations)
+            await self._replace_evidence(conn, memory_id, memory.observation_evidence)
+            await self._replace_entities(conn, memory_id, memory.entities)
+
+    async def _upsert_claim(
+        self,
+        conn: Any,
+        memory_id: str,
+        memory: SemanticMemoryInput,
+    ) -> None:
+        qualifiers_json = json.dumps(dict(memory.qualifiers))
+        await conn.execute(
+            text(
+                f"""
+                INSERT INTO {self._table("semantic_claims")} (
+                    tenant_id, memory_id, slot_key,
+                    subject_entity_id, predicate, object_value, object_entity_id,
+                    polarity, cardinality, qualifiers,
+                    status, support_count, contradiction_count,
+                    first_supported_at, last_supported_at
+                ) VALUES (
+                    :tenant_id, :memory_id, :slot_key,
+                    :subject_entity_id, :predicate, :object_value, :object_entity_id,
+                    :polarity, :cardinality, CAST(:qualifiers AS jsonb),
+                    :status, :support_count, :contradiction_count,
+                    :first_supported_at, :last_supported_at
+                )
+                ON CONFLICT (memory_id) DO UPDATE SET
+                    slot_key = EXCLUDED.slot_key,
+                    subject_entity_id = EXCLUDED.subject_entity_id,
+                    predicate = EXCLUDED.predicate,
+                    object_value = EXCLUDED.object_value,
+                    object_entity_id = EXCLUDED.object_entity_id,
+                    polarity = EXCLUDED.polarity,
+                    cardinality = EXCLUDED.cardinality,
+                    qualifiers = EXCLUDED.qualifiers,
+                    status = EXCLUDED.status,
+                    support_count = EXCLUDED.support_count,
+                    contradiction_count = EXCLUDED.contradiction_count,
+                    first_supported_at = EXCLUDED.first_supported_at,
+                    last_supported_at = EXCLUDED.last_supported_at
+                """
+            ),
+            {
+                "tenant_id": memory.tenant_id,
+                "memory_id": memory_id,
+                "slot_key": memory.slot_key,
+                "subject_entity_id": memory.subject_entity_id,
+                "predicate": memory.predicate,
+                "object_value": memory.object_value,
+                "object_entity_id": memory.object_entity_id,
+                "polarity": memory.polarity.value,
+                "cardinality": memory.cardinality.value,
+                "qualifiers": qualifiers_json,
+                "status": memory.status.value,
+                "support_count": memory.support_count,
+                "contradiction_count": memory.contradiction_count,
+                "first_supported_at": memory.first_supported_at,
+                "last_supported_at": memory.last_supported_at,
+            },
+        )
+
+    async def _replace_derivations(
+        self,
+        conn: Any,
+        tenant_id: str,
+        memory_id: str,
+        derivations: tuple[SemanticDerivationInput, ...],
+    ) -> None:
+        await conn.execute(
+            text(
+                f"""
+                DELETE FROM {self._table("memory_derivations")}
+                WHERE target_memory_id = :memory_id
+                """
+            ),
+            {"memory_id": memory_id},
+        )
+        for derivation in derivations:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_derivations")} (
+                        tenant_id, target_memory_id, source_memory_id,
+                        relation, contribution_score
+                    ) VALUES (
+                        :tenant_id, :target_memory_id, :source_memory_id,
+                        :relation, :contribution_score
+                    )
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "target_memory_id": memory_id,
+                    "source_memory_id": derivation.episode_id,
+                    "relation": derivation.relation.value,
+                    "contribution_score": derivation.contribution_score,
+                },
+            )
+
+    async def _replace_evidence(
+        self,
+        conn: Any,
+        memory_id: str,
+        evidence: tuple[EpisodeEvidenceInput, ...],
+    ) -> None:
+        await conn.execute(
+            text(f"DELETE FROM {self._table('memory_evidence')} WHERE memory_id = :memory_id"),
+            {"memory_id": memory_id},
+        )
+        for item in evidence:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_evidence")} (
+                        memory_id, observation_id, observation_revision,
+                        sequence_number, contribution_score
+                    ) VALUES (
+                        :memory_id, :observation_id, :observation_revision,
+                        :sequence_number, :contribution_score
+                    )
+                    """
+                ),
+                {
+                    "memory_id": memory_id,
+                    "observation_id": item.observation_id,
+                    "observation_revision": item.observation_revision,
+                    "sequence_number": item.sequence_number,
+                    "contribution_score": item.contribution_score,
+                },
+            )
+
+    async def _replace_entities(
+        self,
+        conn: Any,
+        memory_id: str,
+        entities: tuple[EpisodeEntity, ...],
+    ) -> None:
+        await conn.execute(
+            text(f"DELETE FROM {self._table('memory_entities')} WHERE memory_id = :memory_id"),
+            {"memory_id": memory_id},
+        )
+        for entity in entities:
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_entities")} (
+                        memory_id, entity_id, entity_role
+                    ) VALUES (
+                        :memory_id, :entity_id, :entity_role
+                    )
+                    """
+                ),
+                {
+                    "memory_id": memory_id,
+                    "entity_id": entity.entity_id,
+                    "entity_role": entity.role,
+                },
+            )
+
+    def _memory_params(self, memory_id: str, memory: SemanticMemoryInput) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        return {
+            "id": memory_id,
+            "tenant_id": memory.tenant_id,
+            "subject_id": memory.subject_id,
+            "memory_key": memory.memory_key,
+            "statement": memory.statement,
+            "confidence": memory.confidence,
+            "importance": memory.importance,
+            "valid_from": memory.first_supported_at,
+            "valid_until": memory.last_supported_at,
+            "metadata": json.dumps(dict(memory.metadata)),
+            "now": now,
+        }
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        include_inactive: bool = False,
+        status: SemanticMemoryStatus | None = None,
+        limit: int | None = None,
+    ) -> list[StoredSemanticMemory]:
+        clauses = ["m.tenant_id = :tenant_id", "m.memory_type = 'semantic'"]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if subject_id is not None:
+            clauses.append("m.subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        if not include_inactive:
+            clauses.append("m.is_active = TRUE")
+        if status is not None:
+            clauses.append("c.status = :status")
+            params["status"] = status.value
+        limit_clause = ""
+        if limit is not None:
+            limit_clause = " LIMIT :limit"
+            params["limit"] = limit
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT m.id
+                    FROM {self._table("memories")} AS m
+                    JOIN {self._table("semantic_claims")} AS c
+                      ON c.memory_id = m.id
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY c.first_supported_at, m.id
+                    {limit_clause}
+                    """
+                ),
+                params,
+            )
+            memory_ids = [str(row[0]) for row in result.all()]
+        memories: list[StoredSemanticMemory] = []
+        for memory_id in memory_ids:
+            memories.append(await self._load_semantic(memory_id))
+        return memories
+
+    async def deactivate_missing(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        active_memory_keys: set[str],
+    ) -> int:
+        clauses = [
+            "tenant_id = :tenant_id",
+            "memory_type = 'semantic'",
+            "is_active = TRUE",
+        ]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if subject_id is not None:
+            clauses.append("subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id, memory_key
+                    FROM {self._table("memories")}
+                    WHERE {" AND ".join(clauses)}
+                    """
+                ),
+                params,
+            )
+            rows = result.mappings().all()
+
+        deactivated = 0
+        for row in rows:
+            memory_key = row["memory_key"]
+            if memory_key in active_memory_keys:
+                continue
+            async with self._engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        f"""
+                        UPDATE {self._table("memories")}
+                        SET is_active = FALSE, updated_at = :now
+                        WHERE id = :id
+                        """
+                    ),
+                    {"id": str(row["id"]), "now": datetime.now(UTC)},
+                )
+            deactivated += 1
+        return deactivated
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memories")}
+                    WHERE tenant_id = :tenant_id AND memory_type = 'semantic'
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+
+    def _to_stored(
+        self,
+        row: Any,
+        derivation_items: Sequence[Any],
+        evidence_items: Sequence[Any],
+        entity_items: Sequence[Any],
+    ) -> StoredSemanticMemory:
+        metadata = row["metadata"]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        qualifiers = row["qualifiers"]
+        if isinstance(qualifiers, str):
+            qualifiers = json.loads(qualifiers)
+        derivations = tuple(
+            SemanticDerivationInput(
+                episode_id=str(item["source_memory_id"]),
+                relation=SemanticDerivationRelation(item["relation"]),
+                contribution_score=float(item["contribution_score"]),
+            )
+            for item in derivation_items
+        )
+        evidence = tuple(
+            EpisodeEvidenceInput(
+                observation_id=str(item["observation_id"]),
+                observation_revision=int(item["observation_revision"]),
+                sequence_number=int(item["sequence_number"]),
+                contribution_score=float(item["contribution_score"] or 1.0),
+            )
+            for item in evidence_items
+        )
+        entities = tuple(
+            EpisodeEntity(entity_id=item["entity_id"], role=item["entity_role"])
+            for item in entity_items
+        )
+        return StoredSemanticMemory(
+            id=str(row["id"]),
+            tenant_id=row["tenant_id"],
+            subject_id=row["subject_id"],
+            memory_key=row["memory_key"],
+            slot_key=row["slot_key"],
+            statement=row["statement"],
+            subject_entity_id=row["subject_entity_id"],
+            predicate=row["predicate"],
+            object_value=row["object_value"],
+            object_entity_id=row["object_entity_id"],
+            polarity=SemanticPolarity(row["polarity"]),
+            cardinality=SemanticCardinality(row["cardinality"]),
+            qualifiers=MappingProxyType(dict(qualifiers)),
+            confidence=float(row["confidence"]),
+            importance=float(row["importance"]),
+            status=SemanticMemoryStatus(row["status"]),
+            support_count=int(row["support_count"]),
+            contradiction_count=int(row["contradiction_count"]),
+            first_supported_at=row["first_supported_at"],
+            last_supported_at=row["last_supported_at"],
+            is_active=row["is_active"],
+            derivations=derivations,
+            observation_evidence=evidence,
             entities=entities,
             metadata=MappingProxyType(dict(metadata)),
             created_at=row["created_at"],
