@@ -37,12 +37,14 @@ async def main() -> None:
         )
     )
 
+    await memory.encode_episodes(tenant_id=tenant_id)
+
     results = await memory.recall(
         "What did George discuss about memory?",
         tenant_id=tenant_id,
     )
     for result in results:
-        print(f"{result.score:.2f} :: {result.observation.content}")
+        print(f"{result.score:.2f} :: {result.memory.statement}")
 
     encoding = await memory.encode_episodes(tenant_id=tenant_id)
     episodes = await memory.list_episodes(tenant_id=tenant_id)

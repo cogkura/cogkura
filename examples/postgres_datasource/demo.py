@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from cognema import Memory
 from cognema.sources.postgres import PostgresTableSource
 from cognema.storage.postgres import (
+    PostgresActivationStore,
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
@@ -67,11 +68,13 @@ async def main() -> None:
     checkpoint_store = PostgresCheckpointStore(memory_engine)
     episode_store = PostgresEpisodeStore(memory_engine)
     semantic_store = PostgresSemanticMemoryStore(memory_engine)
+    activation_store = PostgresActivationStore(memory_engine)
     memory = Memory(
         observation_store=observation_store,
         checkpoint_store=checkpoint_store,
         episode_store=episode_store,
         semantic_store=semantic_store,
+        activation_store=activation_store,
     )
     source = PostgresTableSource(
         connector_id="application-messages",
@@ -97,6 +100,11 @@ async def main() -> None:
     semantic_memories = await memory.list_semantic_memories(tenant_id=TENANT_ID)
     print(consolidation)
     print(f"semantic_memories={len(semantic_memories)}")
+
+    recall = await memory.recall("PostgreSQL operational complexity", tenant_id=TENANT_ID)
+    print(f"recall_results={len(recall)}")
+    if recall:
+        print(recall[0].memory_kind, recall[0].score, recall[0].reason)
 
     await source_engine.dispose()
     await memory_engine.dispose()

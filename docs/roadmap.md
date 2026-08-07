@@ -36,12 +36,32 @@
 - `Memory.consolidate_semantics()` and `Memory.list_semantic_memories()`;
 - migration `003_semantic_consolidation.sql` (`semantic_claims`, `memory_derivations`).
 
-## 0.4 - Cognitive retrieval
+## 0.4 - Declarative activation (done)
 
-- spreading activation and associative scoring;
-- forgetting curves and attention filtering;
-- goal-aware working-memory selection;
-- replace transitional token-overlap recall.
+- ACT-R base-level frequency/recency activation;
+- deterministic partial matching over structured cues;
+- retrieval threshold and latency metadata;
+- activation reference storage (`memory_activation_references`);
+- explicit `record_access()` reinforcement;
+- `Memory.recall()` over episodic + semantic memories (hard cut from observation token overlap).
+
+## 0.5 - Spreading activation
+
+- fan-sensitive contextual spreading activation;
+- entity association strength from candidate sets;
+- enable spreading in `ActivationConfig` by default.
+
+## 0.6 - Forgetting / memory dynamics
+
+- forgetting curves and retention policies;
+- reference-history compaction;
+- inhibition and decay beyond base-level equation defaults.
+
+## 0.7 - Working memory / goal-aware attention
+
+- bounded working-memory selection from activated candidates;
+- goal relevance and prompt budgeting;
+- separate selection score from raw ACT-R activation.
 
 ## Later
 

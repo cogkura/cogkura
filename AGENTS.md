@@ -10,8 +10,8 @@ It sits between application data and LLM reasoning.
 Cognema owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.3` semantic consolidation + tenant-scoped recall placeholder
-- Next: `0.4` cognitive retrieval — see [`docs/roadmap.md`](docs/roadmap.md)
+- Current release focus: `0.4` declarative activation (ACT-R) over episodic + semantic memories
+- Next: `0.5` spreading activation — see [`docs/roadmap.md`](docs/roadmap.md)
 
 ## Read first
 
@@ -29,9 +29,9 @@ src/cognema/
   observations/      # models, pipeline, policy, retention, hashing
   sources/           # SourceConnector + PostgresTableSource
   mappers/           # ObservationMapper protocol
-  storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore
+  storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore
   migrations/        # Cognema-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py
+  algorithms/        # episodic.py, semantic.py, activation.py
 tests/
 examples/
   basic_memory.py
@@ -45,12 +45,13 @@ docs/
 |-----|---------|
 | `observe(ObservationInput)` | Ingest one normalized observation |
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
-| `recall(query, tenant_id=...)` | Tenant-scoped placeholder retrieval over observations |
+| `recall(query, tenant_id=...)` | ACT-R declarative activation over episodic + semantic memories |
+| `record_access(results, tenant_id=...)` | Explicitly reinforce recalled memories |
 | `encode_episodes(tenant_id=...)` | Build episodic memories from stored observations |
 | `list_episodes(tenant_id=...)` | List encoded episodes for a tenant |
 | `consolidate_semantics(tenant_id=...)` | Build semantic memories from active episodes |
 | `list_semantic_memories(tenant_id=...)` | List consolidated semantic memories |
-| `clear(tenant_id=...)` | Remove semantic memories, episodes, and observations |
+| `clear(tenant_id=...)` | Remove activation refs, semantic memories, episodes, observations |
 
 There is **no** parallel `MemoryEvent` / string-`observe` path. Cognitive work builds on observations.
 

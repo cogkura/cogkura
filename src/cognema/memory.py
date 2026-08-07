@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-import re
+import asyncio
+from collections.abc import Sequence
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
+from cognema.algorithms.activation import (
+    ACTRDeclarativeActivator,
+    DeclarativeActivator,
+    activation_candidate_from_episode,
+    activation_candidate_from_semantic,
+)
 from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cognema.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
@@ -13,11 +21,15 @@ from cognema.algorithms.semantic import (
     SemanticConsolidator,
     SemanticExtractor,
 )
-from cognema.exceptions import ValidationError
+from cognema.exceptions import CandidateSetTooLargeError, ValidationError
 from cognema.mappers.base import ObservationMapper
 from cognema.models import (
+    ActivationConfig,
+    ActivationReferenceKind,
     EpisodeEncodingResult,
+    MemoryReference,
     RecallResult,
+    RetrievalCue,
     SemanticConsolidationResult,
     SemanticMemoryStatus,
     StoredEpisode,
@@ -28,12 +40,18 @@ from cognema.observations.pipeline import ObservationPipeline
 from cognema.observations.policies import DefaultObservationPolicy, ObservationPolicy
 from cognema.observations.retention import ObservationRetentionMode
 from cognema.sources.base import SourceConnector
-from cognema.storage import CheckpointStore, EpisodeStore, ObservationStore, SemanticMemoryStore
+from cognema.storage import (
+    ActivationStore,
+    CheckpointStore,
+    EpisodeStore,
+    ObservationStore,
+    SemanticMemoryStore,
+)
+from cognema.storage.in_memory_activation import InMemoryActivationStore
 from cognema.storage.in_memory_episode import InMemoryEpisodeStore
 from cognema.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 from cognema.storage.in_memory_semantic import InMemorySemanticMemoryStore
 
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 _DEFAULT_BATCH_SIZE = 500
 
 
@@ -47,9 +65,12 @@ class Memory:
         checkpoint_store: CheckpointStore | None = None,
         episode_store: EpisodeStore | None = None,
         semantic_store: SemanticMemoryStore | None = None,
+        activation_store: ActivationStore | None = None,
         episodic_encoder: EpisodicEncoder | None = None,
         semantic_extractor: SemanticExtractor | None = None,
         semantic_consolidator: SemanticConsolidator | None = None,
+        declarative_activator: DeclarativeActivator | None = None,
+        activation_config: ActivationConfig | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -63,6 +84,9 @@ class Memory:
         self._semantic_store = (
             semantic_store if semantic_store is not None else InMemorySemanticMemoryStore()
         )
+        self._activation_store = (
+            activation_store if activation_store is not None else InMemoryActivationStore()
+        )
         self._episodic_encoder = (
             episodic_encoder if episodic_encoder is not None else DeterministicEpisodicEncoder()
         )
@@ -73,6 +97,14 @@ class Memory:
             semantic_consolidator
             if semantic_consolidator is not None
             else ComplementaryLearningSemanticConsolidator()
+        )
+        self._declarative_activator = (
+            declarative_activator
+            if declarative_activator is not None
+            else ACTRDeclarativeActivator()
+        )
+        self._activation_config = (
+            activation_config if activation_config is not None else ActivationConfig()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -198,43 +230,102 @@ class Memory:
 
     async def recall(
         self,
-        query: str,
+        query: str | RetrievalCue,
         *,
         tenant_id: str,
         subject_id: str | None = None,
         limit: int = 5,
+        as_of: datetime | None = None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
     ) -> list[RecallResult]:
-        """Recall observations by tenant-scoped token-overlap scoring.
-
-        Placeholder retrieval until cognitive recall lands. Always requires a tenant.
-        """
+        """Recall episodic and semantic memories by declarative activation."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
-        normalized_query = query.strip()
-        if not normalized_query:
-            raise ValidationError("Query must not be empty.")
         if limit <= 0:
             raise ValidationError("Limit must be greater than zero.")
 
-        query_tokens = _tokenize(normalized_query)
-        if not query_tokens:
-            raise ValidationError("Query must contain at least one alphanumeric token.")
+        cue = _normalise_cue(query, subject_id=subject_id)
+        if as_of is not None:
+            if as_of.tzinfo is None:
+                raise ValidationError("as_of must be timezone-aware.")
+            evaluation_time = as_of.astimezone(UTC)
+        else:
+            evaluation_time = datetime.now(UTC)
 
-        results: list[RecallResult] = []
-        for observation in await self._observation_store.list(
+        episodes, semantic_memories = await asyncio.gather(
+            self._episode_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+            ),
+            self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+            ),
+        )
+        eligible_semantics = [
+            memory
+            for memory in semantic_memories
+            if memory.status is not SemanticMemoryStatus.SUPERSEDED
+            and (semantic_statuses is None or memory.status in semantic_statuses)
+        ]
+        candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
+            activation_candidate_from_semantic(memory) for memory in eligible_semantics
+        ]
+        if len(candidates) > self._activation_config.max_candidates:
+            raise CandidateSetTooLargeError(
+                f"Candidate set size {len(candidates)} exceeds max_candidates "
+                f"{self._activation_config.max_candidates}."
+            )
+
+        identities = [candidate.identity for candidate in candidates]
+        references = await self._activation_store.list_reference_times(
             tenant_id=tenant_id,
-            subject_id=subject_id,
-        ):
-            content = observation.content or ""
-            observation_tokens = _tokenize(content)
-            score, matched_tokens = _score_overlap(query_tokens, observation_tokens)
-            if score <= 0.0:
-                continue
-            reason = f"Matched tokens: {', '.join(matched_tokens)}" if matched_tokens else None
-            results.append(RecallResult(observation=observation, score=score, reason=reason))
+            identities=identities,
+            before_or_at=evaluation_time,
+        )
+        return self._declarative_activator.rank(
+            candidates=candidates,
+            cue=cue,
+            references=references,
+            as_of=evaluation_time,
+            config=self._activation_config,
+            limit=limit,
+        )
 
-        results.sort(key=lambda item: (-item.score, item.observation.id))
-        return results[:limit]
+    async def record_access(
+        self,
+        results: Sequence[RecallResult],
+        *,
+        tenant_id: str,
+        referenced_at: datetime | None = None,
+        reference_kind: ActivationReferenceKind = ActivationReferenceKind.RETRIEVED,
+        request_id: str | None = None,
+    ) -> None:
+        """Record explicit access to recalled memories for base-level activation."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if referenced_at is not None:
+            if referenced_at.tzinfo is None:
+                raise ValidationError("referenced_at must be timezone-aware.")
+            timestamp = referenced_at.astimezone(UTC)
+        else:
+            timestamp = datetime.now(UTC)
+        if not results:
+            return
+        references = [
+            MemoryReference(
+                tenant_id=tenant_id,
+                memory_kind=result.memory_kind,
+                memory_key=_memory_key_from_result(result),
+                reference_kind=reference_kind,
+                referenced_at=timestamp,
+                request_id=request_id,
+            )
+            for result in results
+        ]
+        await self._activation_store.append_references(references)
 
     def sleep(self) -> None:
         """Run deferred memory maintenance (no-op in this release)."""
@@ -364,24 +455,37 @@ class Memory:
         )
 
     async def clear(self, *, tenant_id: str) -> None:
-        """Clear semantic memories, episodes, and observations for a tenant."""
+        """Clear activation references, semantic memories, episodes, and observations."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
+        await self._activation_store.clear(tenant_id=tenant_id)
         await self._semantic_store.clear(tenant_id=tenant_id)
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
 
 
-def _tokenize(text: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_PATTERN.findall(text)}
+def _normalise_cue(query: str | RetrievalCue, *, subject_id: str | None) -> RetrievalCue:
+    if isinstance(query, RetrievalCue):
+        if subject_id is not None and query.subject_id is None:
+            return RetrievalCue(
+                text=query.text,
+                subject_id=subject_id,
+                entity_ids=query.entity_ids,
+                predicate=query.predicate,
+                object_value=query.object_value,
+                qualifiers=query.qualifiers,
+            )
+        return query
+    stripped = query.strip()
+    if not stripped and not (subject_id and subject_id.strip()):
+        raise ValidationError("Query must not be empty.")
+    return RetrievalCue(text=stripped or None, subject_id=subject_id)
 
 
-def _score_overlap(
-    query_tokens: set[str],
-    observation_tokens: set[str],
-) -> tuple[float, tuple[str, ...]]:
-    matched_tokens = tuple(sorted(query_tokens.intersection(observation_tokens)))
-    if not matched_tokens:
-        return 0.0, matched_tokens
-    score = len(matched_tokens) / len(query_tokens)
-    return score, matched_tokens
+def _memory_key_from_result(result: RecallResult) -> str:
+    memory = result.memory
+    if isinstance(memory, StoredEpisode):
+        return memory.memory_key
+    if isinstance(memory, StoredSemanticMemory):
+        return memory.memory_key
+    raise ValidationError("Unsupported memory type for access recording.")

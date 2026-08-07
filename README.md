@@ -58,13 +58,16 @@ async def main() -> None:
     await memory.observe(
         ObservationInput(
             tenant_id=tenant_id,
+            subject_id="george",
             source_namespace="direct",
             source_record_id="1",
             content="George discussed cognitive memory algorithms",
             observed_at=datetime.now(UTC),
-            metadata={"source": "conversation", "tags": ["research", "memory"]},
+            metadata={"conversation_id": "research", "source": "conversation"},
         )
     )
+
+    await memory.encode_episodes(tenant_id=tenant_id)
 
     results = await memory.recall(
         "What was discussed about cognitive memory?",
@@ -72,7 +75,7 @@ async def main() -> None:
     )
 
     for result in results:
-        print(result.score, result.observation.content, result.reason)
+        print(result.score, result.memory.statement, result.reason)
 
     memory.sleep()
 
@@ -145,7 +148,27 @@ memories = await memory.list_semantic_memories(tenant_id="company_123", subject_
 print(result.promoted, memories[0].statement)
 ```
 
-For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, and `PostgresSemanticMemoryStore` to `Memory`.
+## Declarative activation (recall)
+
+After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level and partial matching:
+
+```python
+from cognema import ActivationConfig, RetrievalCue
+
+results = await memory.recall(
+    RetrievalCue(text="preferred database for production", subject_id="customer_42"),
+    tenant_id="company_123",
+)
+
+for result in results:
+    print(result.activation, result.score, result.memory.statement)
+
+await memory.record_access(results, tenant_id="company_123")
+```
+
+Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`.
+
+For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, and `PostgresActivationStore` to `Memory`.
 
 ## Observation ingestion (PostgreSQL)
 
@@ -155,6 +178,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from cognema import Memory
 from cognema.sources.postgres import PostgresTableSource
 from cognema.storage.postgres import (
+    PostgresActivationStore,
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
@@ -169,6 +193,7 @@ memory = Memory(
     checkpoint_store=PostgresCheckpointStore(memory_engine),
     episode_store=PostgresEpisodeStore(memory_engine),
     semantic_store=PostgresSemanticMemoryStore(memory_engine),
+    activation_store=PostgresActivationStore(memory_engine),
 )
 
 source = PostgresTableSource(
@@ -251,7 +276,7 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cognema is in early development. Version `0.3.0` adds deterministic semantic consolidation (CLS-inspired) on top of episodic encoding, observation ingest, and tenant-scoped recall.
+Cognema is in early development. Version `0.4.0` adds ACT-R declarative activation over episodic and semantic memories, with explicit `record_access()` reinforcement.
 
 ## Scope of 0.1.0
 
@@ -261,17 +286,16 @@ Implemented in `0.1.0`:
 - `ObservationStore` and `CheckpointStore` protocols;
 - in-memory and PostgreSQL observation stores;
 - `PostgresTableSource` with compound cursor pagination;
-- `Memory.observe()`, `Memory.ingest()`, `Memory.encode_episodes()`, `Memory.list_episodes()`, and tenant-scoped `Memory.recall()`;
+- `Memory.observe()`, `Memory.ingest()`, `Memory.encode_episodes()`, `Memory.list_episodes()`, `Memory.consolidate_semantics()`, `Memory.list_semantic_memories()`, `Memory.recall()`, and `Memory.record_access()`;
 - revision history for create, update, delete, and restore;
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
 Not implemented in `0.1.0`:
 
-- episodic-to-semantic consolidation;
-- spreading activation;
-- memory decay and forgetting curves;
-- goal-aware retrieval and working-memory selection;
+- spreading activation (planned `0.5`);
+- memory decay and forgetting curves (`0.6`);
+- goal-aware retrieval and working-memory selection (`0.7`);
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
 
@@ -304,8 +328,9 @@ LLM reasoning and planning
 - `0.1`: PostgreSQL observation ingestion and provenance.
 - `0.2`: episodic memory encoding, salience, temporal context, and evidence links (done).
 - `0.3`: semantic consolidation from episodic memories (done).
-- `0.4`: cognitive retrieval and working-memory selection.
-- later: additional source connectors, model interfaces, and integrations.
+- `0.4`: declarative activation (ACT-R recall over episodic + semantic memories) (done).
+- `0.5`: spreading activation.
+- later: forgetting dynamics, working-memory selection, additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
 

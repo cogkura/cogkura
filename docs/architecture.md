@@ -85,18 +85,20 @@ src/cognema/
 
 Implemented now:
 
-- public observation API (`observe`, `ingest`, `recall`);
+- public observation API (`observe`, `ingest`);
+- declarative activation API (`recall`, `record_access`);
 - episodic encoding API (`encode_episodes`, `list_episodes`);
 - semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
 - observation pipeline, policies, and retention modes;
 - storage protocols with in-memory and PostgreSQL backends;
-- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, and `SemanticMemoryStore`;
+- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `ActivationStore`;
 - `PostgresTableSource` and connector checkpoints;
 - tenant-scoped token-overlap recall;
 - Docker example, tests, and documentation.
 
 Planned later:
 
-- spreading activation and associative recall;
-- goal-aware filtering and working-memory selection;
+- spreading activation (`0.5`);
+- forgetting curves and memory dynamics (`0.6`);
+- goal-aware working-memory selection (`0.7`);
 - additional source connectors and provider interfaces.

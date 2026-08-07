@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-07
+
+### Added
+
+- ACT-R declarative activation (`ACTRDeclarativeActivator`) with base-level and partial matching.
+- Activation models (`RetrievalCue`, `ActivationConfig`, `ActivationComponents`, `MemoryReference`, etc.).
+- `ActivationStore` with in-memory and PostgreSQL backends.
+- `Memory.record_access()` for explicit reinforcement.
+- Migration `004_declarative_activation.sql` (`memory_activation_references`).
+- `examples/declarative_activation.py` and evaluation fixture tests.
+
+### Changed
+
+- **Breaking:** `Memory.recall()` now ranks episodic and semantic memories (not observations).
+- **Breaking:** `RecallResult` references `StoredEpisode | StoredSemanticMemory` with activation metadata.
+- Package version bumped to `0.4.0`.
+- `Memory.clear()` order is now activation → semantic → episodic → observations.
+- PostgreSQL apps should pass `PostgresActivationStore` alongside other Postgres stores.
+
+### Removed
+
+- Observation token-overlap placeholder retrieval.
+
 ## [0.3.0] - 2026-08-05
 
 ### Added

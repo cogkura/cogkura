@@ -175,6 +175,32 @@ CREATE INDEX memory_derivations_target_idx
 CREATE INDEX memory_derivations_source_idx
     ON cognema.memory_derivations (source_memory_id);
 
+CREATE TABLE cognema.memory_activation_references (
+    id UUID PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    memory_kind TEXT NOT NULL
+        CHECK (memory_kind IN ('episode', 'semantic')),
+    memory_key TEXT NOT NULL,
+    reference_kind TEXT NOT NULL
+        CHECK (reference_kind IN ('retrieved', 'rehearsed')),
+    referenced_at TIMESTAMPTZ NOT NULL,
+    request_id TEXT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_activation_reference_lookup
+    ON cognema.memory_activation_references (
+        tenant_id, memory_kind, memory_key, referenced_at DESC
+    );
+CREATE INDEX idx_activation_reference_tenant_time
+    ON cognema.memory_activation_references (tenant_id, referenced_at DESC);
+CREATE UNIQUE INDEX idx_activation_reference_request
+    ON cognema.memory_activation_references (
+        tenant_id, request_id, memory_kind, memory_key, reference_kind
+    )
+    WHERE request_id IS NOT NULL;
+
 CREATE TABLE cognema.schema_migrations (
     version TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -183,3 +209,4 @@ CREATE TABLE cognema.schema_migrations (
 INSERT INTO cognema.schema_migrations (version) VALUES ('001_initial');
 INSERT INTO cognema.schema_migrations (version) VALUES ('002_episodic_memory');
 INSERT INTO cognema.schema_migrations (version) VALUES ('003_semantic_consolidation');
+INSERT INTO cognema.schema_migrations (version) VALUES ('004_declarative_activation');

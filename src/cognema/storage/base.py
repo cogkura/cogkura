@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from cognema.models import (
         EpisodeInput,
         EpisodeWriteStatus,
+        MemoryIdentity,
+        MemoryReference,
         SemanticMemoryInput,
         SemanticMemoryStatus,
         SemanticWriteStatus,
@@ -139,3 +142,22 @@ class SemanticMemoryStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove semantic memories for a tenant."""
+
+
+class ActivationStore(Protocol):
+    """Persists memory access references for base-level activation."""
+
+    async def append_references(self, references: Sequence[MemoryReference]) -> None:
+        """Append access references for durable memories."""
+
+    async def list_reference_times(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        before_or_at: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[datetime, ...]]:
+        """Load reference timestamps for the given memory identities."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove activation references for a tenant."""

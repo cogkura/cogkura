@@ -1,5 +1,6 @@
 """Cognema public package API."""
 
+from cognema.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
 from cognema.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cognema.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
@@ -9,12 +10,19 @@ from cognema.algorithms.semantic import (
 )
 from cognema.memory import Memory
 from cognema.models import (
+    ActivationComponents,
+    ActivationConfig,
+    ActivationReferenceKind,
     EpisodeEncodingResult,
     EpisodeEntity,
     EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
+    MemoryIdentity,
+    MemoryKind,
+    MemoryReference,
     RecallResult,
+    RetrievalCue,
     SemanticCardinality,
     SemanticConsolidationResult,
     SemanticDerivationInput,
@@ -39,7 +47,12 @@ from cognema.observations import (
 )
 
 __all__ = [
+    "ACTRDeclarativeActivator",
+    "ActivationComponents",
+    "ActivationConfig",
+    "ActivationReferenceKind",
     "ComplementaryLearningSemanticConsolidator",
+    "DeclarativeActivator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
     "EpisodeEncodingResult",
@@ -51,11 +64,15 @@ __all__ = [
     "IngestionResult",
     "IngestStatus",
     "Memory",
+    "MemoryIdentity",
+    "MemoryKind",
+    "MemoryReference",
     "MetadataSemanticExtractor",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",
     "RecallResult",
+    "RetrievalCue",
     "SemanticCardinality",
     "SemanticConsolidationResult",
     "SemanticConsolidator",
@@ -72,4 +89,4 @@ __all__ = [
     "StoredSemanticMemory",
     "StoredObservation",
 ]
-__version__ = "0.3.0"
+__version__ = "0.4.0"

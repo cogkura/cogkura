@@ -11,3 +11,7 @@ class ValidationError(CognemaError):
 
 class StorageError(CognemaError):
     """Raised when a storage operation fails."""
+
+
+class CandidateSetTooLargeError(CognemaError):
+    """Raised when recall candidate set exceeds configured maximum."""

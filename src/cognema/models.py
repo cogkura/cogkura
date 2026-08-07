@@ -11,22 +11,6 @@ from types import MappingProxyType
 from typing import Any
 
 from cognema.exceptions import ValidationError
-from cognema.observations.models import StoredObservation
-
-
-@dataclass(frozen=True, slots=True)
-class RecallResult:
-    """A scored recall match for a query."""
-
-    observation: StoredObservation
-    score: float
-    reason: str | None = None
-
-    def __post_init__(self) -> None:
-        if not math.isfinite(self.score):
-            raise ValidationError("Recall score must be finite.")
-        if not 0.0 <= self.score <= 1.0:
-            raise ValidationError("Recall score must be between 0.0 and 1.0.")
 
 
 class EpisodeWriteStatus(StrEnum):
@@ -411,3 +395,195 @@ class SemanticConsolidationResult:
             + (1 if memory_status is SemanticMemoryStatus.CONTESTED else 0),
             deactivated=self.deactivated,
         )
+
+
+class MemoryKind(StrEnum):
+    """Kind of durable memory returned by declarative recall."""
+
+    EPISODE = "episode"
+    SEMANTIC = "semantic"
+
+
+class ActivationReferenceKind(StrEnum):
+    """How a memory access reference was produced."""
+
+    RETRIEVED = "retrieved"
+    REHEARSED = "rehearsed"
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryIdentity:
+    """Stable identifier for activation history lookup."""
+
+    memory_kind: MemoryKind
+    memory_key: str
+
+    def __post_init__(self) -> None:
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryReference:
+    """Recorded access to a durable memory for base-level activation."""
+
+    tenant_id: str
+    memory_kind: MemoryKind
+    memory_key: str
+    reference_kind: ActivationReferenceKind
+    referenced_at: datetime
+    request_id: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if self.referenced_at.tzinfo is None:
+            raise ValidationError("referenced_at must be timezone-aware.")
+        object.__setattr__(self, "referenced_at", self.referenced_at.astimezone(UTC))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        return MemoryIdentity(memory_kind=self.memory_kind, memory_key=self.memory_key)
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalCue:
+    """Structured retrieval cue for declarative activation."""
+
+    text: str | None = None
+    subject_id: str | None = None
+    entity_ids: tuple[str, ...] = ()
+    predicate: str | None = None
+    object_value: str | None = None
+    qualifiers: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+        if not any(
+            (
+                self.text and self.text.strip(),
+                self.subject_id and self.subject_id.strip(),
+                self.entity_ids,
+                self.predicate and self.predicate.strip(),
+                self.object_value and self.object_value.strip(),
+                self.qualifiers,
+            )
+        ):
+            raise ValidationError("Retrieval cue must contain at least one field.")
+
+
+@dataclass(frozen=True, slots=True)
+class ActivationConfig:
+    """Configuration for ACT-R declarative activation."""
+
+    decay: float = 0.5
+    base_level_constant: float = 0.0
+    source_activation: float = 1.0
+    maximum_associative_strength: float = 1.0
+    mismatch_penalty: float = 1.0
+    retrieval_threshold: float = -3.0
+    latency_factor: float = 1.0
+    latency_exponent: float = 1.0
+    time_unit_seconds: float = 3600.0
+    minimum_elapsed_seconds: float = 1.0
+    enable_spreading_activation: bool = False
+    enable_partial_matching: bool = True
+    enable_noise: bool = False
+    max_candidates: int = 10_000
+
+    def __post_init__(self) -> None:
+        if not 0.0 < self.decay <= 1.0:
+            raise ValidationError("decay must be greater than zero and at most 1.0.")
+        if self.time_unit_seconds <= 0:
+            raise ValidationError("time_unit_seconds must be greater than zero.")
+        if self.minimum_elapsed_seconds <= 0:
+            raise ValidationError("minimum_elapsed_seconds must be greater than zero.")
+        if self.mismatch_penalty < 0:
+            raise ValidationError("mismatch_penalty must not be negative.")
+        if self.latency_factor <= 0:
+            raise ValidationError("latency_factor must be greater than zero.")
+        if self.latency_exponent <= 0:
+            raise ValidationError("latency_exponent must be greater than zero.")
+        if self.max_candidates <= 0:
+            raise ValidationError("max_candidates must be greater than zero.")
+        if self.enable_noise:
+            raise ValidationError("enable_noise is not supported in this release.")
+
+
+@dataclass(frozen=True, slots=True)
+class ActivationComponents:
+    """Decomposed activation values for a recalled memory."""
+
+    base_level: float
+    spreading: float
+    partial_match: float
+    noise: float
+    total: float
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("base_level", self.base_level),
+            ("spreading", self.spreading),
+            ("partial_match", self.partial_match),
+            ("noise", self.noise),
+            ("total", self.total),
+        ):
+            if not math.isfinite(value):
+                raise ValidationError(f"{label} must be finite.")
+
+
+@dataclass(frozen=True, slots=True)
+class ActivationCandidate:
+    """Common representation for episodic and semantic activation ranking."""
+
+    memory_kind: MemoryKind
+    memory_key: str
+    created_at: datetime
+    text: str
+    subject_id: str | None
+    entity_ids: tuple[str, ...]
+    predicate: str | None
+    object_value: str | None
+    qualifiers: Mapping[str, Any]
+    memory: StoredEpisode | StoredSemanticMemory
+
+    def __post_init__(self) -> None:
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if not self.text.strip():
+            raise ValidationError("text must not be empty.")
+        if self.created_at.tzinfo is None:
+            raise ValidationError("created_at must be timezone-aware.")
+        object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
+        object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        return MemoryIdentity(memory_kind=self.memory_kind, memory_key=self.memory_key)
+
+
+@dataclass(frozen=True, slots=True)
+class RecallResult:
+    """A declaratively activated memory match for a retrieval cue."""
+
+    memory_kind: MemoryKind
+    memory: StoredEpisode | StoredSemanticMemory
+    activation: float
+    score: float
+    latency_seconds: float
+    components: ActivationComponents
+    reason: str
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.activation):
+            raise ValidationError("activation must be finite.")
+        if not math.isfinite(self.score):
+            raise ValidationError("score must be finite.")
+        if not 0.0 <= self.score <= 1.0:
+            raise ValidationError("score must be between 0.0 and 1.0.")
+        if not math.isfinite(self.latency_seconds) or self.latency_seconds < 0:
+            raise ValidationError("latency_seconds must be finite and non-negative.")

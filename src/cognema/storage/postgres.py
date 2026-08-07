@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
@@ -18,6 +18,9 @@ from cognema.models import (
     EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
+    MemoryIdentity,
+    MemoryKind,
+    MemoryReference,
     SemanticCardinality,
     SemanticDerivationInput,
     SemanticDerivationRelation,
@@ -31,6 +34,7 @@ from cognema.models import (
 from cognema.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cognema.observations.retention import RetainedObservation
 from cognema.storage.base import (
+    ActivationStore,
     CheckpointStore,
     EpisodeStore,
     ObservationStore,
@@ -1367,3 +1371,105 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+
+
+class PostgresActivationStore(ActivationStore):
+    """PostgreSQL-backed activation reference store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cognema") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def append_references(self, references: Sequence[MemoryReference]) -> None:
+        if not references:
+            return
+        async with self._engine.begin() as conn:
+            for reference in references:
+                metadata_json = json.dumps(dict(reference.metadata))
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("memory_activation_references")} (
+                            id, tenant_id, memory_kind, memory_key,
+                            reference_kind, referenced_at, request_id,
+                            metadata, created_at
+                        ) VALUES (
+                            :id, :tenant_id, :memory_kind, :memory_key,
+                            :reference_kind, :referenced_at, :request_id,
+                            CAST(:metadata AS jsonb), :created_at
+                        )
+                        ON CONFLICT DO NOTHING
+                        """
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "tenant_id": reference.tenant_id,
+                        "memory_kind": reference.memory_kind.value,
+                        "memory_key": reference.memory_key,
+                        "reference_kind": reference.reference_kind.value,
+                        "referenced_at": reference.referenced_at,
+                        "request_id": reference.request_id,
+                        "metadata": metadata_json,
+                        "created_at": datetime.now(UTC),
+                    },
+                )
+
+    async def list_reference_times(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        before_or_at: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[datetime, ...]]:
+        if not identities:
+            return {}
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT memory_kind, memory_key, referenced_at
+                    FROM {self._table("memory_activation_references")}
+                    WHERE tenant_id = :tenant_id
+                      AND referenced_at <= :before_or_at
+                      AND (memory_kind, memory_key) IN (
+                          SELECT * FROM unnest(
+                              CAST(:kinds AS text[]),
+                              CAST(:keys AS text[])
+                          )
+                      )
+                    ORDER BY referenced_at
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "before_or_at": before_or_at,
+                    "kinds": kinds,
+                    "keys": keys,
+                },
+            )
+            rows = result.mappings().all()
+        grouped: dict[MemoryIdentity, list[datetime]] = {}
+        for row in rows:
+            identity = MemoryIdentity(
+                memory_kind=MemoryKind(row["memory_kind"]),
+                memory_key=row["memory_key"],
+            )
+            grouped.setdefault(identity, []).append(row["referenced_at"])
+        return {identity: tuple(times) for identity, times in grouped.items()}
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memory_activation_references")}
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )

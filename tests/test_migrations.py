@@ -38,6 +38,7 @@ async def test_migration_files_are_ordered() -> None:
         "001_initial.sql",
         "002_episodic_memory.sql",
         "003_semantic_consolidation.sql",
+        "004_declarative_activation.sql",
     ]
 
 
@@ -50,7 +51,12 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
             text("SELECT version FROM cognema.schema_migrations ORDER BY version")
         )
         versions = [row[0] for row in result.all()]
-    assert versions == ["001_initial", "002_episodic_memory", "003_semantic_consolidation"]
+    assert versions == [
+        "001_initial",
+        "002_episodic_memory",
+        "003_semantic_consolidation",
+        "004_declarative_activation",
+    ]
 
 
 @pytest.mark.asyncio
@@ -133,6 +139,25 @@ async def test_semantic_schema_objects_exist(memory_engine: AsyncEngine) -> None
         assert claims.scalar() is True
         assert derivations.scalar() is True
         assert tenant_id_index.scalar() is True
+
+
+@pytest.mark.asyncio
+async def test_activation_schema_objects_exist(memory_engine: AsyncEngine) -> None:
+    await apply_migrations(memory_engine)
+    async with memory_engine.connect() as conn:
+        result = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'cognema'
+                      AND table_name = 'memory_activation_references'
+                )
+                """
+            )
+        )
+        assert result.scalar() is True
 
 
 @pytest.mark.asyncio
