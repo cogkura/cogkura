@@ -276,22 +276,23 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Version `0.4.0` adds ACT-R declarative activation over episodic and semantic memories, with explicit `record_access()` reinforcement.
+Cogkura is in early development. Through `0.4.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, and ACT-R declarative activation over memories, with explicit `record_access()` reinforcement.
 
-## Scope of 0.1.0
+## Scope of 0.4.0
 
-Implemented in `0.1.0`:
+Implemented through `0.4.0`:
 
-- observation models and ingestion pipeline;
-- `ObservationStore` and `CheckpointStore` protocols;
-- in-memory and PostgreSQL observation stores;
-- `PostgresTableSource` with compound cursor pagination;
-- `Memory.observe()`, `Memory.ingest()`, `Memory.encode_episodes()`, `Memory.list_episodes()`, `Memory.consolidate_semantics()`, `Memory.list_semantic_memories()`, `Memory.recall()`, and `Memory.record_access()`;
-- revision history for create, update, delete, and restore;
+- observation models and ingestion pipeline (`0.1`);
+- `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
+- `PostgresTableSource` with compound cursor pagination (`0.1`);
+- `Memory.observe()`, `Memory.ingest()`, revision history, and tenant-scoped storage (`0.1`);
+- deterministic episodic encoding, `Memory.encode_episodes()`, and `Memory.list_episodes()` (`0.2`);
+- semantic consolidation, `Memory.consolidate_semantics()`, and `Memory.list_semantic_memories()` (`0.3`);
+- ACT-R declarative activation, `Memory.recall()` over episodic + semantic memories, and `Memory.record_access()` (`0.4`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.1.0`:
+Not implemented in `0.4.0`:
 
 - spreading activation (planned `0.5`);
 - memory decay and forgetting curves (`0.6`);
