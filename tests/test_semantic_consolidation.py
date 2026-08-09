@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import MappingProxyType
 
-from cognema.algorithms.semantic import ComplementaryLearningSemanticConsolidator
-from cognema.models import (
+from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
+from cogkura.models import (
     EpisodeEvidenceInput,
     SemanticCardinality,
     SemanticFactCandidate,

@@ -7,9 +7,9 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema import Memory, ObservationInput
-from cognema.algorithms.semantic import ComplementaryLearningSemanticConsolidator
-from cognema.models import (
+from cogkura import Memory, ObservationInput
+from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
+from cogkura.models import (
     EpisodeEvidenceInput,
     SemanticCardinality,
     SemanticFactCandidate,

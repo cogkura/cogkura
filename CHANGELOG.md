@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-09
+
+### Changed
+
+- **Breaking:** Project renamed from Cognema to Cogkura.
+- **Breaking:** PyPI package and import path are now `cogkura` (`pip install cogkura`, `from cogkura import Memory`).
+- **Breaking:** PostgreSQL schema default is now `cogkura` (was `cognema`).
+- **Breaking:** Demo/integration env vars are now `COGKURA_POSTGRES_*` (was `COGNEMA_POSTGRES_*`).
+- Website and repository URLs updated to `cogkura.com` and `github.com/cogkura/cogkura`.
+
 ## [0.4.0] - 2026-08-07
 
 ### Added
@@ -36,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MetadataSemanticExtractor` reading `observation.metadata["semantic_facts"]` with malformed-entry rejection counting.
 - `ComplementaryLearningSemanticConsolidator` with canonicalisation, recurrence promotion, contradiction handling, and deterministic statement projection.
 - `SemanticMemoryStore` protocol with in-memory and PostgreSQL backends (`semantic_claims`, `memory_derivations`).
-- `ObservationStore.get_many()` for tenant-scoped observation loads by Cognema ID.
+- `ObservationStore.get_many()` for tenant-scoped observation loads by Cogkura ID.
 - `Memory.consolidate_semantics()` and `Memory.list_semantic_memories()` public APIs.
 - Migration `003_semantic_consolidation.sql` and example init SQL sync.
 - `examples/semantic_consolidation.py` and evaluation fixture tests.
@@ -54,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Observation policy output persisted on `StoredObservation` (`attention_score`, `retention_class`, `policy_reasons`).
 - Episode domain models (`EpisodeInput`, `StoredEpisode`, `EpisodeEncodingResult`, and related types).
 - `DeterministicEpisodicEncoder` with conversation/thread grouping, time-gap segmentation, salience scoring, and evidence links.
-- `EpisodeStore` protocol with in-memory and PostgreSQL backends (`cognema.memories`, `memory_evidence`, `memory_entities`).
+- `EpisodeStore` protocol with in-memory and PostgreSQL backends (`cogkura.memories`, `memory_evidence`, `memory_entities`).
 - `Memory.encode_episodes()` and `Memory.list_episodes()` public APIs.
 - Migration `002_episodic_memory.sql` and multi-file `apply_migrations()` runner.
 - Unit tests for episode models, encoder, stores, facade, and migration runner.
@@ -71,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Observation models and ingestion pipeline (`ObservationInput`, revisions, policies, retention).
 - `ObservationStore` and `CheckpointStore` protocols.
-- In-memory and PostgreSQL observation stores (Postgres via optional `cognema[postgres]`).
+- In-memory and PostgreSQL observation stores (Postgres via optional `cogkura[postgres]`).
 - `PostgresTableSource` with compound `(updated_at, id)` cursors and soft-delete column support.
 - `Memory.observe()`, `Memory.ingest()`, and tenant-scoped `Memory.recall()`.
 - Revision history for create, update, delete, and restore.
@@ -90,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial open-source package structure under `src/cognema`.
+- Initial open-source package structure under `src/cogkura`.
 - Public API exports: `Memory`, `MemoryEvent`, and `RecallResult` (superseded in `0.1.0`).
 - `MemoryEvent` and `RecallResult` typed models with validation (event path removed in `0.1.0`).
 - Storage protocol and `InMemoryStorage` backend (replaced by observation stores in `0.1.0`).

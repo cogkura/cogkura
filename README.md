@@ -1,16 +1,16 @@
-# Cognema
+# Cogkura
 
 Research-driven cognitive memory framework for AI systems.
 
-## Why Cognema exists
+## Why Cogkura exists
 
 Most AI applications keep useful data, but retrieval is often shallow. You either do direct lookup, keyword search, or vector similarity, and then pass results to an LLM with little memory structure.
 
-Cognema explores how research-backed cognitive memory mechanisms can improve how AI systems encode, consolidate, associate, and recall information.
+Cogkura explores how research-backed cognitive memory mechanisms can improve how AI systems encode, consolidate, associate, and recall information.
 
-## What Cognema is not
+## What Cogkura is not
 
-Cognema is not:
+Cogkura is not:
 
 - a vector database;
 - a RAG framework;
@@ -18,28 +18,28 @@ Cognema is not:
 - a hosted memory API;
 - tied to one model, database, or agent framework.
 
-## How Cognema differs
+## How Cogkura differs
 
 - Storage systems optimize persistence and querying.
 - Vector search optimizes similarity matching.
 - RAG frameworks optimize context assembly for prompts.
 
-Cognema focuses on cognitive memory algorithms that sit between your data and your AI system.
+Cogkura focuses on cognitive memory algorithms that sit between your data and your AI system.
 
-You bring your own storage, ingestion, embeddings, and LLM provider. Cognema supplies memory behavior and orchestration.
+You bring your own storage, ingestion, embeddings, and LLM provider. Cogkura supplies memory behavior and orchestration.
 
-Cognema owns observations and derived memories, not customer application records. Source connectors read customer data; Cognema writes only to Cognema-owned storage.
+Cogkura owns observations and derived memories, not customer application records. Source connectors read customer data; Cogkura writes only to Cogkura-owned storage.
 
 ## Installation
 
 ```bash
-pip install cognema
+pip install cogkura
 ```
 
 PostgreSQL support:
 
 ```bash
-pip install "cognema[postgres]"
+pip install "cogkura[postgres]"
 ```
 
 ## Quick start
@@ -48,7 +48,7 @@ pip install "cognema[postgres]"
 import asyncio
 from datetime import UTC, datetime
 
-from cognema import Memory, ObservationInput
+from cogkura import Memory, ObservationInput
 
 
 async def main() -> None:
@@ -90,7 +90,7 @@ After observations are stored, encode them into context-bound episodes:
 ```python
 from datetime import UTC, datetime
 
-from cognema import Memory, ObservationInput
+from cogkura import Memory, ObservationInput
 
 memory = Memory()
 
@@ -153,7 +153,7 @@ print(result.promoted, memories[0].statement)
 After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level and partial matching:
 
 ```python
-from cognema import ActivationConfig, RetrievalCue
+from cogkura import ActivationConfig, RetrievalCue
 
 results = await memory.recall(
     RetrievalCue(text="preferred database for production", subject_id="customer_42"),
@@ -175,9 +175,9 @@ For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `Postgr
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from cognema import Memory
-from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import (
+from cogkura import Memory
+from cogkura.sources.postgres import PostgresTableSource
+from cogkura.storage.postgres import (
     PostgresActivationStore,
     PostgresCheckpointStore,
     PostgresEpisodeStore,
@@ -215,7 +215,7 @@ Direct observation:
 ```python
 from datetime import UTC, datetime
 
-from cognema import ObservationInput
+from cogkura import ObservationInput
 
 status = await memory.observe(
     ObservationInput(
@@ -249,19 +249,19 @@ Example `.env` (also in [`.env.example`](examples/postgres_datasource/.env.examp
 
 ```bash
 # Read-only source DB (demo + most integration tests)
-COGNEMA_POSTGRES_SOURCE_URL=postgresql+asyncpg://cognema_reader:cognema_reader@localhost:5432/cognema_source
+COGKURA_POSTGRES_SOURCE_URL=postgresql+asyncpg://cogkura_reader:cogkura_reader@localhost:5432/cogkura_source
 
-# Cognema write DB (demo + most integration tests)
-COGNEMA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cognema_writer:cognema_writer@localhost:5432/cognema_memory
+# Cogkura write DB (demo + most integration tests)
+COGKURA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cogkura_writer:cogkura_writer@localhost:5432/cogkura_memory
 
 # Optional: write access for mutate.py / admin test inserts
-COGNEMA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
+COGKURA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
 
 # Optional: owner role for schema migrations / upgrade tests
-COGNEMA_POSTGRES_MEMORY_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_memory
+COGKURA_POSTGRES_MEMORY_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_memory
 
 # Optional: same-DB schema mode tests
-COGNEMA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
+COGKURA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
 ```
 
 Load the file into your shell before running the demo or Postgres tests:
@@ -272,11 +272,11 @@ uv run python examples/postgres_datasource/demo.py
 uv run pytest -m postgres
 ```
 
-`mutate.py` needs write access to the source database. Prefer `COGNEMA_POSTGRES_SOURCE_ADMIN_URL`, or run with the script default (`postgres` on `cognema_source`), not the read-only `cognema_reader` URL.
+`mutate.py` needs write access to the source database. Prefer `COGKURA_POSTGRES_SOURCE_ADMIN_URL`, or run with the script default (`postgres` on `cogkura_source`), not the read-only `cogkura_reader` URL.
 
 ## Current status
 
-Cognema is in early development. Version `0.4.0` adds ACT-R declarative activation over episodic and semantic memories, with explicit `record_access()` reinforcement.
+Cogkura is in early development. Version `0.4.0` adds ACT-R declarative activation over episodic and semantic memories, with explicit `record_access()` reinforcement.
 
 ## Scope of 0.1.0
 

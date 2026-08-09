@@ -6,7 +6,7 @@ At this early stage, only the latest released version is supported for security 
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately to `security@cognema.io`.
+Please report vulnerabilities privately to `security@cogkura.io`.
 
 Include:
 

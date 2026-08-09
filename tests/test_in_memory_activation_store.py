@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema.models import ActivationReferenceKind, MemoryIdentity, MemoryKind, MemoryReference
-from cognema.storage.in_memory_activation import InMemoryActivationStore
+from cogkura.models import ActivationReferenceKind, MemoryIdentity, MemoryKind, MemoryReference
+from cogkura.storage.in_memory_activation import InMemoryActivationStore
 
 
 def _reference(

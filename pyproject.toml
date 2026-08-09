@@ -3,8 +3,8 @@ requires = ["hatchling>=1.31.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cognema"
-version = "0.4.0"
+name = "cogkura"
+version = "0.5.0"
 description = "Research-driven cognitive memory framework for AI systems."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,10 +36,10 @@ postgres = [
 ]
 
 [project.urls]
-Homepage = "https://cognema.io"
-Repository = "https://github.com/cognema/cognema"
-Issues = "https://github.com/cognema/cognema/issues"
-Documentation = "https://cognema.io"
+Homepage = "https://cogkura.com"
+Repository = "https://github.com/cogkura/cogkura"
+Issues = "https://github.com/cogkura/cogkura/issues"
+Documentation = "https://cogkura.com"
 
 [dependency-groups]
 dev = [
@@ -52,10 +52,10 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cognema"]
+packages = ["src/cogkura"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/cognema/py.typed" = "cognema/py.typed"
+"src/cogkura/py.typed" = "cogkura/py.typed"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -72,9 +72,9 @@ include = [
   "examples/**/*.sql",
   "examples/**/*.yml",
   "examples/**/.env.example",
-  "src/cognema/**/*.py",
-  "src/cognema/**/*.sql",
-  "src/cognema/py.typed",
+  "src/cogkura/**/*.py",
+  "src/cogkura/**/*.sql",
+  "src/cogkura/py.typed",
   "tests/*.py",
 ]
 
@@ -94,11 +94,11 @@ line-ending = "lf"
 python_version = "3.11"
 strict = true
 mypy_path = "src"
-packages = ["cognema"]
+packages = ["cogkura"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=cognema --cov-report=term-missing"
+addopts = "--cov=cogkura --cov-report=term-missing"
 asyncio_mode = "auto"
 markers = [
   "postgres: integration tests requiring a running PostgreSQL instance",
@@ -106,7 +106,7 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["cognema"]
+source = ["cogkura"]
 
 [tool.coverage.report]
 show_missing = true

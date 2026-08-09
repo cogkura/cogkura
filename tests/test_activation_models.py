@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema.exceptions import ValidationError
-from cognema.models import (
+from cogkura.exceptions import ValidationError
+from cogkura.models import (
     ActivationConfig,
     ActivationReferenceKind,
     MemoryIdentity,

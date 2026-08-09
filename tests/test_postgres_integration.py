@@ -11,11 +11,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from cognema.memory import Memory
-from cognema.migrations import apply_migrations
-from cognema.observations.models import IngestStatus, ObservationInput
-from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import (
+from cogkura.memory import Memory
+from cogkura.migrations import apply_migrations
+from cogkura.observations.models import IngestStatus, ObservationInput
+from cogkura.sources.postgres import PostgresTableSource
+from cogkura.storage.postgres import (
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
@@ -68,7 +68,7 @@ class FailingMapper:
 @pytest.fixture
 async def memory_engine(postgres_memory_url: str | None) -> AsyncIterator[AsyncEngine]:
     if postgres_memory_url is None:
-        pytest.skip("COGNEMA_POSTGRES_MEMORY_URL is not set")
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
     engine = create_async_engine(postgres_memory_url)
     await apply_migrations(engine)
     yield engine
@@ -78,7 +78,7 @@ async def memory_engine(postgres_memory_url: str | None) -> AsyncIterator[AsyncE
 @pytest.fixture
 async def source_engine(postgres_source_url: str | None) -> AsyncIterator[AsyncEngine]:
     if postgres_source_url is None:
-        pytest.skip("COGNEMA_POSTGRES_SOURCE_URL is not set")
+        pytest.skip("COGKURA_POSTGRES_SOURCE_URL is not set")
     engine = create_async_engine(postgres_source_url)
     yield engine
     await engine.dispose()
@@ -89,8 +89,8 @@ async def source_admin_engine() -> AsyncIterator[AsyncEngine]:
     import os
 
     url = os.environ.get(
-        "COGNEMA_POSTGRES_SOURCE_ADMIN_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source",
+        "COGKURA_POSTGRES_SOURCE_ADMIN_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source",
     )
     engine = create_async_engine(url)
     try:
@@ -105,12 +105,12 @@ async def source_admin_engine() -> AsyncIterator[AsyncEngine]:
 
 @pytest.fixture
 async def same_db_engine() -> AsyncIterator[AsyncEngine]:
-    """Same database with both public source tables and cognema schema."""
+    """Same database with both public source tables and cogkura schema."""
     import os
 
     url = os.environ.get(
-        "COGNEMA_POSTGRES_SAME_DB_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source",
+        "COGKURA_POSTGRES_SAME_DB_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source",
     )
     engine = create_async_engine(url)
     try:
@@ -398,7 +398,7 @@ async def test_soft_delete_restore_and_revision_history(
             text(
                 """
                 SELECT change_type, revision_number
-                FROM cognema.observation_revisions
+                FROM cogkura.observation_revisions
                 WHERE observation_id = :observation_id
                 ORDER BY revision_number
                 """

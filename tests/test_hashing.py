@@ -1,6 +1,6 @@
 """Unit tests for observation hashing."""
 
-from cognema.observations.hashing import content_hash, normalize_content
+from cogkura.observations.hashing import content_hash, normalize_content
 
 
 def test_normalize_content_strips_trailing_whitespace() -> None:

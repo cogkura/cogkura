@@ -1,17 +1,17 @@
-\c cognema_source
+\c cogkura_source
 
 INSERT INTO public.users (id, name, email, created_at, updated_at) VALUES
     ('11111111-1111-1111-1111-111111111111', 'George', 'george@example.com', '2026-08-01T09:00:00+00:00', '2026-08-01T09:00:00+00:00');
 
 INSERT INTO public.conversations (id, user_id, title, created_at, updated_at) VALUES
-    ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Cognema planning', '2026-08-01T09:05:00+00:00', '2026-08-01T09:05:00+00:00'),
+    ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Cogkura planning', '2026-08-01T09:05:00+00:00', '2026-08-01T09:05:00+00:00'),
     ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'Customer analytics', '2026-08-02T10:00:00+00:00', '2026-08-02T10:00:00+00:00');
 
 INSERT INTO public.messages (
     id, conversation_id, user_id, sender_type, body, metadata, created_at, updated_at, deleted_at
 ) VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'George is working on the Cognema project.', '{}', '2026-08-01T09:10:00+00:00', '2026-08-01T09:10:00+00:00', NULL),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'Cognema is implemented as a Python package.', '{}', '2026-08-01T09:11:00+00:00', '2026-08-01T09:11:00+00:00', NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'George is working on the Cogkura project.', '{}', '2026-08-01T09:10:00+00:00', '2026-08-01T09:10:00+00:00', NULL),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'Cogkura is implemented as a Python package.', '{}', '2026-08-01T09:11:00+00:00', '2026-08-01T09:11:00+00:00', NULL),
     ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'George prefers PostgreSQL for production services.', '{}', '2026-08-01T09:12:00+00:00', '2026-08-01T09:12:00+00:00', NULL),
     ('dddddddd-dddd-dddd-dddd-dddddddddddd', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'George usually deploys new services on GCP.', '{}', '2026-08-01T09:13:00+00:00', '2026-08-01T09:13:00+00:00', NULL),
     ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'user', 'George prefers concise technical documentation.', '{}', '2026-08-01T09:14:00+00:00', '2026-08-01T09:14:00+00:00', NULL),

@@ -1,5 +1,5 @@
 ---
-description: Python package conventions for Cognema
+description: Python package conventions for Cogkura
 globs: src/**/*.py,tests/**/*.py,examples/**/*.py
 alwaysApply: false
 ---
@@ -8,10 +8,10 @@ alwaysApply: false
 
 - Frozen dataclasses with validation in `__post_init__` where models already do that.
 - Use `typing.Protocol` for storage/source/mapper boundaries.
-- Raise `ValidationError` / `StorageError` from `cognema.exceptions`.
+- Raise `ValidationError` / `StorageError` from `cogkura.exceptions`.
 - Observation and Postgres paths are async (`observe`, `ingest`, `recall`).
-- Keep cognitive work under `src/cognema/algorithms/` (not a new top-level cognitive package).
-- Keep persistence under `src/cognema/storage/` (not a parallel `stores/` tree).
+- Keep cognitive work under `src/cogkura/algorithms/` (not a new top-level cognitive package).
+- Keep persistence under `src/cogkura/storage/` (not a parallel `stores/` tree).
 - Do not add core runtime dependencies without asking; optional extras only for adapters.
 - Match `pyproject.toml` ruff and mypy settings; prefer small typed modules.
 - Do not reintroduce a parallel `MemoryEvent` / string-`observe` path.

@@ -7,7 +7,7 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema.models import (
+from cogkura.models import (
     EpisodeEvidenceInput,
     SemanticCardinality,
     SemanticDerivationInput,
@@ -17,7 +17,7 @@ from cognema.models import (
     SemanticPolarity,
     SemanticWriteStatus,
 )
-from cognema.storage.in_memory_semantic import InMemorySemanticMemoryStore
+from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 
 
 def _memory(

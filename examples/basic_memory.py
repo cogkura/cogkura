@@ -1,9 +1,9 @@
-"""Basic usage example for Cognema."""
+"""Basic usage example for Cogkura."""
 
 import asyncio
 from datetime import UTC, datetime
 
-from cognema import Memory, ObservationInput
+from cogkura import Memory, ObservationInput
 
 
 async def main() -> None:

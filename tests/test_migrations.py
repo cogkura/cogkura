@@ -9,15 +9,15 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from cognema.migrations import apply_migrations, migration_files
+from cogkura.migrations import apply_migrations, migration_files
 
 pytestmark = pytest.mark.postgres
 
 
 def _migration_url() -> str | None:
     """Prefer a table-owner URL so ALTER migrations can run."""
-    return os.environ.get("COGNEMA_POSTGRES_MEMORY_ADMIN_URL") or os.environ.get(
-        "COGNEMA_POSTGRES_MEMORY_URL"
+    return os.environ.get("COGKURA_POSTGRES_MEMORY_ADMIN_URL") or os.environ.get(
+        "COGKURA_POSTGRES_MEMORY_URL"
     )
 
 
@@ -25,7 +25,7 @@ def _migration_url() -> str | None:
 async def memory_engine() -> AsyncIterator[AsyncEngine]:
     url = _migration_url()
     if url is None:
-        pytest.skip("COGNEMA_POSTGRES_MEMORY_URL is not set")
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
     engine = create_async_engine(url)
     yield engine
     await engine.dispose()
@@ -48,7 +48,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
     await apply_migrations(memory_engine)
     async with memory_engine.connect() as conn:
         result = await conn.execute(
-            text("SELECT version FROM cognema.schema_migrations ORDER BY version")
+            text("SELECT version FROM cogkura.schema_migrations ORDER BY version")
         )
         versions = [row[0] for row in result.all()]
     assert versions == [
@@ -68,7 +68,7 @@ async def test_episodic_schema_objects_exist(memory_engine: AsyncEngine) -> None
                 """
                 SELECT column_name
                 FROM information_schema.columns
-                WHERE table_schema = 'cognema'
+                WHERE table_schema = 'cogkura'
                   AND table_name = 'observations'
                   AND column_name IN (
                       'attention_score', 'retention_class', 'policy_reasons'
@@ -87,7 +87,7 @@ async def test_episodic_schema_objects_exist(memory_engine: AsyncEngine) -> None
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'memory_entities'
                 )
                 """
@@ -106,7 +106,7 @@ async def test_semantic_schema_objects_exist(memory_engine: AsyncEngine) -> None
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'semantic_claims'
                 )
                 """
@@ -118,7 +118,7 @@ async def test_semantic_schema_objects_exist(memory_engine: AsyncEngine) -> None
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'memory_derivations'
                 )
                 """
@@ -130,7 +130,7 @@ async def test_semantic_schema_objects_exist(memory_engine: AsyncEngine) -> None
                 SELECT EXISTS (
                     SELECT 1
                     FROM pg_indexes
-                    WHERE schemaname = 'cognema'
+                    WHERE schemaname = 'cogkura'
                       AND indexname = 'memories_tenant_id_memory_id_idx'
                 )
                 """
@@ -151,7 +151,7 @@ async def test_activation_schema_objects_exist(memory_engine: AsyncEngine) -> No
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'memory_activation_references'
                 )
                 """
@@ -163,20 +163,20 @@ async def test_activation_schema_objects_exist(memory_engine: AsyncEngine) -> No
 @pytest.mark.asyncio
 async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> None:
     """Simulate a DB that has 001 recorded but not yet 002."""
-    admin_url = os.environ.get("COGNEMA_POSTGRES_MEMORY_ADMIN_URL")
+    admin_url = os.environ.get("COGKURA_POSTGRES_MEMORY_ADMIN_URL")
     if admin_url is None:
-        pytest.skip("COGNEMA_POSTGRES_MEMORY_ADMIN_URL required for upgrade simulation")
+        pytest.skip("COGKURA_POSTGRES_MEMORY_ADMIN_URL required for upgrade simulation")
 
     await apply_migrations(memory_engine)
     async with memory_engine.begin() as conn:
         await conn.execute(
-            text("DELETE FROM cognema.schema_migrations WHERE version = '002_episodic_memory'")
+            text("DELETE FROM cogkura.schema_migrations WHERE version = '002_episodic_memory'")
         )
-        await conn.execute(text("DROP TABLE IF EXISTS cognema.memory_entities CASCADE"))
+        await conn.execute(text("DROP TABLE IF EXISTS cogkura.memory_entities CASCADE"))
         await conn.execute(
             text(
                 """
-                ALTER TABLE cognema.observations
+                ALTER TABLE cogkura.observations
                 DROP COLUMN IF EXISTS attention_score
                 """
             )
@@ -186,7 +186,7 @@ async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> 
 
     async with memory_engine.connect() as conn:
         versions = await conn.execute(
-            text("SELECT version FROM cognema.schema_migrations ORDER BY version")
+            text("SELECT version FROM cogkura.schema_migrations ORDER BY version")
         )
         assert [row[0] for row in versions.all()] == ["001_initial", "002_episodic_memory"]
         attention = await conn.execute(
@@ -195,7 +195,7 @@ async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> 
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.columns
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'observations'
                       AND column_name = 'attention_score'
                 )
@@ -209,7 +209,7 @@ async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> 
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.tables
-                    WHERE table_schema = 'cognema'
+                    WHERE table_schema = 'cogkura'
                       AND table_name = 'memory_entities'
                 )
                 """

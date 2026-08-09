@@ -7,14 +7,14 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema.algorithms.semantic import MetadataSemanticExtractor
-from cognema.models import (
+from cogkura.algorithms.semantic import MetadataSemanticExtractor
+from cogkura.models import (
     EpisodeEvidenceInput,
     SemanticCardinality,
     SemanticPolarity,
     StoredEpisode,
 )
-from cognema.observations.models import StoredObservation
+from cogkura.observations.models import StoredObservation
 
 
 def _observation(

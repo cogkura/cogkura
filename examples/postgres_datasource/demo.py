@@ -7,9 +7,9 @@ import os
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from cognema import Memory
-from cognema.sources.postgres import PostgresTableSource
-from cognema.storage.postgres import (
+from cogkura import Memory
+from cogkura.sources.postgres import PostgresTableSource
+from cogkura.storage.postgres import (
     PostgresActivationStore,
     PostgresCheckpointStore,
     PostgresEpisodeStore,
@@ -18,12 +18,12 @@ from cognema.storage.postgres import (
 )
 
 SOURCE_URL = os.environ.get(
-    "COGNEMA_POSTGRES_SOURCE_URL",
-    "postgresql+asyncpg://cognema_reader:cognema_reader@localhost:5432/cognema_source",
+    "COGKURA_POSTGRES_SOURCE_URL",
+    "postgresql+asyncpg://cogkura_reader:cogkura_reader@localhost:5432/cogkura_source",
 )
 MEMORY_URL = os.environ.get(
-    "COGNEMA_POSTGRES_MEMORY_URL",
-    "postgresql+asyncpg://cognema_writer:cognema_writer@localhost:5432/cognema_memory",
+    "COGKURA_POSTGRES_MEMORY_URL",
+    "postgresql+asyncpg://cogkura_writer:cogkura_writer@localhost:5432/cogkura_memory",
 )
 TENANT_ID = "company_123"
 
@@ -35,7 +35,7 @@ class MessageMapper:
     def map(self, row: dict[str, object]) -> object:
         from datetime import UTC
 
-        from cognema import ObservationInput
+        from cogkura import ObservationInput
 
         updated_at = row["updated_at"]
         if getattr(updated_at, "tzinfo", None) is None:

@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from cognema import Memory, ObservationInput
-from cognema.models import ActivationConfig, MemoryKind, SemanticMemoryStatus
+from cogkura import Memory, ObservationInput
+from cogkura.models import ActivationConfig, MemoryKind, SemanticMemoryStatus
 
 
 def _obs(
@@ -88,7 +88,7 @@ async def test_reinforcement_before_recall_increases_activation() -> None:
         )
     )
     await memory.encode_episodes(tenant_id="company_123")
-    as_of = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
+    as_of = datetime.now(UTC) + timedelta(hours=1)
     first = await memory.recall(
         "payment incident",
         tenant_id="company_123",

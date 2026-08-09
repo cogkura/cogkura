@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - cognema-postgres-data:/var/lib/postgresql
+      - cogkura-postgres-data:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
@@ -17,4 +17,4 @@ services:
       retries: 15
 
 volumes:
-  cognema-postgres-data:
+  cogkura-postgres-data:

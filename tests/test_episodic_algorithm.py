@@ -7,9 +7,9 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema.algorithms.episodic import DeterministicEpisodicEncoder
-from cognema.exceptions import ValidationError
-from cognema.observations.models import StoredObservation
+from cogkura.algorithms.episodic import DeterministicEpisodicEncoder
+from cogkura.exceptions import ValidationError
+from cogkura.observations.models import StoredObservation
 
 
 def _stored(

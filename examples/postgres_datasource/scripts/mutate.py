@@ -9,8 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 SOURCE_URL = os.environ.get(
-    "COGNEMA_POSTGRES_SOURCE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source",
+    "COGKURA_POSTGRES_SOURCE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source",
 )
 
 

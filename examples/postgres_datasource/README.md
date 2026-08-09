@@ -2,8 +2,8 @@
 
 This example runs PostgreSQL in Docker with:
 
-- `cognema_source`: customer application schema (`public.*`)
-- `cognema_memory`: Cognema-owned `cognema` schema
+- `cogkura_source`: customer application schema (`public.*`)
+- `cogkura_memory`: Cogkura-owned `cogkura` schema
 
 ## Setup
 
@@ -13,7 +13,7 @@ docker compose up -d
 cp .env.example .env
 ```
 
-Install Cognema with PostgreSQL support:
+Install Cogkura with PostgreSQL support:
 
 ```bash
 uv sync --all-extras --dev
@@ -47,8 +47,8 @@ Expected pattern:
 
 ## Roles
 
-- `cognema_reader`: read-only on source tables
-- `cognema_writer`: read/write on `cognema.*` in the memory database
+- `cogkura_reader`: read-only on source tables
+- `cogkura_writer`: read/write on `cogkura.*` in the memory database
 
 ## Reset
 
@@ -59,10 +59,10 @@ Expected pattern:
 ## Integration tests
 
 ```bash
-export COGNEMA_POSTGRES_SOURCE_URL=postgresql+asyncpg://cognema_reader:cognema_reader@localhost:5432/cognema_source
-export COGNEMA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cognema_writer:cognema_writer@localhost:5432/cognema_memory
+export COGKURA_POSTGRES_SOURCE_URL=postgresql+asyncpg://cogkura_reader:cogkura_reader@localhost:5432/cogkura_source
+export COGKURA_POSTGRES_MEMORY_URL=postgresql+asyncpg://cogkura_writer:cogkura_writer@localhost:5432/cogkura_memory
 # Optional for same-DB / admin mutation tests:
-# export COGNEMA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
-# export COGNEMA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cognema_source
+# export COGKURA_POSTGRES_SOURCE_ADMIN_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
+# export COGKURA_POSTGRES_SAME_DB_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
 uv run pytest -m postgres
 ```

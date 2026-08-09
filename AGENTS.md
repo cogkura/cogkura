@@ -1,13 +1,13 @@
-# Cognema — agent guide
+# Cogkura — agent guide
 
 Primary entry point for coding agents working in this repository.
 
 ## What this repo is
 
-Cognema is a research-driven cognitive memory library for AI systems (Python).
+Cogkura is a research-driven cognitive memory library for AI systems (Python).
 It sits between application data and LLM reasoning.
 
-Cognema owns observations, revisions, checkpoints, and (later) derived memories.
+Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
 - Current release focus: `0.4` declarative activation (ACT-R) over episodic + semantic memories
@@ -24,13 +24,13 @@ It does **not** own or modify customer application schemas.
 ## Layout
 
 ```text
-src/cognema/
+src/cogkura/
   memory.py          # public facade
   observations/      # models, pipeline, policy, retention, hashing
   sources/           # SourceConnector + PostgresTableSource
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore
-  migrations/        # Cognema-owned Postgres schema SQL
+  migrations/        # Cogkura-owned Postgres schema SQL
   algorithms/        # episodic.py, semantic.py, activation.py
 tests/
 examples/
@@ -82,7 +82,7 @@ After substantive code changes, run the validation commands above before finishi
 
 ## Hard constraints
 
-- Core package stays dependency-free; Postgres only via `cognema[postgres]`.
+- Core package stays dependency-free; Postgres only via `cogkura[postgres]`.
 - No arbitrary SQL as the primary source public API.
 - Do not modify customer source tables.
 - Do not advance connector checkpoints before a successful batch.
@@ -93,6 +93,6 @@ After substantive code changes, run the validation commands above before finishi
 ## Style
 
 - Frozen dataclasses, `typing.Protocol`, validation in constructors.
-- Raise `ValidationError` / `StorageError` from `cognema.exceptions`.
+- Raise `ValidationError` / `StorageError` from `cogkura.exceptions`.
 - Async for observation, ingest, recall, and Postgres paths.
 - Match existing ruff/mypy settings in `pyproject.toml`.

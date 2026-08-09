@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema import Memory, ObservationInput
+from cogkura import Memory, ObservationInput
 
 
 def _observation(

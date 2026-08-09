@@ -2,10 +2,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema import Memory, ObservationInput
-from cognema.exceptions import ValidationError
-from cognema.models import ActivationConfig, MemoryKind
-from cognema.observations.models import IngestStatus
+from cogkura import Memory, ObservationInput
+from cogkura.exceptions import ValidationError
+from cogkura.models import ActivationConfig, MemoryKind
+from cogkura.observations.models import IngestStatus
 
 
 def _obs(
@@ -44,10 +44,10 @@ async def _encode(
 async def test_observe_stores_observation() -> None:
     memory = Memory()
 
-    status = await memory.observe(_obs("Cognema explores cognitive recall.", record_id="1"))
+    status = await memory.observe(_obs("Cogkura explores cognitive recall.", record_id="1"))
 
     assert status is IngestStatus.CREATED
-    await _encode(memory, "Cognema explores cognitive recall.", record_id="1")
+    await _encode(memory, "Cogkura explores cognitive recall.", record_id="1")
     results = await memory.recall(
         "cognitive",
         tenant_id="local",
@@ -186,7 +186,7 @@ async def test_record_access_increases_subsequent_activation() -> None:
 
 
 def _result_memory_key(result: object) -> str:
-    from cognema.models import RecallResult
+    from cogkura.models import RecallResult
 
     assert isinstance(result, RecallResult)
     return result.memory.memory_key

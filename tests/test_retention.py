@@ -2,9 +2,9 @@
 
 import pytest
 
-from cognema.exceptions import ValidationError
-from cognema.observations.models import ObservationInput
-from cognema.observations.retention import ObservationRetentionMode, apply_retention
+from cogkura.exceptions import ValidationError
+from cogkura.observations.models import ObservationInput
+from cogkura.observations.retention import ObservationRetentionMode, apply_retention
 
 
 def _observation(content: str = "George prefers PostgreSQL.") -> ObservationInput:
@@ -32,7 +32,7 @@ def test_hash_only_retention_drops_content() -> None:
 
 
 def test_retention_preserves_policy_fields() -> None:
-    from cognema.observations.models import ObservationDecision
+    from cogkura.observations.models import ObservationDecision
 
     decision = ObservationDecision(
         accept=True,

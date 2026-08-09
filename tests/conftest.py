@@ -13,9 +13,9 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(scope="session")
 def postgres_memory_url() -> str | None:
-    return os.environ.get("COGNEMA_POSTGRES_MEMORY_URL")
+    return os.environ.get("COGKURA_POSTGRES_MEMORY_URL")
 
 
 @pytest.fixture(scope="session")
 def postgres_source_url() -> str | None:
-    return os.environ.get("COGNEMA_POSTGRES_SOURCE_URL")
+    return os.environ.get("COGKURA_POSTGRES_SOURCE_URL")

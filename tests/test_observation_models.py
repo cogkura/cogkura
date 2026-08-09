@@ -5,8 +5,8 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema.exceptions import ValidationError
-from cognema.observations.models import (
+from cogkura.exceptions import ValidationError
+from cogkura.observations.models import (
     IngestionResult,
     IngestStatus,
     ObservationDecision,

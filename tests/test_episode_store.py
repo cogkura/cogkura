@@ -7,8 +7,8 @@ from types import MappingProxyType
 
 import pytest
 
-from cognema.models import EpisodeEntity, EpisodeEvidenceInput, EpisodeInput, EpisodeWriteStatus
-from cognema.storage.in_memory_episode import InMemoryEpisodeStore
+from cogkura.models import EpisodeEntity, EpisodeEvidenceInput, EpisodeInput, EpisodeWriteStatus
+from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
 
 
 def _episode(

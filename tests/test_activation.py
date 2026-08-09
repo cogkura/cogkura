@@ -6,12 +6,12 @@ import math
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 
-from cognema.algorithms.activation import (
+from cogkura.algorithms.activation import (
     ACTRDeclarativeActivator,
     activation_candidate_from_episode,
     calculate_base_level,
 )
-from cognema.models import (
+from cogkura.models import (
     ActivationConfig,
     EpisodeEvidenceInput,
     MemoryIdentity,
@@ -193,7 +193,7 @@ def test_higher_activation_lower_latency() -> None:
 
 
 def _episode_key(result: object) -> str:
-    from cognema.models import RecallResult
+    from cogkura.models import RecallResult
 
     assert isinstance(result, RecallResult)
     memory = result.memory

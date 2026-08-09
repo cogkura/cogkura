@@ -1,2 +1,2 @@
-CREATE DATABASE cognema_source;
-CREATE DATABASE cognema_memory;
+CREATE DATABASE cogkura_source;
+CREATE DATABASE cogkura_memory;

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognema.exceptions import ValidationError
-from cognema.sources.postgres import PostgresTableSource
+from cogkura.exceptions import ValidationError
+from cogkura.sources.postgres import PostgresTableSource
 
 
 def _source(**kwargs: Any) -> PostgresTableSource:

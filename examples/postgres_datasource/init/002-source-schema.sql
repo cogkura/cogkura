@@ -1,4 +1,4 @@
-\c cognema_source
+\c cogkura_source
 
 CREATE TABLE public.users (
     id UUID PRIMARY KEY,

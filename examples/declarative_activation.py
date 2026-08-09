@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 
-from cognema import Memory, ObservationInput
+from cogkura import Memory, ObservationInput
 
 
 async def main() -> None:

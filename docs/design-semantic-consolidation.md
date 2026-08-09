@@ -1,13 +1,13 @@
 # Semantic consolidation design reference
 
-**Target release:** Cognema `0.3`  
+**Target release:** Cogkura `0.3`  
 **Status:** Shipped  
 **Research basis:** Complementary Learning Systems (CLS)  
-**Primary implementation:** `src/cognema/algorithms/semantic.py`
+**Primary implementation:** `src/cogkura/algorithms/semantic.py`
 
 ## Summary
 
-Cognema `0.2` introduced deterministic episodic memory encoding. Version `0.3` adds **semantic consolidation**: deriving stable, reusable knowledge from multiple episodic memories.
+Cogkura `0.2` introduced deterministic episodic memory encoding. Version `0.3` adds **semantic consolidation**: deriving stable, reusable knowledge from multiple episodic memories.
 
 The implementation separates:
 
@@ -58,7 +58,7 @@ Observations may include structured facts under `metadata["semantic_facts"]`:
 
 ## Storage
 
-Semantic memories reuse `cognema.memories` with `memory_type='semantic'`.
+Semantic memories reuse `cogkura.memories` with `memory_type='semantic'`.
 
 Additional tables (migration `003_semantic_consolidation.sql`):
 

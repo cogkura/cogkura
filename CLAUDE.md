@@ -1,4 +1,4 @@
-# Cognema
+# Cogkura
 
 For agent guidance, use **[AGENTS.md](AGENTS.md)** as the primary entry point.
 

@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema.observations.models import IngestStatus, ObservationInput
-from cognema.observations.pipeline import ObservationPipeline
-from cognema.observations.retention import ObservationRetentionMode, apply_retention
-from cognema.storage.in_memory_observation import InMemoryObservationStore
+from cogkura.observations.models import IngestStatus, ObservationInput
+from cogkura.observations.pipeline import ObservationPipeline
+from cogkura.observations.retention import ObservationRetentionMode, apply_retention
+from cogkura.storage.in_memory_observation import InMemoryObservationStore
 
 
 def _observation(

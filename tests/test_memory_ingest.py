@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from cognema.exceptions import ValidationError
-from cognema.memory import Memory
-from cognema.observations.models import IngestStatus, ObservationInput
-from cognema.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
+from cogkura.exceptions import ValidationError
+from cogkura.memory import Memory
+from cogkura.observations.models import IngestStatus, ObservationInput
+from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 
 
 class _ListSource:

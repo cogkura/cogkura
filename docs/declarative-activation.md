@@ -1,11 +1,11 @@
 # Declarative activation (ACT-R) design reference
 
-**Target release:** Cognema `0.4`  
+**Target release:** Cogkura `0.4`  
 **Status:** Shipped (base-level + partial matching; spreading in `0.5`)
 
 ## Summary
 
-Cognema `0.4` replaces observation token-overlap `recall()` with ACT-R-inspired **declarative activation** over durable episodic and semantic memories.
+Cogkura `0.4` replaces observation token-overlap `recall()` with ACT-R-inspired **declarative activation** over durable episodic and semantic memories.
 
 Activation combines:
 
@@ -46,7 +46,7 @@ Presentation score (not ACT-R): \(1 / (1 + e^{-(A-\tau)})\)
 
 ## Storage
 
-Migration `004_declarative_activation.sql` adds `cognema.memory_activation_references`.
+Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.
 
 Postgres apps must pass `PostgresActivationStore` alongside other Postgres stores.
 

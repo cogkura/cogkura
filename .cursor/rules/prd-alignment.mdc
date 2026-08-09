@@ -9,6 +9,6 @@ When implementing from a PRD or Design Note:
 
 - Use the document for **concept, behavior, and acceptance criteria**.
 - Use the **existing repository** for package layout, naming, protocols, and public API shape.
-- Prefer extending `src/cognema/storage/`, `algorithms/`, `observations/`, `sources/`, `mappers/` over inventing parallel trees sketched in a PRD (e.g. `stores/`, `cognitive/`).
+- Prefer extending `src/cogkura/storage/`, `algorithms/`, `observations/`, `sources/`, `mappers/` over inventing parallel trees sketched in a PRD (e.g. `stores/`, `cognitive/`).
 - Only change structure or rename public APIs when the user explicitly asks.
 - Update docs last to describe what shipped, not the PRD's fictional tree.

@@ -9,15 +9,15 @@ from types import MappingProxyType
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from cognema.migrations import apply_migrations
-from cognema.models import (
+from cogkura.migrations import apply_migrations
+from cogkura.models import (
     SemanticCardinality,
     SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
     SemanticWriteStatus,
 )
-from cognema.storage.postgres import PostgresSemanticMemoryStore
+from cogkura.storage.postgres import PostgresSemanticMemoryStore
 
 pytestmark = pytest.mark.postgres
 
@@ -26,9 +26,9 @@ pytestmark = pytest.mark.postgres
 async def memory_engine() -> AsyncIterator[AsyncEngine]:
     import os
 
-    url = os.environ.get("COGNEMA_POSTGRES_MEMORY_URL")
+    url = os.environ.get("COGKURA_POSTGRES_MEMORY_URL")
     if url is None:
-        pytest.skip("COGNEMA_POSTGRES_MEMORY_URL is not set")
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
     engine = create_async_engine(url)
     await apply_migrations(engine)
     yield engine
