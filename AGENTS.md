@@ -10,8 +10,8 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.4` declarative activation (ACT-R) over episodic + semantic memories
-- Next: `0.5` spreading activation — see [`docs/roadmap.md`](docs/roadmap.md)
+- Current release focus: `0.5` spreading activation over episodic + semantic memories
+- Next: `0.6` forgetting / memory dynamics — see [`docs/roadmap.md`](docs/roadmap.md)
 
 ## Read first
 
@@ -31,7 +31,7 @@ src/cogkura/
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore
   migrations/        # Cogkura-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py, activation.py
+  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py
 tests/
 examples/
   basic_memory.py

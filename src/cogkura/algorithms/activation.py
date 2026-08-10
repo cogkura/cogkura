@@ -9,6 +9,11 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Protocol
 
+from cogkura.algorithms.spreading import (
+    DeterministicSpreadingActivator,
+    SpreadingActivator,
+    SpreadingMetadata,
+)
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
     ActivationCandidate,
@@ -123,6 +128,9 @@ def activation_candidate_from_semantic(memory: StoredSemanticMemory) -> Activati
 class ACTRDeclarativeActivator:
     """Deterministic ACT-R declarative activation (base-level + partial matching)."""
 
+    def __init__(self, spreading_activator: SpreadingActivator | None = None) -> None:
+        self._spreading_activator = spreading_activator or DeterministicSpreadingActivator()
+
     def rank(
         self,
         *,
@@ -133,8 +141,17 @@ class ACTRDeclarativeActivator:
         config: ActivationConfig,
         limit: int,
     ) -> list[RecallResult]:
-        fan_by_entity = _build_entity_fan(candidates)
-        context_sources = _context_sources(cue)
+        spreading_result = (
+            self._spreading_activator.calculate(
+                candidates=candidates,
+                cue=cue,
+                config=config,
+            )
+            if config.enable_spreading_activation
+            else None
+        )
+        spreading_by_identity = spreading_result.scores if spreading_result is not None else {}
+        spreading_metadata = spreading_result.metadata if spreading_result is not None else {}
         results: list[RecallResult] = []
 
         for candidate in candidates:
@@ -149,11 +166,7 @@ class ACTRDeclarativeActivator:
                 time_unit_seconds=config.time_unit_seconds,
                 minimum_elapsed_seconds=config.minimum_elapsed_seconds,
             )
-            spreading = (
-                _calculate_spreading(candidate, context_sources, fan_by_entity, config)
-                if config.enable_spreading_activation
-                else 0.0
-            )
+            spreading = spreading_by_identity.get(identity, 0.0)
             partial_match = (
                 _calculate_partial_match(candidate, cue, config)
                 if config.enable_partial_matching
@@ -176,11 +189,15 @@ class ACTRDeclarativeActivator:
                 total=activation,
             )
             matched_entities = len(set(cue.entity_ids).intersection(candidate.entity_ids))
-            reason = (
-                f"activation={activation:.3f}; base={base_level:.3f}; "
-                f"spread={spreading:.3f}; partial={partial_match:.3f}; "
-                f"references={len(reference_times)}; "
-                f"matched_entities={matched_entities}/{len(cue.entity_ids)}"
+            reason = _build_reason(
+                activation=activation,
+                base_level=base_level,
+                spreading=spreading,
+                partial_match=partial_match,
+                reference_count=len(reference_times),
+                matched_entities=matched_entities,
+                cue_entity_count=len(cue.entity_ids),
+                spreading_metadata=spreading_metadata.get(identity),
             )
             results.append(
                 RecallResult(
@@ -215,49 +232,29 @@ def _presentation_score(activation: float, threshold: float) -> float:
     return 1.0 / (1.0 + math.exp(-(activation - threshold)))
 
 
-def _build_entity_fan(candidates: Sequence[ActivationCandidate]) -> dict[str, int]:
-    fan: dict[str, int] = {}
-    for candidate in candidates:
-        for entity_id in candidate.entity_ids:
-            fan[entity_id] = fan.get(entity_id, 0) + 1
-        if candidate.subject_id:
-            fan[candidate.subject_id] = fan.get(candidate.subject_id, 0) + 1
-    return fan
-
-
-def _context_sources(cue: RetrievalCue) -> tuple[str, ...]:
-    sources: list[str] = []
-    seen: set[str] = set()
-    for entity_id in cue.entity_ids:
-        if entity_id in seen:
-            continue
-        seen.add(entity_id)
-        sources.append(entity_id)
-    if cue.subject_id and cue.subject_id not in seen:
-        sources.append(cue.subject_id)
-    return tuple(sources)
-
-
-def _calculate_spreading(
-    candidate: ActivationCandidate,
-    context_sources: tuple[str, ...],
-    fan_by_entity: Mapping[str, int],
-    config: ActivationConfig,
-) -> float:
-    if not context_sources:
-        return 0.0
-    source_weight = config.source_activation / len(context_sources)
-    total = 0.0
-    candidate_entities = set(candidate.entity_ids)
-    if candidate.subject_id:
-        candidate_entities.add(candidate.subject_id)
-    for source_id in context_sources:
-        if source_id not in candidate_entities:
-            continue
-        fan = fan_by_entity.get(source_id, 1)
-        association_strength = config.maximum_associative_strength - math.log(fan)
-        total += source_weight * association_strength
-    return total
+def _build_reason(
+    *,
+    activation: float,
+    base_level: float,
+    spreading: float,
+    partial_match: float,
+    reference_count: int,
+    matched_entities: int,
+    cue_entity_count: int,
+    spreading_metadata: SpreadingMetadata | None,
+) -> str:
+    reason = (
+        f"activation={activation:.3f}; base={base_level:.3f}; "
+        f"spread={spreading:.3f}; partial={partial_match:.3f}; "
+        f"references={reference_count}; "
+        f"matched_entities={matched_entities}/{cue_entity_count}"
+    )
+    if spreading > 0.0 and spreading_metadata is not None:
+        reason += (
+            f"; spread_hop={spreading_metadata.hop}; "
+            f"spread_sources={','.join(spreading_metadata.sources)}"
+        )
+    return reason
 
 
 def _calculate_partial_match(

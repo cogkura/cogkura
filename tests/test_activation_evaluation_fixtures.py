@@ -111,7 +111,109 @@ async def test_reinforcement_before_recall_increases_activation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_contested_semantic_memory_is_retrievable() -> None:
+async def test_spreading_activation_reaches_associated_semantic_memory() -> None:
+    memory = Memory(activation_config=ActivationConfig(retrieval_threshold=-10.0))
+    await memory.observe(
+        ObservationInput(
+            tenant_id="company_123",
+            subject_id="customer_42",
+            source_namespace="direct",
+            source_record_id="alice-episode",
+            content="Alice proposed Project Kura.",
+            observed_at=datetime(2026, 8, 7, 10, 0, tzinfo=UTC),
+            metadata={
+                "conversation_id": "conv-alice",
+                "entity_ids": ["alice", "project-kura"],
+            },
+        )
+    )
+    await memory.observe(
+        ObservationInput(
+            tenant_id="company_123",
+            subject_id="customer_42",
+            source_namespace="direct",
+            source_record_id="weather-episode",
+            content="Heavy rain expected tomorrow.",
+            observed_at=datetime(2026, 8, 7, 10, 5, tzinfo=UTC),
+            metadata={
+                "conversation_id": "conv-weather",
+                "entity_ids": ["weather"],
+            },
+        )
+    )
+    await memory.observe(
+        ObservationInput(
+            tenant_id="company_123",
+            subject_id="customer_42",
+            source_namespace="direct",
+            source_record_id="semantic-source-1",
+            content="Project Kura database decision.",
+            observed_at=datetime(2026, 8, 7, 10, 10, tzinfo=UTC),
+            metadata={
+                "conversation_id": "conv-semantic-1",
+                "semantic_facts": [
+                    {
+                        "predicate": "uses_database",
+                        "object_value": "postgresql",
+                        "subject_entity_id": "project-kura",
+                        "object_entity_id": "postgresql",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                    }
+                ],
+            },
+        )
+    )
+    await memory.observe(
+        ObservationInput(
+            tenant_id="company_123",
+            subject_id="customer_42",
+            source_namespace="direct",
+            source_record_id="semantic-source-2",
+            content="Project Kura confirmed PostgreSQL.",
+            observed_at=datetime(2026, 8, 7, 10, 11, tzinfo=UTC),
+            metadata={
+                "conversation_id": "conv-semantic-2",
+                "semantic_facts": [
+                    {
+                        "predicate": "uses_database",
+                        "object_value": "postgresql",
+                        "subject_entity_id": "project-kura",
+                        "object_entity_id": "postgresql",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                    }
+                ],
+            },
+        )
+    )
+    await memory.encode_episodes(tenant_id="company_123")
+    await memory.consolidate_semantics(tenant_id="company_123")
+
+    from cogkura.models import RetrievalCue
+
+    results = await memory.recall(
+        RetrievalCue(
+            text="What database was involved?",
+            entity_ids=("alice",),
+        ),
+        tenant_id="company_123",
+        limit=5,
+    )
+    assert len(results) >= 2
+    assert results[0].memory_kind is MemoryKind.EPISODE
+    assert "alice" in results[0].memory.statement.lower()
+    semantic_results = [item for item in results if item.memory_kind is MemoryKind.SEMANTIC]
+    assert semantic_results
+    assert semantic_results[0].components.spreading > 0.0
+    weather_results = [
+        item
+        for item in results
+        if item.memory_kind is MemoryKind.EPISODE and "rain" in item.memory.statement.lower()
+    ]
+    if weather_results:
+        assert weather_results[0].components.spreading == 0.0
+
     memory = Memory(activation_config=ActivationConfig(retrieval_threshold=-10.0))
     for index in range(3):
         await memory.observe(

@@ -49,11 +49,16 @@ Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detecte
 
 ### Cognitive algorithms
 
-[`src/cogkura/algorithms/`](../src/cogkura/algorithms/) remains a stub. Future modules will implement consolidation, decay, attention, and association mechanics.
+[`src/cogkura/algorithms/`](../src/cogkura/algorithms/):
+
+- `episodic.py` — deterministic episode encoding
+- `semantic.py` — semantic consolidation
+- `activation.py` — ACT-R declarative activation (base-level, partial matching, ranking)
+- `spreading.py` — bounded entity–memory spreading activation
 
 ### Retrieval
 
-`recall()` uses deterministic token overlap over stored observations and always requires `tenant_id`. That placeholder is dependency-free and transparent so cognitive retrieval can replace it later.
+`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories.
 
 ### Embeddings and LLM integrations
 
@@ -91,14 +96,13 @@ Implemented now:
 - semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
 - observation pipeline, policies, and retention modes;
 - storage protocols with in-memory and PostgreSQL backends;
-- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `ActivationStore`;
+- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `DeterministicSpreadingActivator`, `ActivationStore`;
 - `PostgresTableSource` and connector checkpoints;
-- tenant-scoped token-overlap recall;
+- ACT-R declarative recall with spreading activation over episodic + semantic memories;
 - Docker example, tests, and documentation.
 
 Planned later:
 
-- spreading activation (`0.5`);
 - forgetting curves and memory dynamics (`0.6`);
 - goal-aware working-memory selection (`0.7`);
 - additional source connectors and provider interfaces.

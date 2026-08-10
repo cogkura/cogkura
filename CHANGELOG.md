@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-08-09
 
+### Added
+
+- Spreading activation (`DeterministicSpreadingActivator`) with bounded multi-hop entity–memory propagation.
+- `ActivationConfig` fields: `spreading_decay`, `spreading_max_hops`, `spreading_min_activation`.
+- `tests/test_spreading_activation.py` and spreading evaluation fixture.
+- [`docs/spreading-activation.md`](docs/spreading-activation.md).
+
 ### Changed
 
 - **Breaking:** Project renamed from Cognema to Cogkura.
@@ -14,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** PostgreSQL schema default is now `cogkura` (was `cognema`).
 - **Breaking:** Demo/integration env vars are now `COGKURA_POSTGRES_*` (was `COGNEMA_POSTGRES_*`).
 - Website and repository URLs updated to `cogkura.com` and `github.com/cogkura/cogkura`.
+- Spreading activation is enabled by default (`enable_spreading_activation=True`). Disable to reproduce `0.4` recall behaviour.
 
 ## [0.4.0] - 2026-08-07
 

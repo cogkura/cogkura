@@ -150,13 +150,22 @@ print(result.promoted, memories[0].statement)
 
 ## Declarative activation (recall)
 
-After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level and partial matching:
+After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level, spreading activation, and partial matching:
 
 ```python
 from cogkura import ActivationConfig, RetrievalCue
 
 results = await memory.recall(
     RetrievalCue(text="preferred database for production", subject_id="customer_42"),
+    tenant_id="company_123",
+)
+
+# Associative recall via cue entities (spreading activation)
+results = await memory.recall(
+    RetrievalCue(
+        text="What database was involved?",
+        entity_ids=("alice",),
+    ),
     tenant_id="company_123",
 )
 
@@ -276,11 +285,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.4.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, and ACT-R declarative activation over memories, with explicit `record_access()` reinforcement.
+Cogkura is in early development. Through `0.5.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, ACT-R declarative activation, and spreading activation over memories, with explicit `record_access()` reinforcement.
 
-## Scope of 0.4.0
+## Scope of 0.5.0
 
-Implemented through `0.4.0`:
+Implemented through `0.5.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -289,12 +298,12 @@ Implemented through `0.4.0`:
 - deterministic episodic encoding, `Memory.encode_episodes()`, and `Memory.list_episodes()` (`0.2`);
 - semantic consolidation, `Memory.consolidate_semantics()`, and `Memory.list_semantic_memories()` (`0.3`);
 - ACT-R declarative activation, `Memory.recall()` over episodic + semantic memories, and `Memory.record_access()` (`0.4`);
+- spreading activation with structured `RetrievalCue.entity_ids` (`0.5`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.4.0`:
+Not implemented in `0.5.0`:
 
-- spreading activation (planned `0.5`);
 - memory decay and forgetting curves (`0.6`);
 - goal-aware retrieval and working-memory selection (`0.7`);
 - full REDACTED / REFERENCE_ONLY retention modes;
@@ -330,7 +339,7 @@ LLM reasoning and planning
 - `0.2`: episodic memory encoding, salience, temporal context, and evidence links (done).
 - `0.3`: semantic consolidation from episodic memories (done).
 - `0.4`: declarative activation (ACT-R recall over episodic + semantic memories) (done).
-- `0.5`: spreading activation.
+- `0.5`: spreading activation (done).
 - later: forgetting dynamics, working-memory selection, additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

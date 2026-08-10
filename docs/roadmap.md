@@ -45,11 +45,12 @@
 - explicit `record_access()` reinforcement;
 - `Memory.recall()` over episodic + semantic memories (hard cut from observation token overlap).
 
-## 0.5 - Spreading activation
+## 0.5 - Spreading activation (done)
 
-- fan-sensitive contextual spreading activation;
-- entity association strength from candidate sets;
-- enable spreading in `ActivationConfig` by default.
+- fan-sensitive contextual spreading activation over entity–memory associations;
+- bounded multi-hop propagation with distance decay;
+- enable spreading in `ActivationConfig` by default;
+- transient associative graph built from recall candidates (no new storage).
 
 ## 0.6 - Forgetting / memory dynamics
 

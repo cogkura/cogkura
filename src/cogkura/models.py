@@ -490,7 +490,10 @@ class ActivationConfig:
     latency_exponent: float = 1.0
     time_unit_seconds: float = 3600.0
     minimum_elapsed_seconds: float = 1.0
-    enable_spreading_activation: bool = False
+    enable_spreading_activation: bool = True
+    spreading_decay: float = 0.5
+    spreading_max_hops: int = 2
+    spreading_min_activation: float = 0.01
     enable_partial_matching: bool = True
     enable_noise: bool = False
     max_candidates: int = 10_000
@@ -498,6 +501,16 @@ class ActivationConfig:
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
             raise ValidationError("decay must be greater than zero and at most 1.0.")
+        if self.source_activation < 0:
+            raise ValidationError("source_activation must not be negative.")
+        if self.maximum_associative_strength < 0:
+            raise ValidationError("maximum_associative_strength must not be negative.")
+        if not 0.0 < self.spreading_decay <= 1.0:
+            raise ValidationError("spreading_decay must be greater than zero and at most 1.0.")
+        if self.spreading_max_hops < 1:
+            raise ValidationError("spreading_max_hops must be at least 1.")
+        if self.spreading_min_activation < 0:
+            raise ValidationError("spreading_min_activation must not be negative.")
         if self.time_unit_seconds <= 0:
             raise ValidationError("time_unit_seconds must be greater than zero.")
         if self.minimum_elapsed_seconds <= 0:

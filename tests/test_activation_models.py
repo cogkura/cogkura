@@ -30,7 +30,19 @@ def test_retrieval_cue_accepts_text() -> None:
 def test_activation_config_defaults() -> None:
     config = ActivationConfig()
     assert config.decay == 0.5
-    assert config.enable_spreading_activation is False
+    assert config.enable_spreading_activation is True
+    assert config.spreading_decay == 0.5
+    assert config.spreading_max_hops == 2
+    assert config.spreading_min_activation == 0.01
+
+
+def test_activation_config_validates_spreading_fields() -> None:
+    with pytest.raises(ValidationError, match="spreading_decay"):
+        ActivationConfig(spreading_decay=0.0)
+    with pytest.raises(ValidationError, match="spreading_max_hops"):
+        ActivationConfig(spreading_max_hops=0)
+    with pytest.raises(ValidationError, match="source_activation"):
+        ActivationConfig(source_activation=-1.0)
 
 
 def test_activation_config_rejects_noise() -> None:

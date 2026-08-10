@@ -1,7 +1,7 @@
 # Declarative activation (ACT-R) design reference
 
 **Target release:** Cogkura `0.4`  
-**Status:** Shipped (base-level + partial matching; spreading in `0.5`)
+**Status:** Shipped (base-level + partial matching)
 
 ## Summary
 
@@ -11,13 +11,13 @@ Activation combines:
 
 - **Base-level** frequency/recency from access references
 - **Partial matching** deterministic cue similarity (mismatch penalties)
-- **Spreading activation** — deferred to `0.5` (`enable_spreading_activation=False` by default)
+- **Spreading activation** — shipped in `0.5`; see [`spreading-activation.md`](spreading-activation.md)
 
 \[
 A_i = B_i + S_i + P_i + \epsilon_i
 \]
 
-In `0.4`, \(S_i = 0\) and \(\epsilon_i = 0\) by default.
+In `0.4` without spreading, \(S_i = 0\) and \(\epsilon_i = 0\) by default.
 
 ## Public API
 
@@ -38,11 +38,11 @@ In `0.4`, \(S_i = 0\) and \(\epsilon_i = 0\) by default.
 decay:                  0.5
 time_unit_seconds:      3600.0   # one hour per activation unit
 retrieval_threshold:   -3.0
-enable_spreading_activation: false
+enable_spreading_activation: true
 enable_partial_matching:     true
 ```
 
-Presentation score (not ACT-R): \(1 / (1 + e^{-(A-\tau)})\)
+Spreading defaults and behaviour: [`spreading-activation.md`](spreading-activation.md).
 
 ## Storage
 
@@ -54,6 +54,6 @@ Postgres apps must pass `PostgresActivationStore` alongside other Postgres store
 
 ## Roadmap
 
-- `0.5` Spreading activation
+- `0.5` Spreading activation (see [`spreading-activation.md`](spreading-activation.md))
 - `0.6` Forgetting / memory dynamics
 - `0.7` Working memory / goal-aware attention

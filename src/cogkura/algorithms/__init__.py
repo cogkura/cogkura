@@ -8,14 +8,20 @@ from cogkura.algorithms.semantic import (
     SemanticConsolidator,
     SemanticExtractor,
 )
+from cogkura.algorithms.spreading import (
+    DeterministicSpreadingActivator,
+    SpreadingActivator,
+)
 
 __all__ = [
     "ACTRDeclarativeActivator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
     "DeterministicEpisodicEncoder",
+    "DeterministicSpreadingActivator",
     "EpisodicEncoder",
     "MetadataSemanticExtractor",
     "SemanticConsolidator",
     "SemanticExtractor",
+    "SpreadingActivator",
 ]
