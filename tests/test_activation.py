@@ -13,6 +13,7 @@ from cogkura.algorithms.activation import (
 )
 from cogkura.models import (
     ActivationConfig,
+    ActivationReferenceTrace,
     EpisodeEvidenceInput,
     MemoryIdentity,
     MemoryKind,
@@ -65,20 +66,32 @@ def test_base_level_reference_vectors() -> None:
     }
     one_unit_ago = as_of - timedelta(seconds=1)
     assert math.isclose(
-        calculate_base_level((one_unit_ago,), **config_kwargs),
+        calculate_base_level(
+            (ActivationReferenceTrace(referenced_at=one_unit_ago),),
+            **config_kwargs,
+        ),
         0.0,
         rel_tol=1e-9,
     )
     sixteen_units_ago = as_of - timedelta(seconds=16)
     assert math.isclose(
-        calculate_base_level((sixteen_units_ago,), **config_kwargs),
+        calculate_base_level(
+            (ActivationReferenceTrace(referenced_at=sixteen_units_ago),),
+            **config_kwargs,
+        ),
         math.log(16**-0.5),
         rel_tol=1e-9,
     )
     four_units_ago = as_of - timedelta(seconds=4)
     assert math.isclose(
         calculate_base_level(
-            (four_units_ago, four_units_ago, four_units_ago, four_units_ago), **config_kwargs
+            (
+                ActivationReferenceTrace(referenced_at=four_units_ago),
+                ActivationReferenceTrace(referenced_at=four_units_ago),
+                ActivationReferenceTrace(referenced_at=four_units_ago),
+                ActivationReferenceTrace(referenced_at=four_units_ago),
+            ),
+            **config_kwargs,
         ),
         math.log(2.0),
         rel_tol=1e-9,
@@ -157,7 +170,14 @@ def test_reinforcement_increases_activation() -> None:
     reinforced = activator.rank(
         candidates=[candidate],
         cue=cue,
-        references={identity: (datetime(2026, 8, 7, 11, 30, tzinfo=UTC),)},
+        references={
+            identity: (
+                ActivationReferenceTrace(
+                    referenced_at=datetime(2026, 8, 7, 11, 30, tzinfo=UTC),
+                    weight=1,
+                ),
+            )
+        },
         as_of=as_of,
         config=config,
         limit=1,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cogkura.algorithms.activation import (
@@ -15,6 +15,7 @@ from cogkura.algorithms.activation import (
     activation_candidate_from_semantic,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
     MetadataSemanticExtractor,
@@ -24,10 +25,15 @@ from cogkura.algorithms.semantic import (
 from cogkura.exceptions import CandidateSetTooLargeError, ValidationError
 from cogkura.mappers.base import ObservationMapper
 from cogkura.models import (
+    ActivationCandidate,
     ActivationConfig,
     ActivationReferenceKind,
     EpisodeEncodingResult,
+    ForgettingConfig,
+    ForgettingResult,
+    MemoryIdentity,
     MemoryReference,
+    MemoryRetentionState,
     RecallResult,
     RetrievalCue,
     SemanticConsolidationResult,
@@ -44,10 +50,12 @@ from cogkura.storage import (
     ActivationStore,
     CheckpointStore,
     EpisodeStore,
+    MemoryDynamicsStore,
     ObservationStore,
     SemanticMemoryStore,
 )
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
+from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
 from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
@@ -66,11 +74,14 @@ class Memory:
         episode_store: EpisodeStore | None = None,
         semantic_store: SemanticMemoryStore | None = None,
         activation_store: ActivationStore | None = None,
+        dynamics_store: MemoryDynamicsStore | None = None,
         episodic_encoder: EpisodicEncoder | None = None,
         semantic_extractor: SemanticExtractor | None = None,
         semantic_consolidator: SemanticConsolidator | None = None,
         declarative_activator: DeclarativeActivator | None = None,
+        forgetting_evaluator: ForgettingEvaluator | None = None,
         activation_config: ActivationConfig | None = None,
+        forgetting_config: ForgettingConfig | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -86,6 +97,9 @@ class Memory:
         )
         self._activation_store = (
             activation_store if activation_store is not None else InMemoryActivationStore()
+        )
+        self._dynamics_store = (
+            dynamics_store if dynamics_store is not None else InMemoryMemoryDynamicsStore()
         )
         self._episodic_encoder = (
             episodic_encoder if episodic_encoder is not None else DeterministicEpisodicEncoder()
@@ -103,8 +117,16 @@ class Memory:
             if declarative_activator is not None
             else ACTRDeclarativeActivator()
         )
+        self._forgetting_evaluator = (
+            forgetting_evaluator
+            if forgetting_evaluator is not None
+            else EbbinghausForgettingEvaluator()
+        )
         self._activation_config = (
             activation_config if activation_config is not None else ActivationConfig()
+        )
+        self._forgetting_config = (
+            forgetting_config if forgetting_config is not None else ForgettingConfig()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -237,6 +259,7 @@ class Memory:
         limit: int = 5,
         as_of: datetime | None = None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
+        include_forgotten: bool = False,
     ) -> list[RecallResult]:
         """Recall episodic and semantic memories by declarative activation."""
         if not tenant_id.strip():
@@ -245,12 +268,7 @@ class Memory:
             raise ValidationError("Limit must be greater than zero.")
 
         cue = _normalise_cue(query, subject_id=subject_id)
-        if as_of is not None:
-            if as_of.tzinfo is None:
-                raise ValidationError("as_of must be timezone-aware.")
-            evaluation_time = as_of.astimezone(UTC)
-        else:
-            evaluation_time = datetime.now(UTC)
+        evaluation_time = _evaluation_time(as_of)
 
         episodes, semantic_memories = await asyncio.gather(
             self._episode_store.list(
@@ -273,6 +291,11 @@ class Memory:
         candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
             activation_candidate_from_semantic(memory) for memory in eligible_semantics
         ]
+        candidates = await self._filter_recallable_candidates(
+            candidates=candidates,
+            tenant_id=tenant_id,
+            include_forgotten=include_forgotten,
+        )
         if len(candidates) > self._activation_config.max_candidates:
             raise CandidateSetTooLargeError(
                 f"Candidate set size {len(candidates)} exceeds max_candidates "
@@ -280,7 +303,7 @@ class Memory:
             )
 
         identities = [candidate.identity for candidate in candidates]
-        references = await self._activation_store.list_reference_times(
+        references = await self._activation_store.list_reference_traces(
             tenant_id=tenant_id,
             identities=identities,
             before_or_at=evaluation_time,
@@ -326,6 +349,108 @@ class Memory:
             for result in results
         ]
         await self._activation_store.append_references(references)
+        await self._dynamics_store.reactivate(
+            tenant_id=tenant_id,
+            identities=[
+                MemoryIdentity(
+                    memory_kind=result.memory_kind,
+                    memory_key=_memory_key_from_result(result),
+                )
+                for result in results
+            ],
+            at=timestamp,
+        )
+
+    async def apply_forgetting(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        as_of: datetime | None = None,
+    ) -> ForgettingResult:
+        """Evaluate forgetting lifecycle state for durable memories."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self._forgetting_config.enabled:
+            return ForgettingResult()
+
+        evaluation_time = _evaluation_time(as_of)
+        episodes, semantic_memories = await asyncio.gather(
+            self._episode_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+            ),
+            self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+            ),
+        )
+        candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
+            activation_candidate_from_semantic(memory)
+            for memory in semantic_memories
+            if memory.status is not SemanticMemoryStatus.SUPERSEDED
+        ]
+        if not candidates:
+            return ForgettingResult()
+
+        identities = [candidate.identity for candidate in candidates]
+        dynamics, references = await asyncio.gather(
+            self._dynamics_store.get_many(tenant_id=tenant_id, identities=identities),
+            self._activation_store.list_reference_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=evaluation_time,
+            ),
+        )
+
+        decisions = [
+            self._forgetting_evaluator.evaluate(
+                candidate=candidate,
+                references=references.get(candidate.identity, ()),
+                previous=dynamics.get(candidate.identity),
+                as_of=evaluation_time,
+                activation_config=self._activation_config,
+                forgetting_config=self._forgetting_config,
+                tenant_id=tenant_id,
+            )
+            for candidate in candidates
+        ]
+        await self._dynamics_store.upsert_many([decision.dynamics for decision in decisions])
+
+        compaction_result = None
+        if self._forgetting_config.enable_reference_compaction:
+            compact_before = evaluation_time - timedelta(
+                seconds=self._forgetting_config.compact_after_seconds
+            )
+            compaction_result = await self._activation_store.compact_references(
+                tenant_id=tenant_id,
+                before=compact_before,
+                bucket_seconds=self._forgetting_config.compaction_bucket_seconds,
+            )
+
+        active = fading = forgotten = reactivated = 0
+        for decision in decisions:
+            if decision.dynamics.retention_state is MemoryRetentionState.ACTIVE:
+                active += 1
+            elif decision.dynamics.retention_state is MemoryRetentionState.FADING:
+                fading += 1
+            else:
+                forgotten += 1
+            if decision.reactivated:
+                reactivated += 1
+
+        return ForgettingResult(
+            evaluated=len(decisions),
+            active=active,
+            fading=fading,
+            forgotten=forgotten,
+            reactivated=reactivated,
+            references_compacted=(
+                compaction_result.references_compacted if compaction_result else 0
+            ),
+        )
 
     def sleep(self) -> None:
         """Run deferred memory maintenance (no-op in this release)."""
@@ -455,13 +580,40 @@ class Memory:
         )
 
     async def clear(self, *, tenant_id: str) -> None:
-        """Clear activation references, semantic memories, episodes, and observations."""
+        """Clear activation references, dynamics, semantic memories, episodes, and observations."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
         await self._activation_store.clear(tenant_id=tenant_id)
+        await self._dynamics_store.clear(tenant_id=tenant_id)
         await self._semantic_store.clear(tenant_id=tenant_id)
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
+
+    async def _filter_recallable_candidates(
+        self,
+        *,
+        candidates: list[ActivationCandidate],
+        tenant_id: str,
+        include_forgotten: bool,
+    ) -> list[ActivationCandidate]:
+        if (
+            not self._forgetting_config.enabled
+            or include_forgotten
+            or not self._forgetting_config.exclude_forgotten_from_recall
+        ):
+            return candidates
+
+        identities = [candidate.identity for candidate in candidates]
+        dynamics = await self._dynamics_store.get_many(
+            tenant_id=tenant_id,
+            identities=identities,
+        )
+        return [
+            candidate
+            for candidate in candidates
+            if dynamics.get(candidate.identity) is None
+            or dynamics[candidate.identity].retention_state is not MemoryRetentionState.FORGOTTEN
+        ]
 
 
 def _normalise_cue(query: str | RetrievalCue, *, subject_id: str | None) -> RetrievalCue:
@@ -489,3 +641,11 @@ def _memory_key_from_result(result: RecallResult) -> str:
     if isinstance(memory, StoredSemanticMemory):
         return memory.memory_key
     raise ValidationError("Unsupported memory type for access recording.")
+
+
+def _evaluation_time(as_of: datetime | None) -> datetime:
+    if as_of is not None:
+        if as_of.tzinfo is None:
+            raise ValidationError("as_of must be timezone-aware.")
+        return as_of.astimezone(UTC)
+    return datetime.now(UTC)

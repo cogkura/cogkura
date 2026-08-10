@@ -19,6 +19,7 @@ from cogkura.models import (
     ActivationCandidate,
     ActivationComponents,
     ActivationConfig,
+    ActivationReferenceTrace,
     MemoryIdentity,
     MemoryKind,
     RecallResult,
@@ -48,7 +49,7 @@ class DeclarativeActivator(Protocol):
         *,
         candidates: Sequence[ActivationCandidate],
         cue: RetrievalCue,
-        references: Mapping[MemoryIdentity, Sequence[datetime]],
+        references: Mapping[MemoryIdentity, Sequence[ActivationReferenceTrace]],
         as_of: datetime,
         config: ActivationConfig,
         limit: int,
@@ -68,7 +69,7 @@ def logsumexp(values: Sequence[float]) -> float:
 
 
 def calculate_base_level(
-    reference_times: Sequence[datetime],
+    reference_traces: Sequence[ActivationReferenceTrace],
     *,
     as_of: datetime,
     decay: float,
@@ -76,14 +77,14 @@ def calculate_base_level(
     time_unit_seconds: float,
     minimum_elapsed_seconds: float,
 ) -> float:
-    """Compute ACT-R base-level activation from reference timestamps."""
+    """Compute ACT-R base-level activation from weighted reference traces."""
     terms: list[float] = []
-    for referenced_at in reference_times:
-        elapsed_seconds = (as_of - referenced_at).total_seconds()
+    for trace in reference_traces:
+        elapsed_seconds = (as_of - trace.referenced_at).total_seconds()
         if elapsed_seconds < 0:
             raise ValidationError("Memory reference cannot occur after the activation timestamp.")
         elapsed_units = max(elapsed_seconds, minimum_elapsed_seconds) / time_unit_seconds
-        terms.append(-decay * math.log(elapsed_units))
+        terms.append(math.log(trace.weight) - decay * math.log(elapsed_units))
     return logsumexp(terms) + constant
 
 
@@ -136,7 +137,7 @@ class ACTRDeclarativeActivator:
         *,
         candidates: Sequence[ActivationCandidate],
         cue: RetrievalCue,
-        references: Mapping[MemoryIdentity, Sequence[datetime]],
+        references: Mapping[MemoryIdentity, Sequence[ActivationReferenceTrace]],
         as_of: datetime,
         config: ActivationConfig,
         limit: int,
@@ -156,10 +157,14 @@ class ACTRDeclarativeActivator:
 
         for candidate in candidates:
             identity = candidate.identity
-            stored_refs = references.get(identity, ())
-            reference_times = (candidate.created_at, *stored_refs)
+            stored_traces = references.get(identity, ())
+            creation_trace = ActivationReferenceTrace(
+                referenced_at=candidate.created_at,
+                weight=1,
+            )
+            reference_traces = (creation_trace, *stored_traces)
             base_level = calculate_base_level(
-                reference_times,
+                reference_traces,
                 as_of=as_of,
                 decay=config.decay,
                 constant=config.base_level_constant,
@@ -194,7 +199,7 @@ class ACTRDeclarativeActivator:
                 base_level=base_level,
                 spreading=spreading,
                 partial_match=partial_match,
-                reference_count=len(reference_times),
+                reference_count=len(reference_traces),
                 matched_entities=matched_entities,
                 cue_entity_count=len(cue.entity_ids),
                 spreading_metadata=spreading_metadata.get(identity),

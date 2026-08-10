@@ -2,6 +2,10 @@
 
 from cogkura.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cogkura.algorithms.forgetting import (
+    EbbinghausForgettingEvaluator,
+    ForgettingEvaluator,
+)
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
     MetadataSemanticExtractor,
@@ -19,7 +23,9 @@ __all__ = [
     "DeclarativeActivator",
     "DeterministicEpisodicEncoder",
     "DeterministicSpreadingActivator",
+    "EbbinghausForgettingEvaluator",
     "EpisodicEncoder",
+    "ForgettingEvaluator",
     "MetadataSemanticExtractor",
     "SemanticConsolidator",
     "SemanticExtractor",

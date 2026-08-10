@@ -52,17 +52,19 @@
 - enable spreading in `ActivationConfig` by default;
 - transient associative graph built from recall candidates (no new storage).
 
-## 0.6 - Forgetting / memory dynamics
+## 0.6 - Forgetting / memory dynamics (done)
 
-- forgetting curves and retention policies;
-- reference-history compaction;
-- inhibition and decay beyond base-level equation defaults.
+- Ebbinghaus-inspired `ACTIVE → FADING → FORGOTTEN` lifecycle from ACT-R base-level only;
+- `MemoryDynamicsStore`, `apply_forgetting()`, and `include_forgotten` on recall;
+- reversible reactivation via `record_access()`;
+- weighted activation-reference compaction;
+- migration `005_forgetting_dynamics.sql`.
 
-## 0.7 - Working memory / goal-aware attention
+## 0.7 - Working memory / inhibition
 
 - bounded working-memory selection from activated candidates;
 - goal relevance and prompt budgeting;
-- separate selection score from raw ACT-R activation.
+- inhibition and decay beyond base-level equation defaults.
 
 ## Later
 

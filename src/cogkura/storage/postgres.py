@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from cogkura.exceptions import StorageError
 from cogkura.models import (
+    ActivationReferenceKind,
+    ActivationReferenceTrace,
     EpisodeEntity,
     EpisodeEvidenceInput,
     EpisodeInput,
@@ -21,6 +23,8 @@ from cogkura.models import (
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
+    MemoryRetentionState,
+    ReferenceCompactionResult,
     SemanticCardinality,
     SemanticDerivationInput,
     SemanticDerivationRelation,
@@ -29,14 +33,17 @@ from cogkura.models import (
     SemanticPolarity,
     SemanticWriteStatus,
     StoredEpisode,
+    StoredMemoryDynamics,
     StoredSemanticMemory,
 )
 from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cogkura.observations.retention import RetainedObservation
+from cogkura.storage.activation_compaction import compaction_representative_time
 from cogkura.storage.base import (
     ActivationStore,
     CheckpointStore,
     EpisodeStore,
+    MemoryDynamicsStore,
     ObservationStore,
     SemanticMemoryStore,
 )
@@ -1395,11 +1402,11 @@ class PostgresActivationStore(ActivationStore):
                         INSERT INTO {self._table("memory_activation_references")} (
                             id, tenant_id, memory_kind, memory_key,
                             reference_kind, referenced_at, request_id,
-                            metadata, created_at
+                            weight, metadata, created_at
                         ) VALUES (
                             :id, :tenant_id, :memory_kind, :memory_key,
                             :reference_kind, :referenced_at, :request_id,
-                            CAST(:metadata AS jsonb), :created_at
+                            :weight, CAST(:metadata AS jsonb), :created_at
                         )
                         ON CONFLICT DO NOTHING
                         """
@@ -1412,18 +1419,19 @@ class PostgresActivationStore(ActivationStore):
                         "reference_kind": reference.reference_kind.value,
                         "referenced_at": reference.referenced_at,
                         "request_id": reference.request_id,
+                        "weight": reference.weight,
                         "metadata": metadata_json,
                         "created_at": datetime.now(UTC),
                     },
                 )
 
-    async def list_reference_times(
+    async def list_reference_traces(
         self,
         *,
         tenant_id: str,
         identities: Sequence[MemoryIdentity],
         before_or_at: datetime,
-    ) -> Mapping[MemoryIdentity, tuple[datetime, ...]]:
+    ) -> Mapping[MemoryIdentity, tuple[ActivationReferenceTrace, ...]]:
         if not identities:
             return {}
         kinds = [identity.memory_kind.value for identity in identities]
@@ -1432,7 +1440,7 @@ class PostgresActivationStore(ActivationStore):
             result = await conn.execute(
                 text(
                     f"""
-                    SELECT memory_kind, memory_key, referenced_at
+                    SELECT memory_kind, memory_key, referenced_at, weight
                     FROM {self._table("memory_activation_references")}
                     WHERE tenant_id = :tenant_id
                       AND referenced_at <= :before_or_at
@@ -1453,14 +1461,126 @@ class PostgresActivationStore(ActivationStore):
                 },
             )
             rows = result.mappings().all()
-        grouped: dict[MemoryIdentity, list[datetime]] = {}
+        grouped: dict[MemoryIdentity, list[ActivationReferenceTrace]] = {}
         for row in rows:
             identity = MemoryIdentity(
                 memory_kind=MemoryKind(row["memory_kind"]),
                 memory_key=row["memory_key"],
             )
-            grouped.setdefault(identity, []).append(row["referenced_at"])
-        return {identity: tuple(times) for identity, times in grouped.items()}
+            grouped.setdefault(identity, []).append(
+                ActivationReferenceTrace(
+                    referenced_at=row["referenced_at"],
+                    weight=int(row["weight"]),
+                )
+            )
+        return {identity: tuple(traces) for identity, traces in grouped.items()}
+
+    async def compact_references(
+        self,
+        *,
+        tenant_id: str,
+        before: datetime,
+        bucket_seconds: float,
+    ) -> ReferenceCompactionResult:
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT id, memory_kind, memory_key, reference_kind,
+                           referenced_at, weight, metadata
+                    FROM {self._table("memory_activation_references")}
+                    WHERE tenant_id = :tenant_id
+                      AND referenced_at < :before
+                    ORDER BY referenced_at
+                    """
+                ),
+                {"tenant_id": tenant_id, "before": before},
+            )
+            rows = result.mappings().all()
+
+        if not rows:
+            return ReferenceCompactionResult(references_compacted=0)
+
+        buckets: dict[
+            tuple[str, str, str, datetime],
+            list[dict[str, Any]],
+        ] = {}
+        for row in rows:
+            referenced_at = row["referenced_at"].astimezone(UTC)
+            bucket_start = _postgres_bucket_start(referenced_at, bucket_seconds)
+            key = (
+                row["memory_kind"],
+                row["memory_key"],
+                row["reference_kind"],
+                bucket_start,
+            )
+            buckets.setdefault(key, []).append(dict(row))
+
+        compacted_count = 0
+        async with self._engine.begin() as conn:
+            for references in buckets.values():
+                if len(references) == 1 and int(references[0]["weight"]) == 1:
+                    continue
+                compacted_count += len(references)
+                for reference in references:
+                    await conn.execute(
+                        text(
+                            f"""
+                            DELETE FROM {self._table("memory_activation_references")}
+                            WHERE id = :id
+                            """
+                        ),
+                        {"id": str(reference["id"])},
+                    )
+                total_weight = sum(int(reference["weight"]) for reference in references)
+                bucket_start = _postgres_bucket_start(
+                    references[0]["referenced_at"].astimezone(UTC),
+                    bucket_seconds,
+                )
+                representative_at = compaction_representative_time(
+                    [
+                        MemoryReference(
+                            tenant_id=tenant_id,
+                            memory_kind=MemoryKind(reference["memory_kind"]),
+                            memory_key=reference["memory_key"],
+                            reference_kind=ActivationReferenceKind(reference["reference_kind"]),
+                            referenced_at=reference["referenced_at"],
+                            weight=int(reference["weight"]),
+                        )
+                        for reference in references
+                    ],
+                    bucket_start=bucket_start,
+                    as_of=before.astimezone(UTC),
+                )
+                metadata_json = json.dumps(dict(references[0]["metadata"]))
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("memory_activation_references")} (
+                            id, tenant_id, memory_kind, memory_key,
+                            reference_kind, referenced_at, request_id,
+                            weight, metadata, created_at
+                        ) VALUES (
+                            :id, :tenant_id, :memory_kind, :memory_key,
+                            :reference_kind, :referenced_at, NULL,
+                            :weight, CAST(:metadata AS jsonb), :created_at
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "tenant_id": tenant_id,
+                        "memory_kind": references[0]["memory_kind"],
+                        "memory_key": references[0]["memory_key"],
+                        "reference_kind": references[0]["reference_kind"],
+                        "referenced_at": representative_at,
+                        "weight": total_weight,
+                        "metadata": metadata_json,
+                        "created_at": datetime.now(UTC),
+                    },
+                )
+
+        return ReferenceCompactionResult(references_compacted=compacted_count)
 
     async def clear(self, *, tenant_id: str) -> None:
         async with self._engine.begin() as conn:
@@ -1473,3 +1593,168 @@ class PostgresActivationStore(ActivationStore):
                 ),
                 {"tenant_id": tenant_id},
             )
+
+
+def _postgres_bucket_start(referenced_at: datetime, bucket_seconds: float) -> datetime:
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    elapsed = (referenced_at.astimezone(UTC) - epoch).total_seconds()
+    bucket_index = int(elapsed // bucket_seconds)
+    return epoch + timedelta(seconds=bucket_index * bucket_seconds)
+
+
+class PostgresMemoryDynamicsStore(MemoryDynamicsStore):
+    """PostgreSQL-backed memory dynamics store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cogkura") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def get_many(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+    ) -> Mapping[MemoryIdentity, StoredMemoryDynamics]:
+        if not identities:
+            return {}
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT *
+                    FROM {self._table("memory_dynamics")}
+                    WHERE tenant_id = :tenant_id
+                      AND (memory_kind, memory_key) IN (
+                          SELECT * FROM unnest(
+                              CAST(:kinds AS text[]),
+                              CAST(:keys AS text[])
+                          )
+                      )
+                    """
+                ),
+                {"tenant_id": tenant_id, "kinds": kinds, "keys": keys},
+            )
+            rows = result.mappings().all()
+        return {
+            MemoryIdentity(
+                memory_kind=MemoryKind(row["memory_kind"]),
+                memory_key=row["memory_key"],
+            ): _dynamics_from_row(dict(row))
+            for row in rows
+        }
+
+    async def upsert_many(self, dynamics: Sequence[StoredMemoryDynamics]) -> None:
+        if not dynamics:
+            return
+        async with self._engine.begin() as conn:
+            for record in dynamics:
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("memory_dynamics")} (
+                            tenant_id, memory_kind, memory_key,
+                            retention_state, last_base_level,
+                            last_retention_score, below_threshold_since,
+                            forgotten_at, evaluated_at, updated_at
+                        ) VALUES (
+                            :tenant_id, :memory_kind, :memory_key,
+                            :retention_state, :last_base_level,
+                            :last_retention_score, :below_threshold_since,
+                            :forgotten_at, :evaluated_at, :updated_at
+                        )
+                        ON CONFLICT (tenant_id, memory_kind, memory_key)
+                        DO UPDATE SET
+                            retention_state = EXCLUDED.retention_state,
+                            last_base_level = EXCLUDED.last_base_level,
+                            last_retention_score = EXCLUDED.last_retention_score,
+                            below_threshold_since = EXCLUDED.below_threshold_since,
+                            forgotten_at = EXCLUDED.forgotten_at,
+                            evaluated_at = EXCLUDED.evaluated_at,
+                            updated_at = EXCLUDED.updated_at
+                        """
+                    ),
+                    {
+                        "tenant_id": record.tenant_id,
+                        "memory_kind": record.memory_kind.value,
+                        "memory_key": record.memory_key,
+                        "retention_state": record.retention_state.value,
+                        "last_base_level": record.last_base_level,
+                        "last_retention_score": record.last_retention_score,
+                        "below_threshold_since": record.below_threshold_since,
+                        "forgotten_at": record.forgotten_at,
+                        "evaluated_at": record.evaluated_at,
+                        "updated_at": record.updated_at,
+                    },
+                )
+
+    async def reactivate(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        at: datetime,
+    ) -> None:
+        if not identities:
+            return
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        timestamp = at.astimezone(UTC)
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    UPDATE {self._table("memory_dynamics")}
+                    SET retention_state = :active_state,
+                        below_threshold_since = NULL,
+                        forgotten_at = NULL,
+                        evaluated_at = :at,
+                        updated_at = :at
+                    WHERE tenant_id = :tenant_id
+                      AND (memory_kind, memory_key) IN (
+                          SELECT * FROM unnest(
+                              CAST(:kinds AS text[]),
+                              CAST(:keys AS text[])
+                          )
+                      )
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "kinds": kinds,
+                    "keys": keys,
+                    "active_state": MemoryRetentionState.ACTIVE.value,
+                    "at": timestamp,
+                },
+            )
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memory_dynamics")}
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+
+
+def _dynamics_from_row(row: Mapping[str, Any]) -> StoredMemoryDynamics:
+    return StoredMemoryDynamics(
+        tenant_id=row["tenant_id"],
+        memory_kind=MemoryKind(row["memory_kind"]),
+        memory_key=row["memory_key"],
+        retention_state=MemoryRetentionState(row["retention_state"]),
+        last_base_level=float(row["last_base_level"]),
+        last_retention_score=float(row["last_retention_score"]),
+        below_threshold_since=row["below_threshold_since"],
+        forgotten_at=row["forgotten_at"],
+        evaluated_at=row["evaluated_at"],
+        updated_at=row["updated_at"],
+    )

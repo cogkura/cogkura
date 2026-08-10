@@ -433,6 +433,7 @@ class MemoryReference:
     reference_kind: ActivationReferenceKind
     referenced_at: datetime
     request_id: str | None = None
+    weight: int = 1
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
@@ -442,6 +443,8 @@ class MemoryReference:
             raise ValidationError("memory_key must not be empty.")
         if self.referenced_at.tzinfo is None:
             raise ValidationError("referenced_at must be timezone-aware.")
+        if self.weight <= 0:
+            raise ValidationError("weight must be greater than zero.")
         object.__setattr__(self, "referenced_at", self.referenced_at.astimezone(UTC))
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
@@ -600,3 +603,131 @@ class RecallResult:
             raise ValidationError("score must be between 0.0 and 1.0.")
         if not math.isfinite(self.latency_seconds) or self.latency_seconds < 0:
             raise ValidationError("latency_seconds must be finite and non-negative.")
+
+
+class MemoryRetentionState(StrEnum):
+    """Cognitive accessibility state for a durable memory."""
+
+    ACTIVE = "active"
+    FADING = "fading"
+    FORGOTTEN = "forgotten"
+
+
+@dataclass(frozen=True, slots=True)
+class ActivationReferenceTrace:
+    """Weighted activation history trace for base-level calculation."""
+
+    referenced_at: datetime
+    weight: int = 1
+
+    def __post_init__(self) -> None:
+        if self.referenced_at.tzinfo is None:
+            raise ValidationError("referenced_at must be timezone-aware.")
+        object.__setattr__(self, "referenced_at", self.referenced_at.astimezone(UTC))
+        if self.weight <= 0:
+            raise ValidationError("weight must be greater than zero.")
+
+
+@dataclass(frozen=True, slots=True)
+class ForgettingConfig:
+    """Configuration for cognitive forgetting and reference compaction."""
+
+    enabled: bool = True
+    fading_retention_threshold: float = 0.25
+    forgotten_retention_threshold: float = 0.05
+    grace_period_seconds: float = 604_800.0
+    exclude_forgotten_from_recall: bool = True
+    enable_reference_compaction: bool = True
+    compact_after_seconds: float = 2_592_000.0
+    compaction_bucket_seconds: float = 86_400.0
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.forgotten_retention_threshold < self.fading_retention_threshold <= 1.0:
+            raise ValidationError("Retention thresholds must satisfy 0 <= forgotten < fading <= 1.")
+        if self.grace_period_seconds <= 0:
+            raise ValidationError("grace_period_seconds must be greater than zero.")
+        if self.compact_after_seconds <= 0:
+            raise ValidationError("compact_after_seconds must be greater than zero.")
+        if self.compaction_bucket_seconds <= 0:
+            raise ValidationError("compaction_bucket_seconds must be greater than zero.")
+
+
+@dataclass(frozen=True, slots=True)
+class StoredMemoryDynamics:
+    """Persisted forgetting lifecycle state for a durable memory."""
+
+    tenant_id: str
+    memory_kind: MemoryKind
+    memory_key: str
+    retention_state: MemoryRetentionState
+    last_base_level: float
+    last_retention_score: float
+    below_threshold_since: datetime | None
+    forgotten_at: datetime | None
+    evaluated_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        for label, value in (
+            ("last_base_level", self.last_base_level),
+            ("last_retention_score", self.last_retention_score),
+        ):
+            if not math.isfinite(value):
+                raise ValidationError(f"{label} must be finite.")
+        if not 0.0 <= self.last_retention_score <= 1.0:
+            raise ValidationError("last_retention_score must be between 0.0 and 1.0.")
+        for label, timestamp in (
+            ("evaluated_at", self.evaluated_at),
+            ("updated_at", self.updated_at),
+        ):
+            if timestamp.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+            object.__setattr__(self, label, timestamp.astimezone(UTC))
+        if self.below_threshold_since is not None:
+            if self.below_threshold_since.tzinfo is None:
+                raise ValidationError("below_threshold_since must be timezone-aware.")
+            object.__setattr__(
+                self,
+                "below_threshold_since",
+                self.below_threshold_since.astimezone(UTC),
+            )
+        if self.forgotten_at is not None:
+            if self.forgotten_at.tzinfo is None:
+                raise ValidationError("forgotten_at must be timezone-aware.")
+            object.__setattr__(self, "forgotten_at", self.forgotten_at.astimezone(UTC))
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        return MemoryIdentity(memory_kind=self.memory_kind, memory_key=self.memory_key)
+
+
+@dataclass(frozen=True, slots=True)
+class ForgettingDecision:
+    """Outcome of evaluating one memory's forgetting state."""
+
+    dynamics: StoredMemoryDynamics
+    previous_state: MemoryRetentionState | None
+    reactivated: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ForgettingResult:
+    """Aggregated outcome of forgetting maintenance."""
+
+    evaluated: int = 0
+    active: int = 0
+    fading: int = 0
+    forgotten: int = 0
+    reactivated: int = 0
+    references_compacted: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceCompactionResult:
+    """Outcome of activation reference compaction."""
+
+    references_compacted: int = 0

@@ -43,9 +43,9 @@ async def test_postgres_activation_append_and_list(memory_engine: AsyncEngine) -
     await store.append_references([reference])
 
     identity = MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="episode-key")
-    times = await store.list_reference_times(
+    traces = await store.list_reference_traces(
         tenant_id="company_123",
         identities=[identity],
         before_or_at=datetime(2026, 8, 7, 12, 0, tzinfo=UTC),
     )
-    assert len(times[identity]) == 1
+    assert len(traces[identity]) == 1

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-10
+
+### Added
+
+- Ebbinghaus-inspired forgetting lifecycle (`ACTIVE` → `FADING` → `FORGOTTEN`) from ACT-R base-level only.
+- `MemoryDynamicsStore` with in-memory and PostgreSQL backends.
+- `Memory.apply_forgetting()`, `ForgettingConfig`, and `include_forgotten` on `Memory.recall()`.
+- `EbbinghausForgettingEvaluator` and `ActivationReferenceTrace` weighted base-level activation.
+- `ActivationStore.compact_references()` and `list_reference_traces()` (replaces `list_reference_times`).
+- Migration `005_forgetting_dynamics.sql` (`memory_dynamics`, reference `weight` column).
+- [`docs/forgetting.md`](docs/forgetting.md) and forgetting/compaction tests.
+
+### Changed
+
+- **Breaking:** `ActivationStore.list_reference_times()` removed; use `list_reference_traces()`.
+- `Memory.record_access()` reactivates forgotten/fading dynamics for evaluated identities.
+- `Memory.clear()` clears dynamics after activation references.
+- `MemoryReference.weight` defaults to `1` (weighted compaction merges preserve unit-weight semantics).
+
+### Notes
+
+- Cognitive forgetting excludes memories from recall; it does not delete stored episodes or semantic claims.
+- `Memory.sleep()` remains a synchronous no-op; call `apply_forgetting()` explicitly.
+
 ## [0.5.0] - 2026-08-09
 
 ### Added

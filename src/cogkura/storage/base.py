@@ -6,19 +6,24 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
+from cogkura.models import (
+    ActivationReferenceTrace,
+    MemoryIdentity,
+    MemoryReference,
+    ReferenceCompactionResult,
+    StoredMemoryDynamics,
+)
+
 if TYPE_CHECKING:
     from cogkura.models import (
         EpisodeInput,
         EpisodeWriteStatus,
-        MemoryIdentity,
-        MemoryReference,
         SemanticMemoryInput,
         SemanticMemoryStatus,
         SemanticWriteStatus,
         StoredEpisode,
         StoredSemanticMemory,
     )
-
 from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cogkura.observations.retention import RetainedObservation
 
@@ -150,14 +155,50 @@ class ActivationStore(Protocol):
     async def append_references(self, references: Sequence[MemoryReference]) -> None:
         """Append access references for durable memories."""
 
-    async def list_reference_times(
+    async def list_reference_traces(
         self,
         *,
         tenant_id: str,
         identities: Sequence[MemoryIdentity],
         before_or_at: datetime,
-    ) -> Mapping[MemoryIdentity, tuple[datetime, ...]]:
-        """Load reference timestamps for the given memory identities."""
+    ) -> Mapping[MemoryIdentity, tuple[ActivationReferenceTrace, ...]]:
+        """Load weighted reference traces for the given memory identities."""
+
+    async def compact_references(
+        self,
+        *,
+        tenant_id: str,
+        before: datetime,
+        bucket_seconds: float,
+    ) -> ReferenceCompactionResult:
+        """Compact old references into weighted bucket traces."""
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove activation references for a tenant."""
+
+
+class MemoryDynamicsStore(Protocol):
+    """Persists cognitive forgetting lifecycle state for durable memories."""
+
+    async def get_many(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+    ) -> Mapping[MemoryIdentity, StoredMemoryDynamics]:
+        """Load dynamics records for the given memory identities."""
+
+    async def upsert_many(self, dynamics: Sequence[StoredMemoryDynamics]) -> None:
+        """Insert or update dynamics records."""
+
+    async def reactivate(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        at: datetime,
+    ) -> None:
+        """Clear forgotten/fading state after explicit reinforcement."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove dynamics records for a tenant."""

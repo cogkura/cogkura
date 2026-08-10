@@ -39,6 +39,7 @@ async def test_migration_files_are_ordered() -> None:
         "002_episodic_memory.sql",
         "003_semantic_consolidation.sql",
         "004_declarative_activation.sql",
+        "005_forgetting_dynamics.sql",
     ]
 
 
@@ -56,6 +57,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "002_episodic_memory",
         "003_semantic_consolidation",
         "004_declarative_activation",
+        "005_forgetting_dynamics",
     ]
 
 
@@ -158,6 +160,39 @@ async def test_activation_schema_objects_exist(memory_engine: AsyncEngine) -> No
             )
         )
         assert result.scalar() is True
+
+
+@pytest.mark.asyncio
+async def test_forgetting_schema_objects_exist(memory_engine: AsyncEngine) -> None:
+    await apply_migrations(memory_engine)
+    async with memory_engine.connect() as conn:
+        dynamics = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'cogkura'
+                      AND table_name = 'memory_dynamics'
+                )
+                """
+            )
+        )
+        weight_column = await conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = 'cogkura'
+                      AND table_name = 'memory_activation_references'
+                      AND column_name = 'weight'
+                )
+                """
+            )
+        )
+        assert dynamics.scalar() is True
+        assert weight_column.scalar() is True
 
 
 @pytest.mark.asyncio

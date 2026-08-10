@@ -173,11 +173,16 @@ for result in results:
     print(result.activation, result.score, result.memory.statement)
 
 await memory.record_access(results, tenant_id="company_123")
+
+# Forgetting maintenance (explicit; sleep() is a no-op)
+result = await memory.apply_forgetting(tenant_id="company_123")
 ```
 
 Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`.
 
-For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, and `PostgresActivationStore` to `Memory`.
+For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, and `PostgresMemoryDynamicsStore` to `Memory`.
+
+See [`docs/forgetting.md`](docs/forgetting.md) for lifecycle thresholds and compaction details.
 
 ## Observation ingestion (PostgreSQL)
 
@@ -285,11 +290,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.5.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, ACT-R declarative activation, and spreading activation over memories, with explicit `record_access()` reinforcement.
+Cogkura is in early development. Through `0.6.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, ACT-R declarative activation, spreading activation, and Ebbinghaus-inspired forgetting dynamics over memories, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
 
-## Scope of 0.5.0
+## Scope of 0.6.0
 
-Implemented through `0.5.0`:
+Implemented through `0.6.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -299,13 +304,13 @@ Implemented through `0.5.0`:
 - semantic consolidation, `Memory.consolidate_semantics()`, and `Memory.list_semantic_memories()` (`0.3`);
 - ACT-R declarative activation, `Memory.recall()` over episodic + semantic memories, and `Memory.record_access()` (`0.4`);
 - spreading activation with structured `RetrievalCue.entity_ids` (`0.5`);
+- forgetting lifecycle, `Memory.apply_forgetting()`, weighted reference compaction, and `include_forgotten` on recall (`0.6`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.5.0`:
+Not implemented in `0.6.0`:
 
-- memory decay and forgetting curves (`0.6`);
-- goal-aware retrieval and working-memory selection (`0.7`);
+- working-memory selection and inhibition (`0.7`);
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
 
@@ -340,7 +345,8 @@ LLM reasoning and planning
 - `0.3`: semantic consolidation from episodic memories (done).
 - `0.4`: declarative activation (ACT-R recall over episodic + semantic memories) (done).
 - `0.5`: spreading activation (done).
-- later: forgetting dynamics, working-memory selection, additional connectors, and integrations.
+- `0.6`: forgetting / memory dynamics (done).
+- later: working-memory selection, additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
 

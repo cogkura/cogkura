@@ -55,10 +55,11 @@ Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detecte
 - `semantic.py` — semantic consolidation
 - `activation.py` — ACT-R declarative activation (base-level, partial matching, ranking)
 - `spreading.py` — bounded entity–memory spreading activation
+- `forgetting.py` — Ebbinghaus-inspired retention lifecycle from base-level only
 
 ### Retrieval
 
-`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories.
+`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). `FORGOTTEN` memories are excluded by default (`include_forgotten=True` to opt in). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories and reactivates forgotten dynamics. `apply_forgetting()` evaluates lifecycle state and compacts old activation references.
 
 ### Embeddings and LLM integrations
 
@@ -91,18 +92,17 @@ src/cogkura/
 Implemented now:
 
 - public observation API (`observe`, `ingest`);
-- declarative activation API (`recall`, `record_access`);
+- declarative activation API (`recall`, `record_access`, `apply_forgetting`);
 - episodic encoding API (`encode_episodes`, `list_episodes`);
 - semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
 - observation pipeline, policies, and retention modes;
 - storage protocols with in-memory and PostgreSQL backends;
-- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `DeterministicSpreadingActivator`, `ActivationStore`;
+- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `DeterministicSpreadingActivator`, `EbbinghausForgettingEvaluator`, `ActivationStore`, `MemoryDynamicsStore`;
 - `PostgresTableSource` and connector checkpoints;
-- ACT-R declarative recall with spreading activation over episodic + semantic memories;
+- ACT-R declarative recall with spreading activation and forgetting dynamics over episodic + semantic memories;
 - Docker example, tests, and documentation.
 
 Planned later:
 
-- forgetting curves and memory dynamics (`0.6`);
-- goal-aware working-memory selection (`0.7`);
+- goal-aware working-memory selection and inhibition (`0.7`);
 - additional source connectors and provider interfaces.
