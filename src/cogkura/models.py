@@ -179,6 +179,15 @@ class SemanticDerivationRelation(StrEnum):
     CONTRADICTS = "contradicts"
 
 
+class SemanticUpdateRelation(StrEnum):
+    """How new semantic evidence relates to existing revision state."""
+
+    REINFORCES = "reinforces"
+    COEXISTS = "coexists"
+    SUPERSEDES = "supersedes"
+    CONFLICTS = "conflicts"
+
+
 class SemanticWriteStatus(StrEnum):
     """Outcome of upserting a single semantic memory."""
 
@@ -191,6 +200,27 @@ def _validate_qualifiers(qualifiers: Mapping[str, Any]) -> None:
     for key in qualifiers:
         if not str(key).strip():
             raise ValidationError("qualifier keys must not be empty.")
+
+
+def _validate_temporal_validity(
+    *,
+    valid_from: datetime | None,
+    valid_until: datetime | None,
+) -> tuple[datetime | None, datetime | None]:
+    normalized_from = None
+    normalized_until = None
+    if valid_from is not None:
+        if valid_from.tzinfo is None:
+            raise ValidationError("valid_from must be timezone-aware.")
+        normalized_from = valid_from.astimezone(UTC)
+    if valid_until is not None:
+        if valid_until.tzinfo is None:
+            raise ValidationError("valid_until must be timezone-aware.")
+        normalized_until = valid_until.astimezone(UTC)
+    if normalized_from is not None and normalized_until is not None:
+        if normalized_until <= normalized_from:
+            raise ValidationError("valid_until must be after valid_from.")
+    return normalized_from, normalized_until
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +237,8 @@ class SemanticFactCandidate:
     cardinality: SemanticCardinality
     confidence: float
     observed_at: datetime
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
     qualifiers: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
@@ -224,6 +256,12 @@ class SemanticFactCandidate:
         if self.observed_at.tzinfo is None:
             raise ValidationError("observed_at must be timezone-aware.")
         object.__setattr__(self, "observed_at", self.observed_at.astimezone(UTC))
+        normalized_from, normalized_until = _validate_temporal_validity(
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+        object.__setattr__(self, "valid_from", normalized_from)
+        object.__setattr__(self, "valid_until", normalized_until)
         _validate_qualifiers(self.qualifiers)
         object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
@@ -247,6 +285,237 @@ class SemanticDerivationInput:
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticRevisionCandidate:
+    """Revision-aware semantic candidate produced by consolidation."""
+
+    tenant_id: str
+    memory_key: str
+    slot_key: str
+    revision_key: str
+    statement: str
+    subject_id: str | None
+    subject_entity_id: str | None
+    predicate: str
+    object_value: str
+    object_entity_id: str | None
+    polarity: SemanticPolarity
+    cardinality: SemanticCardinality
+    qualifiers: Mapping[str, Any]
+    valid_from: datetime | None
+    valid_until: datetime | None
+    support_count: int
+    first_supported_at: datetime
+    last_supported_at: datetime
+    support_confidence: float
+    importance: float
+    derivations: tuple[SemanticDerivationInput, ...]
+    observation_evidence: tuple[EpisodeEvidenceInput, ...]
+    entities: tuple[EpisodeEntity, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if not self.slot_key.strip():
+            raise ValidationError("slot_key must not be empty.")
+        if not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty.")
+        if not self.statement.strip():
+            raise ValidationError("statement must not be empty.")
+        if self.support_count < 0:
+            raise ValidationError("support_count must not be negative.")
+        normalized_from, normalized_until = _validate_temporal_validity(
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+        object.__setattr__(self, "valid_from", normalized_from)
+        object.__setattr__(self, "valid_until", normalized_until)
+        for label, ts in (
+            ("first_supported_at", self.first_supported_at),
+            ("last_supported_at", self.last_supported_at),
+        ):
+            if ts.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+        first = self.first_supported_at.astimezone(UTC)
+        last = self.last_supported_at.astimezone(UTC)
+        object.__setattr__(self, "first_supported_at", first)
+        object.__setattr__(self, "last_supported_at", last)
+        if last < first:
+            raise ValidationError("last_supported_at must not be before first_supported_at.")
+        if not math.isfinite(self.support_confidence) or not 0.0 <= self.support_confidence <= 1.0:
+            raise ValidationError("support_confidence must be between 0.0 and 1.0.")
+        if not math.isfinite(self.importance) or not 0.0 <= self.importance <= 1.0:
+            raise ValidationError("importance must be between 0.0 and 1.0.")
+        _validate_qualifiers(self.qualifiers)
+        object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticRevisionInput:
+    """Desired semantic revision state from reconciliation."""
+
+    tenant_id: str
+    memory_key: str
+    revision_key: str
+    revision_number: int
+    status: SemanticMemoryStatus
+    valid_from: datetime | None
+    valid_until: datetime | None
+    confidence: float
+    importance: float
+    support_count: int
+    contradiction_count: int
+    first_supported_at: datetime
+    last_supported_at: datetime
+    derivations: tuple[SemanticDerivationInput, ...]
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty.")
+        if self.revision_number <= 0:
+            raise ValidationError("revision_number must be greater than zero.")
+        normalized_from, normalized_until = _validate_temporal_validity(
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+        object.__setattr__(self, "valid_from", normalized_from)
+        object.__setattr__(self, "valid_until", normalized_until)
+        for label, value in (
+            ("confidence", self.confidence),
+            ("importance", self.importance),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be between 0.0 and 1.0.")
+        if self.support_count < 0 or self.contradiction_count < 0:
+            raise ValidationError("support and contradiction counts must not be negative.")
+        for label, ts in (
+            ("first_supported_at", self.first_supported_at),
+            ("last_supported_at", self.last_supported_at),
+        ):
+            if ts.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+        object.__setattr__(self, "first_supported_at", self.first_supported_at.astimezone(UTC))
+        object.__setattr__(self, "last_supported_at", self.last_supported_at.astimezone(UTC))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
+class StoredSemanticRevision:
+    """Persisted semantic revision with temporal validity."""
+
+    revision_key: str
+    memory_key: str
+    tenant_id: str
+    revision_number: int
+    status: SemanticMemoryStatus
+    valid_from: datetime | None
+    valid_until: datetime | None
+    confidence: float
+    importance: float
+    support_count: int
+    contradiction_count: int
+    first_supported_at: datetime
+    last_supported_at: datetime
+    derivations: tuple[SemanticDerivationInput, ...]
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.revision_number <= 0:
+            raise ValidationError("revision_number must be greater than zero.")
+        normalized_from, normalized_until = _validate_temporal_validity(
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+        object.__setattr__(self, "valid_from", normalized_from)
+        object.__setattr__(self, "valid_until", normalized_until)
+        for label, value in (
+            ("confidence", self.confidence),
+            ("importance", self.importance),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be between 0.0 and 1.0.")
+        if self.support_count < 0 or self.contradiction_count < 0:
+            raise ValidationError("support and contradiction counts must not be negative.")
+        for label, ts in (
+            ("first_supported_at", self.first_supported_at),
+            ("last_supported_at", self.last_supported_at),
+            ("created_at", self.created_at),
+            ("updated_at", self.updated_at),
+        ):
+            if ts.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+            object.__setattr__(self, label, ts.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticRevisionRelation:
+    """Persisted relationship between semantic revisions."""
+
+    tenant_id: str
+    left_revision_key: str
+    right_revision_key: str
+    relation: SemanticUpdateRelation
+    effective_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.left_revision_key.strip() or not self.right_revision_key.strip():
+            raise ValidationError("revision relation keys must not be empty.")
+        if self.relation not in (
+            SemanticUpdateRelation.SUPERSEDES,
+            SemanticUpdateRelation.CONFLICTS,
+        ):
+            raise ValidationError("Only SUPERSEDES and CONFLICTS relations are persisted.")
+        if self.effective_at is not None:
+            if self.effective_at.tzinfo is None:
+                raise ValidationError("effective_at must be timezone-aware.")
+            object.__setattr__(self, "effective_at", self.effective_at.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticReconciliationPlan:
+    """Desired semantic state after reconciliation."""
+
+    current_memories: tuple[SemanticMemoryInput, ...]
+    revisions: tuple[SemanticRevisionInput, ...]
+    relations: tuple[SemanticRevisionRelation, ...]
+    reinforced_count: int = 0
+    coexist_count: int = 0
+    conflict_count: int = 0
+    superseded_count: int = 0
+    revisions_created: int = 0
+    revisions_updated: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticReconciliationWriteResult:
+    """Outcome of applying a reconciliation plan."""
+
+    created: int = 0
+    updated: int = 0
+    unchanged: int = 0
+    revisions_created: int = 0
+    revisions_updated: int = 0
+    relations_written: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class SemanticMemoryInput:
     """Candidate semantic memory ready for persistence."""
 
@@ -254,6 +523,8 @@ class SemanticMemoryInput:
     subject_id: str | None
     memory_key: str
     slot_key: str
+    revision_key: str
+    revision_number: int
     statement: str
     subject_entity_id: str | None
     predicate: str
@@ -271,6 +542,8 @@ class SemanticMemoryInput:
     last_supported_at: datetime
     derivations: tuple[SemanticDerivationInput, ...]
     observation_evidence: tuple[EpisodeEvidenceInput, ...]
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
     entities: tuple[EpisodeEntity, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
@@ -281,6 +554,10 @@ class SemanticMemoryInput:
             raise ValidationError("memory_key must not be empty.")
         if not self.slot_key.strip():
             raise ValidationError("slot_key must not be empty.")
+        if not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty.")
+        if self.revision_number <= 0:
+            raise ValidationError("revision_number must be greater than zero.")
         if not self.statement.strip():
             raise ValidationError("statement must not be empty.")
         if not self.predicate.strip():
@@ -295,6 +572,12 @@ class SemanticMemoryInput:
             raise ValidationError("support_count must not be negative.")
         if self.contradiction_count < 0:
             raise ValidationError("contradiction_count must not be negative.")
+        normalized_from, normalized_until = _validate_temporal_validity(
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+        object.__setattr__(self, "valid_from", normalized_from)
+        object.__setattr__(self, "valid_until", normalized_until)
         for label, ts in (
             ("first_supported_at", self.first_supported_at),
             ("last_supported_at", self.last_supported_at),
@@ -329,6 +612,8 @@ class StoredSemanticMemory:
     subject_id: str | None
     memory_key: str
     slot_key: str
+    revision_key: str
+    revision_number: int
     statement: str
     subject_entity_id: str | None
     predicate: str
@@ -344,6 +629,8 @@ class StoredSemanticMemory:
     contradiction_count: int
     first_supported_at: datetime
     last_supported_at: datetime
+    valid_from: datetime | None
+    valid_until: datetime | None
     is_active: bool
     derivations: tuple[SemanticDerivationInput, ...]
     observation_evidence: tuple[EpisodeEvidenceInput, ...]
@@ -375,6 +662,12 @@ class SemanticConsolidationResult:
     unchanged: int = 0
     contested: int = 0
     deactivated: int = 0
+    reinforced: int = 0
+    coexisting: int = 0
+    conflicts: int = 0
+    superseded: int = 0
+    revisions_created: int = 0
+    revisions_updated: int = 0
 
     def record(
         self,
@@ -394,6 +687,41 @@ class SemanticConsolidationResult:
             contested=self.contested
             + (1 if memory_status is SemanticMemoryStatus.CONTESTED else 0),
             deactivated=self.deactivated,
+            reinforced=self.reinforced,
+            coexisting=self.coexisting,
+            conflicts=self.conflicts,
+            superseded=self.superseded,
+            revisions_created=self.revisions_created,
+            revisions_updated=self.revisions_updated,
+        )
+
+    def with_reconciliation(
+        self,
+        *,
+        reinforced: int,
+        coexisting: int,
+        conflicts: int,
+        superseded: int,
+        revisions_created: int,
+        revisions_updated: int,
+    ) -> SemanticConsolidationResult:
+        return SemanticConsolidationResult(
+            episodes=self.episodes,
+            extracted_candidates=self.extracted_candidates,
+            extracted_failures=self.extracted_failures,
+            canonical_claims=self.canonical_claims,
+            promoted=self.promoted,
+            created=self.created,
+            updated=self.updated,
+            unchanged=self.unchanged,
+            contested=self.contested,
+            deactivated=self.deactivated,
+            reinforced=reinforced,
+            coexisting=coexisting,
+            conflicts=conflicts,
+            superseded=superseded,
+            revisions_created=revisions_created,
+            revisions_updated=revisions_updated,
         )
 
 

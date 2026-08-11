@@ -70,8 +70,19 @@
 - immutable `WorkingMemorySnapshot`;
 - no persistent working-memory store.
 
+## 0.8 - Reconsolidation / memory updating (done)
+
+- revision-aware semantic consolidation (`SemanticRevisionCandidate`);
+- deterministic temporal reconciliation (`DeterministicSemanticReconciler`);
+- `REINFORCES` / `COEXISTS` / `SUPERSEDES` / `CONFLICTS` relation matrix;
+- `Memory.list_semantic_revisions()` and `valid_at` historical retrieval;
+- migration `006_semantic_reconsolidation.sql`;
+- [`docs/reconsolidation.md`](reconsolidation.md).
+
 ## Later
 
+- `0.9`: learning / reinforcement on reconsolidation (planned);
+- `0.10`: additional cognitive maintenance (planned);
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

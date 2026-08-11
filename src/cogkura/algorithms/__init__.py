@@ -6,6 +6,10 @@ from cogkura.algorithms.forgetting import (
     EbbinghausForgettingEvaluator,
     ForgettingEvaluator,
 )
+from cogkura.algorithms.reconsolidation import (
+    DeterministicSemanticReconciler,
+    SemanticReconciler,
+)
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
     MetadataSemanticExtractor,
@@ -29,6 +33,7 @@ __all__ = [
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
     "DeterministicEpisodicEncoder",
+    "DeterministicSemanticReconciler",
     "DeterministicSpreadingActivator",
     "DeterministicWorkingMemorySelector",
     "EbbinghausForgettingEvaluator",
@@ -37,6 +42,7 @@ __all__ = [
     "MetadataSemanticExtractor",
     "SemanticConsolidator",
     "SemanticExtractor",
+    "SemanticReconciler",
     "SpreadingActivator",
     "TokenEstimator",
     "WorkingMemorySelector",

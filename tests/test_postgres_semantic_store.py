@@ -46,6 +46,8 @@ def _memory(
         subject_id="customer_42",
         memory_key=memory_key,
         slot_key="slot-1",
+        revision_key=f"legacy:{memory_key}",
+        revision_number=1,
         statement="Customer prefers PostgreSQL in production.",
         subject_entity_id="customer_42",
         predicate="preferred_database",

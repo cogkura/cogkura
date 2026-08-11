@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import MappingProxyType
 
+from cogkura.algorithms.reconsolidation import DeterministicSemanticReconciler
 from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
 from cogkura.models import (
     EpisodeEvidenceInput,
@@ -14,6 +15,18 @@ from cogkura.models import (
     SemanticPolarity,
     StoredEpisode,
 )
+
+_AS_OF = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+
+
+def _reconcile(candidates):
+    plan = DeterministicSemanticReconciler().reconcile(
+        candidates=candidates,
+        existing_memories=(),
+        existing_revisions=(),
+        as_of=_AS_OF,
+    )
+    return plan.current_memories
 
 
 def _episode(
@@ -85,9 +98,11 @@ def test_two_episodes_promote() -> None:
     consolidator = ComplementaryLearningSemanticConsolidator()
     episodes = [_episode(episode_id="ep-1"), _episode(episode_id="ep-2")]
     candidates = [_fact(episode_id="ep-1"), _fact(episode_id="ep-2")]
-    memories = consolidator.consolidate(episodes, candidates)
+    revisions = consolidator.consolidate(episodes, candidates)
+    assert len(revisions) == 1
+    assert revisions[0].support_count == 2
+    memories = _reconcile(revisions)
     assert len(memories) == 1
-    assert memories[0].support_count == 2
     assert memories[0].status is SemanticMemoryStatus.ACTIVE
 
 
@@ -115,7 +130,7 @@ def test_cardinality_one_contradiction() -> None:
         _fact(episode_id="ep-2"),
         _fact(episode_id="ep-3", object_value="mysql", object_entity_id="mysql"),
     ]
-    memories = consolidator.consolidate(episodes, candidates)
+    memories = _reconcile(consolidator.consolidate(episodes, candidates))
     postgres = next(m for m in memories if m.object_value == "postgresql")
     assert postgres.contradiction_count >= 1
 

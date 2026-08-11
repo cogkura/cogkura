@@ -11,7 +11,10 @@ from cogkura.models import (
     MemoryIdentity,
     MemoryReference,
     ReferenceCompactionResult,
+    SemanticReconciliationPlan,
+    SemanticReconciliationWriteResult,
     StoredMemoryDynamics,
+    StoredSemanticRevision,
 )
 
 if TYPE_CHECKING:
@@ -133,8 +136,26 @@ class SemanticMemoryStore(Protocol):
         include_inactive: bool = False,
         status: SemanticMemoryStatus | None = None,
         limit: int | None = None,
-    ) -> list[StoredSemanticMemory]:
+        valid_at: datetime | None = None,
+    ) -> Sequence[StoredSemanticMemory]:
         """List tenant-scoped semantic memories."""
+
+    async def list_revisions(
+        self,
+        *,
+        tenant_id: str,
+        memory_key: str | None = None,
+        subject_id: str | None = None,
+        valid_at: datetime | None = None,
+        limit: int | None = None,
+    ) -> Sequence[StoredSemanticRevision]:
+        """List semantic revisions for a tenant."""
+
+    async def apply_reconciliation(
+        self,
+        plan: SemanticReconciliationPlan,
+    ) -> SemanticReconciliationWriteResult:
+        """Apply a reconciliation plan atomically."""
 
     async def deactivate_missing(
         self,

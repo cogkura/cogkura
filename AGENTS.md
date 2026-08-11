@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.7` working memory / inhibition over episodic + semantic memories
+- Current release focus: `0.8` temporal semantic reconsolidation over episodic + semantic memories
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -31,11 +31,12 @@ src/cogkura/
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore, MemoryDynamicsStore
   migrations/        # Cogkura-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py
+  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py, reconsolidation.py
 tests/
 examples/
   basic_memory.py
   working_memory.py
+  reconsolidation.py
   postgres_datasource/
 docs/
 ```
@@ -52,8 +53,9 @@ docs/
 | `apply_forgetting(tenant_id=...)` | Evaluate forgetting lifecycle and compact old activation references |
 | `encode_episodes(tenant_id=...)` | Build episodic memories from stored observations |
 | `list_episodes(tenant_id=...)` | List encoded episodes for a tenant |
-| `consolidate_semantics(tenant_id=...)` | Build semantic memories from active episodes |
-| `list_semantic_memories(tenant_id=...)` | List consolidated semantic memories |
+| `consolidate_semantics(tenant_id=...)` | Build semantic memories from active episodes (includes reconsolidation) |
+| `list_semantic_memories(tenant_id=..., valid_at=...)` | List consolidated semantic memories for a tenant |
+| `list_semantic_revisions(tenant_id=..., valid_at=...)` | List semantic revision history |
 | `clear(tenant_id=...)` | Remove activation refs, dynamics, semantic memories, episodes, observations |
 
 There is **no** parallel `MemoryEvent` / string-`observe` path. Cognitive work builds on observations.

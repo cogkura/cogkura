@@ -9,7 +9,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any, Protocol
 
@@ -22,14 +22,15 @@ from cogkura.models import (
     SemanticDerivationRelation,
     SemanticExtractionResult,
     SemanticFactCandidate,
-    SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticRevisionCandidate,
     StoredEpisode,
 )
 from cogkura.observations.models import StoredObservation
 
 _CONSOLIDATION_VERSION = "cls-deterministic-v1"
+_RECONCILIATION_VERSION = "reconsolidation-v1"
 _EXTRACTOR_VERSION = "metadata-v1"
 _SUBJECT_PLACEHOLDER = "__none__"
 _WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -42,8 +43,8 @@ class SemanticConsolidator(Protocol):
         self,
         episodes: Sequence[StoredEpisode],
         candidates: Sequence[SemanticFactCandidate],
-    ) -> list[SemanticMemoryInput]:
-        """Consolidate extracted facts into semantic memory candidates."""
+    ) -> list[SemanticRevisionCandidate]:
+        """Consolidate extracted facts into revision-aware semantic candidates."""
 
 
 class SemanticExtractor(Protocol):
@@ -104,7 +105,7 @@ class ComplementaryLearningSemanticConsolidator:
         self,
         episodes: Sequence[StoredEpisode],
         candidates: Sequence[SemanticFactCandidate],
-    ) -> list[SemanticMemoryInput]:
+    ) -> list[SemanticRevisionCandidate]:
         episode_by_id = {episode.id: episode for episode in episodes}
         prepared = _prepare_candidates(candidates, episode_by_id)
         slot_groups: dict[str, dict[str, list[tuple[SemanticFactCandidate, StoredEpisode]]]] = {}
@@ -114,7 +115,7 @@ class ComplementaryLearningSemanticConsolidator:
                 canonical.claim_key, []
             ).append((candidate, episode))
 
-        results: list[SemanticMemoryInput] = []
+        results: list[SemanticRevisionCandidate] = []
         for slot_key in sorted(slot_groups):
             claim_map = slot_groups[slot_key]
             claim_entries = {
@@ -125,41 +126,32 @@ class ComplementaryLearningSemanticConsolidator:
                 aggregate = claim_entries[claim_key]
                 if len(aggregate.supporting_episodes) < self._minimum_supporting_episodes:
                     continue
-                contradicting = _find_contradictions(claim_key, aggregate, claim_entries)
-                memory = self._build_memory(
-                    aggregate,
-                    contradicting,
-                    episode_by_id,
-                )
-                results.append(memory)
+                revision_groups = _group_by_validity(aggregate)
+                for group in revision_groups:
+                    if len(group.supporting_episodes) < self._minimum_supporting_episodes:
+                        continue
+                    results.append(
+                        self._build_revision_candidate(
+                            group,
+                            episode_by_id,
+                        )
+                    )
         return results
 
-    def _build_memory(
+    def _build_revision_candidate(
         self,
         aggregate: _ClaimAggregate,
-        contradicting: list[_EpisodeSupport],
         episode_by_id: Mapping[str, StoredEpisode],
-    ) -> SemanticMemoryInput:
+    ) -> SemanticRevisionCandidate:
         support_mass = sum(item.weight for item in aggregate.supporting_episodes)
-        contradiction_mass = sum(item.weight for item in contradicting)
         confidence = _calculate_confidence(
             support_mass=support_mass,
-            contradiction_mass=contradiction_mass,
+            contradiction_mass=0.0,
             source_namespaces=aggregate.source_namespaces,
             recurrence_tau=self._recurrence_tau,
             source_diversity_target=self._source_diversity_target,
         )
         importance = _calculate_importance(aggregate.supporting_episodes)
-        contradiction_ratio = (
-            contradiction_mass / (support_mass + contradiction_mass)
-            if (support_mass + contradiction_mass) > 0
-            else 0.0
-        )
-        status = (
-            SemanticMemoryStatus.CONTESTED
-            if contradiction_ratio >= self._contested_ratio_threshold
-            else SemanticMemoryStatus.ACTIVE
-        )
         supporting_derivations = tuple(
             SemanticDerivationInput(
                 episode_id=item.episode_id,
@@ -168,30 +160,26 @@ class ComplementaryLearningSemanticConsolidator:
             )
             for item in aggregate.supporting_episodes
         )
-        contradicting_derivations = tuple(
-            SemanticDerivationInput(
-                episode_id=item.episode_id,
-                relation=SemanticDerivationRelation.CONTRADICTS,
-                contribution_score=min(1.0, item.weight),
-            )
-            for item in contradicting
-        )
-        derivations = supporting_derivations + contradicting_derivations
         observation_evidence = _flatten_observation_evidence(
-            (*aggregate.supporting_episodes, *contradicting),
+            aggregate.supporting_episodes,
             episode_by_id,
         )
         entities = _build_entities(aggregate.canonical)
         first_supported_at = min(item.observed_at for item in aggregate.supporting_episodes)
         last_supported_at = max(item.observed_at for item in aggregate.supporting_episodes)
         statement = _build_statement(aggregate.canonical)
+        revision_key = generate_revision_key(
+            aggregate.canonical.claim_key,
+            valid_from=aggregate.valid_from,
+            valid_until=aggregate.valid_until,
+        )
         fingerprint = _content_fingerprint(
             claim_key=aggregate.canonical.claim_key,
-            status=status,
+            status=SemanticMemoryStatus.ACTIVE,
             confidence=confidence,
             importance=importance,
             supporting=aggregate.supporting_episodes,
-            contradicting=contradicting,
+            contradicting=(),
             observation_evidence=observation_evidence,
             extractor_version=self._extractor_version,
             consolidation_version=self._consolidation_version,
@@ -203,8 +191,15 @@ class ComplementaryLearningSemanticConsolidator:
                     "consolidation_version": self._consolidation_version,
                     "extractor_version": self._extractor_version,
                     "support_mass": support_mass,
-                    "contradiction_mass": contradiction_mass,
-                    "contradiction_ratio": contradiction_ratio,
+                    "contradiction_mass": 0.0,
+                    "contradiction_ratio": 0.0,
+                    "slot_key": aggregate.canonical.slot_key,
+                    "source_namespaces": tuple(sorted(aggregate.source_namespaces)),
+                    "validity_source": (
+                        "explicit"
+                        if aggregate.valid_from is not None or aggregate.valid_until is not None
+                        else "unspecified"
+                    ),
                     "confidence": {
                         "recurrence_tau": self._recurrence_tau,
                         "source_diversity_target": self._source_diversity_target,
@@ -214,12 +209,13 @@ class ComplementaryLearningSemanticConsolidator:
             }
         )
         subject_id = aggregate.supporting_episodes[0].episode.subject_id
-        return SemanticMemoryInput(
+        return SemanticRevisionCandidate(
             tenant_id=aggregate.canonical.tenant_id,
-            subject_id=subject_id,
             memory_key=aggregate.canonical.claim_key,
             slot_key=aggregate.canonical.slot_key,
+            revision_key=revision_key,
             statement=statement,
+            subject_id=subject_id,
             subject_entity_id=aggregate.canonical.subject_entity_id,
             predicate=aggregate.canonical.predicate,
             object_value=aggregate.canonical.object_value,
@@ -227,14 +223,14 @@ class ComplementaryLearningSemanticConsolidator:
             polarity=aggregate.canonical.polarity,
             cardinality=aggregate.canonical.cardinality,
             qualifiers=aggregate.canonical.qualifiers,
-            confidence=confidence,
-            importance=importance,
-            status=status,
+            valid_from=aggregate.valid_from,
+            valid_until=aggregate.valid_until,
             support_count=len(aggregate.supporting_episodes),
-            contradiction_count=len(contradicting),
             first_supported_at=first_supported_at,
             last_supported_at=last_supported_at,
-            derivations=derivations,
+            support_confidence=confidence,
+            importance=importance,
+            derivations=supporting_derivations,
             observation_evidence=observation_evidence,
             entities=entities,
             metadata=metadata,
@@ -302,6 +298,8 @@ class _ClaimAggregate:
     canonical: _CanonicalClaim
     supporting_episodes: tuple[_EpisodeSupport, ...]
     source_namespaces: frozenset[str]
+    valid_from: datetime | None
+    valid_until: datetime | None
 
 
 def _prepare_candidates(
@@ -357,7 +355,36 @@ def _build_claim_aggregate(
         canonical=canonical,
         supporting_episodes=tuple(sorted(supports, key=lambda s: (s.observed_at, s.episode_id))),
         source_namespaces=frozenset(namespaces),
+        valid_from=items[0][0].valid_from,
+        valid_until=items[0][0].valid_until,
     )
+
+
+def _group_by_validity(aggregate: _ClaimAggregate) -> list[_ClaimAggregate]:
+    groups: dict[tuple[str, str], list[_EpisodeSupport]] = {}
+    for support in aggregate.supporting_episodes:
+        key = (
+            support.candidate.valid_from.isoformat() if support.candidate.valid_from else "",
+            support.candidate.valid_until.isoformat() if support.candidate.valid_until else "",
+        )
+        groups.setdefault(key, []).append(support)
+    results: list[_ClaimAggregate] = []
+    for key in sorted(groups):
+        supports = groups[key]
+        valid_from = supports[0].candidate.valid_from
+        valid_until = supports[0].candidate.valid_until
+        results.append(
+            _ClaimAggregate(
+                canonical=aggregate.canonical,
+                supporting_episodes=tuple(
+                    sorted(supports, key=lambda s: (s.observed_at, s.episode_id))
+                ),
+                source_namespaces=aggregate.source_namespaces,
+                valid_from=valid_from,
+                valid_until=valid_until,
+            )
+        )
+    return results
 
 
 def _find_contradictions(
@@ -498,8 +525,46 @@ def _candidate_from_metadata(
         cardinality=cardinality,
         confidence=confidence,
         observed_at=observation.observed_at,
+        valid_from=_parse_optional_datetime(raw_fact.get("valid_from")),
+        valid_until=_parse_optional_datetime(raw_fact.get("valid_until")),
         qualifiers=MappingProxyType(dict(qualifiers)),
     )
+
+
+def generate_revision_key(
+    memory_key: str,
+    *,
+    valid_from: datetime | None,
+    valid_until: datetime | None,
+) -> str:
+    if valid_from is not None:
+        marker = valid_from.astimezone(UTC).isoformat()
+    elif valid_until is not None:
+        marker = f"end:{valid_until.astimezone(UTC).isoformat()}"
+    else:
+        marker = "unspecified"
+    canonical = "\x1f".join((memory_key, marker, _RECONCILIATION_VERSION))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _parse_optional_datetime(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise ValidationError("valid_from and valid_until must be timezone-aware.")
+        return value.astimezone(UTC)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            raise ValidationError("valid_from and valid_until must be timezone-aware.")
+        return parsed.astimezone(UTC)
+    raise ValidationError("valid_from and valid_until must be datetime values or ISO-8601 strings.")
 
 
 def _canonicalize_candidate(candidate: SemanticFactCandidate) -> _CanonicalClaim:

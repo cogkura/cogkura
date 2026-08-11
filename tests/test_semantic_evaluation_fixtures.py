@@ -8,6 +8,7 @@ from types import MappingProxyType
 import pytest
 
 from cogkura import Memory, ObservationInput
+from cogkura.algorithms.reconsolidation import DeterministicSemanticReconciler
 from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
 from cogkura.models import (
     EpisodeEvidenceInput,
@@ -73,11 +74,24 @@ def _fact(
     )
 
 
+_AS_OF = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
+
+
+def _reconcile(candidates):
+    plan = DeterministicSemanticReconciler().reconcile(
+        candidates=candidates,
+        existing_memories=(),
+        existing_revisions=(),
+        as_of=_AS_OF,
+    )
+    return plan.current_memories
+
+
 def test_fixture_stable_preference_promotes_with_two_episodes() -> None:
     consolidator = ComplementaryLearningSemanticConsolidator()
     episodes = [_episode(episode_id="ep-1"), _episode(episode_id="ep-2")]
     candidates = [_fact(episode_id="ep-1"), _fact(episode_id="ep-2")]
-    memories = consolidator.consolidate(episodes, candidates)
+    memories = _reconcile(consolidator.consolidate(episodes, candidates))
     assert len(memories) == 1
     assert memories[0].status is SemanticMemoryStatus.ACTIVE
     assert memories[0].support_count == 2
@@ -103,7 +117,7 @@ def test_fixture_negation_opposes_affirmation() -> None:
         _fact(episode_id="ep-1", polarity=SemanticPolarity.AFFIRM),
         _fact(episode_id="ep-2", polarity=SemanticPolarity.DENY),
     ]
-    memories = consolidator.consolidate(episodes, candidates)
+    memories = _reconcile(consolidator.consolidate(episodes, candidates))
     affirm = next(m for m in memories if m.polarity is SemanticPolarity.AFFIRM)
     assert affirm.contradiction_count >= 1
 
@@ -140,7 +154,7 @@ def test_fixture_source_disagreement_increases_contestation() -> None:
         _fact(episode_id="ep-2"),
         _fact(episode_id="ep-3", object_value="mysql", object_entity_id="mysql"),
     ]
-    memories = consolidator.consolidate(episodes, candidates)
+    memories = _reconcile(consolidator.consolidate(episodes, candidates))
     postgres = next(m for m in memories if m.object_value == "postgresql")
     assert postgres.contradiction_count >= 1
 

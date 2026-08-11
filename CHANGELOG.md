@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-11
+
+### Added
+
+- Temporal semantic reconsolidation with revision history and deterministic relation classification.
+- `DeterministicSemanticReconciler` and `SemanticUpdateRelation` (`REINFORCES`, `COEXISTS`, `SUPERSEDES`, `CONFLICTS`).
+- `Memory.list_semantic_revisions()` and `valid_at` on `list_semantic_memories()`, `recall()`, and `select_working_memory()`.
+- Structured `valid_from` / `valid_until` parsing on `semantic_facts` metadata.
+- `SemanticMemoryStore.apply_reconciliation()` with in-memory and PostgreSQL backends.
+- Migration `006_semantic_reconsolidation.sql` (`semantic_claim_revisions`, `semantic_revision_relations`, legacy backfill).
+- Reconsolidation example and [`docs/reconsolidation.md`](docs/reconsolidation.md).
+
+### Changed
+
+- **Breaking (pre-1.0):** `SemanticConsolidator.consolidate()` returns `list[SemanticRevisionCandidate]`.
+- `Memory.consolidate_semantics()` reconciles revisions atomically; `deactivate_missing` removed from this path.
+- PostgreSQL semantic `memories.valid_from/until` now store world validity (often `NULL`), not support timestamps.
+
+### Notes
+
+- Unknown temporal chronology yields `CONFLICTS`, not implicit supersession.
+- Reconsolidation does not append ACT-R activation references.
+
 ## [0.7.0] - 2026-08-11
 
 ### Added

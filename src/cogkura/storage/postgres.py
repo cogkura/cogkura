@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
@@ -12,6 +13,7 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from cogkura.algorithms.reconsolidation import revision_valid_at
 from cogkura.exceptions import StorageError
 from cogkura.models import (
     ActivationReferenceKind,
@@ -31,10 +33,13 @@ from cogkura.models import (
     SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticReconciliationPlan,
+    SemanticReconciliationWriteResult,
     SemanticWriteStatus,
     StoredEpisode,
     StoredMemoryDynamics,
     StoredSemanticMemory,
+    StoredSemanticRevision,
 )
 from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cogkura.observations.retention import RetainedObservation
@@ -921,10 +926,14 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                         c.slot_key, c.subject_entity_id, c.predicate, c.object_value,
                         c.object_entity_id, c.polarity, c.cardinality, c.qualifiers,
                         c.status, c.support_count, c.contradiction_count,
-                        c.first_supported_at, c.last_supported_at
+                        c.first_supported_at, c.last_supported_at,
+                        c.current_revision_key,
+                        COALESCE(r.revision_number, 1) AS revision_number
                     FROM {self._table("memories")} AS m
                     JOIN {self._table("semantic_claims")} AS c
                       ON c.memory_id = m.id
+                    LEFT JOIN {self._table("semantic_claim_revisions")} AS r
+                      ON r.revision_key = c.current_revision_key
                     WHERE m.id = :id
                     """
                 ),
@@ -998,7 +1007,13 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 self._memory_params(memory_id, memory),
             )
             await self._upsert_claim(conn, memory_id, memory)
-            await self._replace_derivations(conn, memory.tenant_id, memory_id, memory.derivations)
+            await self._replace_derivations(
+                conn,
+                memory.tenant_id,
+                memory_id,
+                memory.revision_key,
+                memory.derivations,
+            )
             await self._replace_evidence(conn, memory_id, memory.observation_evidence)
             await self._replace_entities(conn, memory_id, memory.entities)
 
@@ -1028,14 +1043,20 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     "statement": memory.statement,
                     "confidence": memory.confidence,
                     "importance": memory.importance,
-                    "valid_from": memory.first_supported_at,
-                    "valid_until": memory.last_supported_at,
+                    "valid_from": memory.valid_from,
+                    "valid_until": memory.valid_until,
                     "metadata": metadata_json,
                     "now": datetime.now(UTC),
                 },
             )
             await self._upsert_claim(conn, memory_id, memory)
-            await self._replace_derivations(conn, memory.tenant_id, memory_id, memory.derivations)
+            await self._replace_derivations(
+                conn,
+                memory.tenant_id,
+                memory_id,
+                memory.revision_key,
+                memory.derivations,
+            )
             await self._replace_evidence(conn, memory_id, memory.observation_evidence)
             await self._replace_entities(conn, memory_id, memory.entities)
 
@@ -1054,13 +1075,13 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     subject_entity_id, predicate, object_value, object_entity_id,
                     polarity, cardinality, qualifiers,
                     status, support_count, contradiction_count,
-                    first_supported_at, last_supported_at
+                    first_supported_at, last_supported_at, current_revision_key
                 ) VALUES (
                     :tenant_id, :memory_id, :slot_key,
                     :subject_entity_id, :predicate, :object_value, :object_entity_id,
                     :polarity, :cardinality, CAST(:qualifiers AS jsonb),
                     :status, :support_count, :contradiction_count,
-                    :first_supported_at, :last_supported_at
+                    :first_supported_at, :last_supported_at, :current_revision_key
                 )
                 ON CONFLICT (memory_id) DO UPDATE SET
                     slot_key = EXCLUDED.slot_key,
@@ -1075,7 +1096,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     support_count = EXCLUDED.support_count,
                     contradiction_count = EXCLUDED.contradiction_count,
                     first_supported_at = EXCLUDED.first_supported_at,
-                    last_supported_at = EXCLUDED.last_supported_at
+                    last_supported_at = EXCLUDED.last_supported_at,
+                    current_revision_key = EXCLUDED.current_revision_key
                 """
             ),
             {
@@ -1094,6 +1116,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 "contradiction_count": memory.contradiction_count,
                 "first_supported_at": memory.first_supported_at,
                 "last_supported_at": memory.last_supported_at,
+                "current_revision_key": memory.revision_key,
             },
         )
 
@@ -1102,16 +1125,17 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         conn: Any,
         tenant_id: str,
         memory_id: str,
+        revision_key: str,
         derivations: tuple[SemanticDerivationInput, ...],
     ) -> None:
         await conn.execute(
             text(
                 f"""
                 DELETE FROM {self._table("memory_derivations")}
-                WHERE target_memory_id = :memory_id
+                WHERE revision_key = :revision_key
                 """
             ),
-            {"memory_id": memory_id},
+            {"revision_key": revision_key},
         )
         for derivation in derivations:
             await conn.execute(
@@ -1119,10 +1143,10 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     f"""
                     INSERT INTO {self._table("memory_derivations")} (
                         tenant_id, target_memory_id, source_memory_id,
-                        relation, contribution_score
+                        relation, contribution_score, revision_key
                     ) VALUES (
                         :tenant_id, :target_memory_id, :source_memory_id,
-                        :relation, :contribution_score
+                        :relation, :contribution_score, :revision_key
                     )
                     """
                 ),
@@ -1132,6 +1156,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     "source_memory_id": derivation.episode_id,
                     "relation": derivation.relation.value,
                     "contribution_score": derivation.contribution_score,
+                    "revision_key": revision_key,
                 },
             )
 
@@ -1205,8 +1230,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             "statement": memory.statement,
             "confidence": memory.confidence,
             "importance": memory.importance,
-            "valid_from": memory.first_supported_at,
-            "valid_until": memory.last_supported_at,
+            "valid_from": memory.valid_from,
+            "valid_until": memory.valid_until,
             "metadata": json.dumps(dict(memory.metadata)),
             "now": now,
         }
@@ -1219,7 +1244,15 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         include_inactive: bool = False,
         status: SemanticMemoryStatus | None = None,
         limit: int | None = None,
-    ) -> list[StoredSemanticMemory]:
+        valid_at: datetime | None = None,
+    ) -> builtins.list[StoredSemanticMemory]:
+        if valid_at is not None:
+            return await self._list_at_valid_time(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                valid_at=valid_at,
+                limit=limit,
+            )
         clauses = ["m.tenant_id = :tenant_id", "m.memory_type = 'semantic'"]
         params: dict[str, Any] = {"tenant_id": tenant_id}
         if subject_id is not None:
@@ -1230,6 +1263,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         if status is not None:
             clauses.append("c.status = :status")
             params["status"] = status.value
+        else:
+            clauses.append("c.status <> 'superseded'")
         limit_clause = ""
         if limit is not None:
             limit_clause = " LIMIT :limit"
@@ -1254,6 +1289,384 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         for memory_id in memory_ids:
             memories.append(await self._load_semantic(memory_id))
         return memories
+
+    async def list_revisions(
+        self,
+        *,
+        tenant_id: str,
+        memory_key: str | None = None,
+        subject_id: str | None = None,
+        valid_at: datetime | None = None,
+        limit: int | None = None,
+    ) -> builtins.list[StoredSemanticRevision]:
+        clauses = ["r.tenant_id = :tenant_id"]
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if memory_key is not None:
+            clauses.append("r.memory_key = :memory_key")
+            params["memory_key"] = memory_key
+        if subject_id is not None:
+            clauses.append("m.subject_id = :subject_id")
+            params["subject_id"] = subject_id
+        limit_clause = ""
+        if limit is not None:
+            limit_clause = " LIMIT :limit"
+            params["limit"] = limit
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        r.revision_key, r.memory_key, r.tenant_id, r.revision_number,
+                        r.status, r.valid_from, r.valid_until, r.confidence,
+                        r.importance, r.support_count, r.contradiction_count,
+                        r.first_supported_at, r.last_supported_at,
+                        r.created_at, r.updated_at
+                    FROM {self._table("semantic_claim_revisions")} AS r
+                    JOIN {self._table("memories")} AS m
+                      ON m.id = r.memory_id
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY r.memory_key, r.revision_number
+                    {limit_clause}
+                    """
+                ),
+                params,
+            )
+            rows = result.mappings().all()
+        revisions: list[StoredSemanticRevision] = []
+        for row in rows:
+            revision = StoredSemanticRevision(
+                revision_key=row["revision_key"],
+                memory_key=row["memory_key"],
+                tenant_id=row["tenant_id"],
+                revision_number=int(row["revision_number"]),
+                status=SemanticMemoryStatus(row["status"]),
+                valid_from=row["valid_from"],
+                valid_until=row["valid_until"],
+                confidence=float(row["confidence"]),
+                importance=float(row["importance"]),
+                support_count=int(row["support_count"]),
+                contradiction_count=int(row["contradiction_count"]),
+                first_supported_at=row["first_supported_at"],
+                last_supported_at=row["last_supported_at"],
+                derivations=await self._load_revision_derivations(row["revision_key"]),
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            if valid_at is not None and not revision_valid_at(revision, valid_at):
+                continue
+            revisions.append(revision)
+        return revisions
+
+    async def apply_reconciliation(
+        self,
+        plan: SemanticReconciliationPlan,
+    ) -> SemanticReconciliationWriteResult:
+        now = datetime.now(UTC)
+        created = updated = unchanged = 0
+        revisions_created = revisions_updated = 0
+        relations_written = 0
+        async with self._engine.begin() as conn:
+            memory_ids: dict[tuple[str, str], str] = {}
+            for memory in plan.current_memories:
+                key = (memory.tenant_id, memory.memory_key)
+                existing = await conn.execute(
+                    text(
+                        f"""
+                        SELECT m.id, m.metadata
+                        FROM {self._table("memories")} AS m
+                        WHERE m.tenant_id = :tenant_id
+                          AND m.memory_type = 'semantic'
+                          AND m.memory_key = :memory_key
+                        """
+                    ),
+                    {"tenant_id": memory.tenant_id, "memory_key": memory.memory_key},
+                )
+                row = existing.mappings().first()
+                fingerprint = memory.metadata["semantic"]["content_fingerprint"]
+                if row is None:
+                    memory_id = str(uuid4())
+                    await conn.execute(
+                        text(
+                            f"""
+                            INSERT INTO {self._table("memories")} (
+                                id, tenant_id, subject_id, memory_type, memory_key,
+                                statement, confidence, importance,
+                                valid_from, valid_until, is_active, metadata,
+                                created_at, updated_at
+                            ) VALUES (
+                                :id, :tenant_id, :subject_id, 'semantic', :memory_key,
+                                :statement, :confidence, :importance,
+                                :valid_from, :valid_until, TRUE, CAST(:metadata AS jsonb),
+                                :now, :now
+                            )
+                            """
+                        ),
+                        self._memory_params(memory_id, memory),
+                    )
+                    created += 1
+                else:
+                    memory_id = str(row["id"])
+                    existing_metadata = row["metadata"]
+                    if isinstance(existing_metadata, str):
+                        existing_metadata = json.loads(existing_metadata)
+                    existing_fingerprint = existing_metadata.get("semantic", {}).get(
+                        "content_fingerprint"
+                    )
+                    if existing_fingerprint == fingerprint:
+                        unchanged += 1
+                    else:
+                        await conn.execute(
+                            text(
+                                f"""
+                                UPDATE {self._table("memories")}
+                                SET
+                                    subject_id = :subject_id,
+                                    statement = :statement,
+                                    confidence = :confidence,
+                                    importance = :importance,
+                                    valid_from = :valid_from,
+                                    valid_until = :valid_until,
+                                    is_active = TRUE,
+                                    metadata = CAST(:metadata AS jsonb),
+                                    updated_at = :now
+                                WHERE id = :id
+                                """
+                            ),
+                            {
+                                "id": memory_id,
+                                "subject_id": memory.subject_id,
+                                "statement": memory.statement,
+                                "confidence": memory.confidence,
+                                "importance": memory.importance,
+                                "valid_from": memory.valid_from,
+                                "valid_until": memory.valid_until,
+                                "metadata": json.dumps(dict(memory.metadata)),
+                                "now": now,
+                            },
+                        )
+                        updated += 1
+                memory_ids[key] = memory_id
+                await self._upsert_claim(conn, memory_id, memory)
+                await self._replace_derivations(
+                    conn,
+                    memory.tenant_id,
+                    memory_id,
+                    memory.revision_key,
+                    memory.derivations,
+                )
+                await self._replace_evidence(conn, memory_id, memory.observation_evidence)
+                await self._replace_entities(conn, memory_id, memory.entities)
+
+            for revision in plan.revisions:
+                resolved_memory_id = memory_ids.get((revision.tenant_id, revision.memory_key))
+                if resolved_memory_id is None:
+                    lookup = await conn.execute(
+                        text(
+                            f"""
+                            SELECT id
+                            FROM {self._table("memories")}
+                            WHERE tenant_id = :tenant_id
+                              AND memory_type = 'semantic'
+                              AND memory_key = :memory_key
+                            """
+                        ),
+                        {
+                            "tenant_id": revision.tenant_id,
+                            "memory_key": revision.memory_key,
+                        },
+                    )
+                    found = lookup.first()
+                    if found is None:
+                        continue
+                    resolved_memory_id = str(found[0])
+                    memory_ids[(revision.tenant_id, revision.memory_key)] = resolved_memory_id
+                existing_revision = await conn.execute(
+                    text(
+                        f"""
+                        SELECT revision_key
+                        FROM {self._table("semantic_claim_revisions")}
+                        WHERE revision_key = :revision_key
+                        """
+                    ),
+                    {"revision_key": revision.revision_key},
+                )
+                if existing_revision.first() is None:
+                    revisions_created += 1
+                else:
+                    revisions_updated += 1
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("semantic_claim_revisions")} (
+                            revision_key, tenant_id, memory_id, memory_key,
+                            revision_number, status, valid_from, valid_until,
+                            confidence, importance, support_count, contradiction_count,
+                            first_supported_at, last_supported_at, created_at, updated_at
+                        ) VALUES (
+                            :revision_key, :tenant_id, :memory_id, :memory_key,
+                            :revision_number, :status, :valid_from, :valid_until,
+                            :confidence, :importance, :support_count, :contradiction_count,
+                            :first_supported_at, :last_supported_at, :now, :now
+                        )
+                        ON CONFLICT (revision_key) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            valid_from = EXCLUDED.valid_from,
+                            valid_until = EXCLUDED.valid_until,
+                            confidence = EXCLUDED.confidence,
+                            importance = EXCLUDED.importance,
+                            support_count = EXCLUDED.support_count,
+                            contradiction_count = EXCLUDED.contradiction_count,
+                            first_supported_at = EXCLUDED.first_supported_at,
+                            last_supported_at = EXCLUDED.last_supported_at,
+                            updated_at = EXCLUDED.updated_at
+                        """
+                    ),
+                    {
+                        "revision_key": revision.revision_key,
+                        "tenant_id": revision.tenant_id,
+                        "memory_id": resolved_memory_id,
+                        "memory_key": revision.memory_key,
+                        "revision_number": revision.revision_number,
+                        "status": revision.status.value,
+                        "valid_from": revision.valid_from,
+                        "valid_until": revision.valid_until,
+                        "confidence": revision.confidence,
+                        "importance": revision.importance,
+                        "support_count": revision.support_count,
+                        "contradiction_count": revision.contradiction_count,
+                        "first_supported_at": revision.first_supported_at,
+                        "last_supported_at": revision.last_supported_at,
+                        "now": now,
+                    },
+                )
+                await self._replace_derivations(
+                    conn,
+                    revision.tenant_id,
+                    resolved_memory_id,
+                    revision.revision_key,
+                    revision.derivations,
+                )
+
+            for relation in plan.relations:
+                result = await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("semantic_revision_relations")} (
+                            tenant_id, left_revision_key, right_revision_key,
+                            relation, effective_at
+                        ) VALUES (
+                            :tenant_id, :left_revision_key, :right_revision_key,
+                            :relation, :effective_at
+                        )
+                        ON CONFLICT DO NOTHING
+                        """
+                    ),
+                    {
+                        "tenant_id": relation.tenant_id,
+                        "left_revision_key": relation.left_revision_key,
+                        "right_revision_key": relation.right_revision_key,
+                        "relation": relation.relation.value,
+                        "effective_at": relation.effective_at,
+                    },
+                )
+                if result.rowcount:
+                    relations_written += 1
+
+        return SemanticReconciliationWriteResult(
+            created=created,
+            updated=updated,
+            unchanged=unchanged,
+            revisions_created=revisions_created,
+            revisions_updated=revisions_updated,
+            relations_written=relations_written,
+        )
+
+    async def _list_at_valid_time(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        valid_at: datetime,
+        limit: int | None,
+    ) -> builtins.list[StoredSemanticMemory]:
+        revisions = await self.list_revisions(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            valid_at=valid_at,
+        )
+        results: list[StoredSemanticMemory] = []
+        for revision in revisions:
+            memory = await self._get_by_memory_key(
+                tenant_id=tenant_id,
+                memory_key=revision.memory_key,
+            )
+            if memory is None:
+                continue
+            results.append(
+                StoredSemanticMemory(
+                    id=memory.id,
+                    tenant_id=memory.tenant_id,
+                    subject_id=memory.subject_id,
+                    memory_key=memory.memory_key,
+                    slot_key=memory.slot_key,
+                    revision_key=revision.revision_key,
+                    revision_number=revision.revision_number,
+                    statement=memory.statement,
+                    subject_entity_id=memory.subject_entity_id,
+                    predicate=memory.predicate,
+                    object_value=memory.object_value,
+                    object_entity_id=memory.object_entity_id,
+                    polarity=memory.polarity,
+                    cardinality=memory.cardinality,
+                    qualifiers=memory.qualifiers,
+                    confidence=revision.confidence,
+                    importance=revision.importance,
+                    status=revision.status,
+                    support_count=revision.support_count,
+                    contradiction_count=revision.contradiction_count,
+                    first_supported_at=revision.first_supported_at,
+                    last_supported_at=revision.last_supported_at,
+                    valid_from=revision.valid_from,
+                    valid_until=revision.valid_until,
+                    is_active=True,
+                    derivations=revision.derivations,
+                    observation_evidence=memory.observation_evidence,
+                    entities=memory.entities,
+                    metadata=memory.metadata,
+                    created_at=memory.created_at,
+                    updated_at=memory.updated_at,
+                )
+            )
+        results.sort(key=lambda item: (item.first_supported_at, item.id))
+        if limit is not None:
+            return results[:limit]
+        return results
+
+    async def _load_revision_derivations(
+        self,
+        revision_key: str,
+    ) -> tuple[SemanticDerivationInput, ...]:
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT source_memory_id, relation, contribution_score
+                    FROM {self._table("memory_derivations")}
+                    WHERE revision_key = :revision_key
+                    ORDER BY source_memory_id, relation
+                    """
+                ),
+                {"revision_key": revision_key},
+            )
+            rows = result.mappings().all()
+        return tuple(
+            SemanticDerivationInput(
+                episode_id=str(row["source_memory_id"]),
+                relation=SemanticDerivationRelation(row["relation"]),
+                contribution_score=float(row["contribution_score"]),
+            )
+            for row in rows
+        )
 
     async def deactivate_missing(
         self,
@@ -1355,6 +1768,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             subject_id=row["subject_id"],
             memory_key=row["memory_key"],
             slot_key=row["slot_key"],
+            revision_key=row.get("current_revision_key") or f"legacy:{row['id']}",
+            revision_number=int(row.get("revision_number") or 1),
             statement=row["statement"],
             subject_entity_id=row["subject_entity_id"],
             predicate=row["predicate"],
@@ -1370,6 +1785,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             contradiction_count=int(row["contradiction_count"]),
             first_supported_at=row["first_supported_at"],
             last_supported_at=row["last_supported_at"],
+            valid_from=row["valid_from"],
+            valid_until=row["valid_until"],
             is_active=row["is_active"],
             derivations=derivations,
             observation_evidence=evidence,

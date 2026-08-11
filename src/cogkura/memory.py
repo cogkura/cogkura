@@ -16,6 +16,10 @@ from cogkura.algorithms.activation import (
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
+from cogkura.algorithms.reconsolidation import (
+    DeterministicSemanticReconciler,
+    SemanticReconciler,
+)
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
     MetadataSemanticExtractor,
@@ -46,6 +50,7 @@ from cogkura.models import (
     SemanticMemoryStatus,
     StoredEpisode,
     StoredSemanticMemory,
+    StoredSemanticRevision,
     WorkingMemoryConfig,
     WorkingMemorySnapshot,
 )
@@ -86,6 +91,7 @@ class Memory:
         episodic_encoder: EpisodicEncoder | None = None,
         semantic_extractor: SemanticExtractor | None = None,
         semantic_consolidator: SemanticConsolidator | None = None,
+        semantic_reconciler: SemanticReconciler | None = None,
         declarative_activator: DeclarativeActivator | None = None,
         forgetting_evaluator: ForgettingEvaluator | None = None,
         activation_config: ActivationConfig | None = None,
@@ -122,6 +128,11 @@ class Memory:
             semantic_consolidator
             if semantic_consolidator is not None
             else ComplementaryLearningSemanticConsolidator()
+        )
+        self._semantic_reconciler = (
+            semantic_reconciler
+            if semantic_reconciler is not None
+            else DeterministicSemanticReconciler()
         )
         self._declarative_activator = (
             declarative_activator
@@ -280,6 +291,7 @@ class Memory:
         subject_id: str | None = None,
         limit: int = 5,
         as_of: datetime | None = None,
+        valid_at: datetime | None = None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
         include_forgotten: bool = False,
     ) -> list[RecallResult]:
@@ -288,6 +300,8 @@ class Memory:
             raise ValidationError("tenant_id must not be empty.")
         if limit <= 0:
             raise ValidationError("Limit must be greater than zero.")
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
 
         cue = _normalise_cue(query, subject_id=subject_id)
         evaluation_time = _evaluation_time(as_of)
@@ -302,14 +316,22 @@ class Memory:
                 tenant_id=tenant_id,
                 subject_id=subject_id,
                 include_inactive=False,
+                valid_at=valid_at,
             ),
         )
-        eligible_semantics = [
-            memory
-            for memory in semantic_memories
-            if memory.status is not SemanticMemoryStatus.SUPERSEDED
-            and (semantic_statuses is None or memory.status in semantic_statuses)
-        ]
+        if valid_at is None:
+            eligible_semantics = [
+                memory
+                for memory in semantic_memories
+                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+                and (semantic_statuses is None or memory.status in semantic_statuses)
+            ]
+        else:
+            eligible_semantics = [
+                memory
+                for memory in semantic_memories
+                if semantic_statuses is None or memory.status in semantic_statuses
+            ]
         candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
             activation_candidate_from_semantic(memory) for memory in eligible_semantics
         ]
@@ -349,6 +371,7 @@ class Memory:
         previous: WorkingMemorySnapshot | None = None,
         prompt_budget_tokens: int | None = None,
         as_of: datetime | None = None,
+        valid_at: datetime | None = None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
         include_forgotten: bool = False,
     ) -> WorkingMemorySnapshot:
@@ -375,6 +398,7 @@ class Memory:
             subject_id=subject_id,
             limit=config.candidate_pool_size,
             as_of=evaluation_time,
+            valid_at=valid_at,
             semantic_statuses=semantic_statuses,
             include_forgotten=include_forgotten,
         )
@@ -608,28 +632,75 @@ class Memory:
             episodes,
             observations=observations_by_id,
         )
-        semantic_memories = self._semantic_consolidator.consolidate(
+        revision_candidates = self._semantic_consolidator.consolidate(
             episodes,
             extraction.candidates,
         )
+        existing_memories = await self._semantic_store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=True,
+        )
+        existing_revisions = await self._semantic_store.list_revisions(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+        plan = self._semantic_reconciler.reconcile(
+            candidates=revision_candidates,
+            existing_memories=existing_memories,
+            existing_revisions=existing_revisions,
+            as_of=datetime.now(UTC),
+        )
+        write_result = await self._semantic_store.apply_reconciliation(plan)
         result = SemanticConsolidationResult(
             episodes=len(episodes),
             extracted_candidates=len(extraction.candidates),
             extracted_failures=extraction.failed,
-            canonical_claims=len(semantic_memories),
+            canonical_claims=len(revision_candidates),
+            promoted=len(plan.current_memories),
+            created=write_result.created,
+            updated=write_result.updated,
+            unchanged=write_result.unchanged,
+            contested=sum(
+                1
+                for memory in plan.current_memories
+                if memory.status is SemanticMemoryStatus.CONTESTED
+            ),
+        ).with_reconciliation(
+            reinforced=plan.reinforced_count,
+            coexisting=plan.coexist_count,
+            conflicts=plan.conflict_count,
+            superseded=plan.superseded_count,
+            revisions_created=plan.revisions_created,
+            revisions_updated=plan.revisions_updated,
         )
-        active_keys: set[str] = set()
-        for semantic_memory in semantic_memories:
-            active_keys.add(semantic_memory.memory_key)
-            status = await self._semantic_store.upsert(semantic_memory)
-            result = result.record(status, semantic_memory.status)
+        return result
 
-        deactivated = await self._semantic_store.deactivate_missing(
-            tenant_id=tenant_id,
-            subject_id=subject_id,
-            active_memory_keys=active_keys,
+    async def list_semantic_revisions(
+        self,
+        *,
+        tenant_id: str,
+        memory_key: str | None = None,
+        subject_id: str | None = None,
+        valid_at: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[StoredSemanticRevision]:
+        """List semantic revision history for a tenant."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if limit is not None and limit <= 0:
+            raise ValidationError("Limit must be greater than zero.")
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+        return list(
+            await self._semantic_store.list_revisions(
+                tenant_id=tenant_id,
+                memory_key=memory_key,
+                subject_id=subject_id,
+                valid_at=valid_at,
+                limit=limit,
+            )
         )
-        return replace(result, deactivated=deactivated)
 
     async def list_semantic_memories(
         self,
@@ -639,18 +710,24 @@ class Memory:
         include_inactive: bool = False,
         status: SemanticMemoryStatus | None = None,
         limit: int | None = None,
+        valid_at: datetime | None = None,
     ) -> list[StoredSemanticMemory]:
         """List consolidated semantic memories for a tenant."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
         if limit is not None and limit <= 0:
             raise ValidationError("Limit must be greater than zero.")
-        return await self._semantic_store.list(
-            tenant_id=tenant_id,
-            subject_id=subject_id,
-            include_inactive=include_inactive,
-            status=status,
-            limit=limit,
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+        return list(
+            await self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=include_inactive,
+                status=status,
+                limit=limit,
+                valid_at=valid_at,
+            )
         )
 
     async def clear(self, *, tenant_id: str) -> None:

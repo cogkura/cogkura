@@ -2,6 +2,10 @@
 
 from cogkura.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cogkura.algorithms.reconsolidation import (
+    DeterministicSemanticReconciler,
+    SemanticReconciler,
+)
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
     MetadataSemanticExtractor,
@@ -42,9 +46,16 @@ from cogkura.models import (
     SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticReconciliationPlan,
+    SemanticReconciliationWriteResult,
+    SemanticRevisionCandidate,
+    SemanticRevisionInput,
+    SemanticRevisionRelation,
+    SemanticUpdateRelation,
     SemanticWriteStatus,
     StoredEpisode,
     StoredSemanticMemory,
+    StoredSemanticRevision,
     WorkingMemoryComponents,
     WorkingMemoryConfig,
     WorkingMemoryItem,
@@ -71,6 +82,7 @@ __all__ = [
     "DeclarativeActivator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
+    "DeterministicSemanticReconciler",
     "DeterministicWorkingMemorySelector",
     "EpisodeEncodingResult",
     "EpisodeEntity",
@@ -104,9 +116,17 @@ __all__ = [
     "SemanticMemoryInput",
     "SemanticMemoryStatus",
     "SemanticPolarity",
+    "SemanticReconciler",
+    "SemanticReconciliationPlan",
+    "SemanticReconciliationWriteResult",
+    "SemanticRevisionCandidate",
+    "SemanticRevisionInput",
+    "SemanticRevisionRelation",
+    "SemanticUpdateRelation",
     "SemanticWriteStatus",
     "StoredEpisode",
     "StoredSemanticMemory",
+    "StoredSemanticRevision",
     "StoredObservation",
     "TokenEstimator",
     "WorkingMemoryComponents",
@@ -115,4 +135,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.7.0"
+__version__ = "0.8.0"
