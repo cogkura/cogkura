@@ -290,11 +290,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.6.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, ACT-R declarative activation, spreading activation, and Ebbinghaus-inspired forgetting dynamics over memories, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
+Cogkura is in early development. Through `0.7.0`, the library provides observation ingestion, episodic encoding, semantic consolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, and bounded working-memory selection with goal relevance and competitive inhibition, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
 
-## Scope of 0.6.0
+## Scope of 0.7.0
 
-Implemented through `0.6.0`:
+Implemented through `0.7.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
