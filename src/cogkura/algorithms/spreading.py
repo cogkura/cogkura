@@ -10,6 +10,7 @@ from typing import Protocol
 from cogkura.models import (
     ActivationCandidate,
     ActivationConfig,
+    LearnedAssociation,
     MemoryIdentity,
     RetrievalCue,
 )
@@ -21,6 +22,7 @@ class SpreadingMetadata:
 
     hop: int
     sources: tuple[str, ...]
+    learned_association_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +42,7 @@ class SpreadingActivator(Protocol):
         candidates: Sequence[ActivationCandidate],
         cue: RetrievalCue,
         config: ActivationConfig,
+        learned_associations: Sequence[LearnedAssociation] = (),
     ) -> SpreadingResult:
         """Return bounded spreading scores for each activated memory."""
 
@@ -91,23 +94,42 @@ def _build_candidate_index(
     return {candidate.identity: candidate for candidate in candidates}
 
 
+def _build_learned_neighbours(
+    learned_associations: Sequence[LearnedAssociation],
+) -> dict[MemoryIdentity, list[tuple[MemoryIdentity, float]]]:
+    neighbours: dict[MemoryIdentity, list[tuple[MemoryIdentity, float]]] = defaultdict(list)
+    for association in learned_associations:
+        if association.strength <= 0.0:
+            continue
+        neighbours[association.left].append((association.right, association.strength))
+        neighbours[association.right].append((association.left, association.strength))
+    return {
+        identity: sorted(values, key=lambda item: _identity_sort_key(item[0]))
+        for identity, values in neighbours.items()
+    }
+
+
 def calculate_spreading_activation(
     *,
     candidates: Sequence[ActivationCandidate],
     cue: RetrievalCue,
     config: ActivationConfig,
+    learned_associations: Sequence[LearnedAssociation] = (),
 ) -> SpreadingResult:
     """Compute deterministic spreading activation over the candidate graph."""
     sources = _unique_cue_sources(cue)
-    if not sources:
+    candidate_by_identity = _build_candidate_index(candidates)
+    learned_neighbours = _build_learned_neighbours(learned_associations)
+
+    if not sources and not learned_neighbours:
         return SpreadingResult(scores={}, metadata={})
 
     entity_to_memories = _build_entity_to_memories(candidates)
-    candidate_by_identity = _build_candidate_index(candidates)
 
     entity_frontier = {entity_id: config.source_activation / len(sources) for entity_id in sources}
     memory_scores: dict[MemoryIdentity, float] = defaultdict(float)
     memory_hops: dict[MemoryIdentity, int] = {}
+    learned_edge_counts: dict[MemoryIdentity, int] = defaultdict(int)
     expanded_memories: set[MemoryIdentity] = set()
 
     for hop in range(1, config.spreading_max_hops + 1):
@@ -139,6 +161,15 @@ def calculate_spreading_activation(
             if identity not in memory_hops:
                 memory_hops[identity] = hop
 
+        _apply_learned_associations(
+            memory_frontier=memory_frontier,
+            candidate_by_identity=candidate_by_identity,
+            config=config,
+            learned_neighbours=learned_neighbours,
+            memory_scores=memory_scores,
+            learned_edge_counts=learned_edge_counts,
+        )
+
         if hop >= config.spreading_max_hops:
             break
 
@@ -169,11 +200,42 @@ def calculate_spreading_activation(
             break
 
     metadata = {
-        identity: SpreadingMetadata(hop=memory_hops[identity], sources=sources)
+        identity: SpreadingMetadata(
+            hop=memory_hops[identity],
+            sources=sources,
+            learned_association_count=learned_edge_counts.get(identity, 0),
+        )
         for identity in memory_scores
         if memory_scores[identity] > 0.0
     }
     return SpreadingResult(scores=dict(memory_scores), metadata=metadata)
+
+
+def _apply_learned_associations(
+    *,
+    memory_frontier: Mapping[MemoryIdentity, float],
+    candidate_by_identity: Mapping[MemoryIdentity, ActivationCandidate],
+    config: ActivationConfig,
+    learned_neighbours: Mapping[MemoryIdentity, Sequence[tuple[MemoryIdentity, float]]],
+    memory_scores: dict[MemoryIdentity, float],
+    learned_edge_counts: dict[MemoryIdentity, int],
+) -> None:
+    for identity in sorted(memory_frontier, key=_identity_sort_key):
+        memory_activation = memory_frontier[identity]
+        for neighbour, strength in learned_neighbours.get(identity, ()):
+            if neighbour not in candidate_by_identity:
+                continue
+            contribution = (
+                memory_activation
+                * config.spreading_decay
+                * config.learned_association_scale
+                * strength
+            )
+            if contribution < config.spreading_min_activation:
+                continue
+            previous = memory_scores.get(neighbour, 0.0)
+            memory_scores[neighbour] = min(config.source_activation, previous + contribution)
+            learned_edge_counts[neighbour] += 1
 
 
 class DeterministicSpreadingActivator:
@@ -185,9 +247,11 @@ class DeterministicSpreadingActivator:
         candidates: Sequence[ActivationCandidate],
         cue: RetrievalCue,
         config: ActivationConfig,
+        learned_associations: Sequence[LearnedAssociation] = (),
     ) -> SpreadingResult:
         return calculate_spreading_activation(
             candidates=candidates,
             cue=cue,
             config=config,
+            learned_associations=learned_associations,
         )

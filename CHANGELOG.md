@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-11
+
+### Added
+
+- Outcome-driven learning via `Memory.learn()` and `Memory.list_learning_state()`.
+- `LearningOutcome`, `LearningFeedback`, `LearningConfig`, and persistence through `LearningStore`.
+- HELPFUL learning reinforcement traces merged into ACT-R base-level history (without writing to `memory_activation_references`).
+- Contextual utility for working-memory selection (`learned_utility_weight`).
+- Persistent learned associations for spreading activation (`learned_association_scale`).
+- `DeterministicLearningProcessor`, `InMemoryLearningStore`, `PostgresLearningStore`.
+- Migration `007_learning_reinforcement.sql`.
+- Learning example and [`docs/learning.md`](docs/learning.md).
+
+### Notes
+
+- `learn()` does not call `record_access()`; ACTIVATION ≠ UTILITY ≠ ASSOCIATION.
+- `INCORRECT` does not mutate semantic confidence or revisions; corrections stay on the `0.8` observe → consolidate path.
+
 ## [0.8.0] - 2026-08-11
 
 ### Added

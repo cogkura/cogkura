@@ -2,6 +2,7 @@
 
 from cogkura.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
+from cogkura.algorithms.learning import DeterministicLearningProcessor, LearningProcessor
 from cogkura.algorithms.reconsolidation import (
     DeterministicSemanticReconciler,
     SemanticReconciler,
@@ -31,6 +32,12 @@ from cogkura.models import (
     EpisodeWriteStatus,
     ForgettingConfig,
     ForgettingResult,
+    LearnedAssociation,
+    LearningConfig,
+    LearningFeedback,
+    LearningOutcome,
+    LearningResult,
+    MemoryFeedback,
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
@@ -54,6 +61,7 @@ from cogkura.models import (
     SemanticUpdateRelation,
     SemanticWriteStatus,
     StoredEpisode,
+    StoredMemoryLearningState,
     StoredSemanticMemory,
     StoredSemanticRevision,
     WorkingMemoryComponents,
@@ -82,6 +90,7 @@ __all__ = [
     "DeclarativeActivator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
+    "DeterministicLearningProcessor",
     "DeterministicSemanticReconciler",
     "DeterministicWorkingMemorySelector",
     "EpisodeEncodingResult",
@@ -91,6 +100,13 @@ __all__ = [
     "EpisodeWriteStatus",
     "ForgettingConfig",
     "ForgettingResult",
+    "LearnedAssociation",
+    "LearningConfig",
+    "LearningFeedback",
+    "LearningOutcome",
+    "LearningProcessor",
+    "LearningResult",
+    "MemoryFeedback",
     "EpisodicEncoder",
     "IngestionResult",
     "IngestStatus",
@@ -125,6 +141,7 @@ __all__ = [
     "SemanticUpdateRelation",
     "SemanticWriteStatus",
     "StoredEpisode",
+    "StoredMemoryLearningState",
     "StoredSemanticMemory",
     "StoredSemanticRevision",
     "StoredObservation",
@@ -135,4 +152,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.8.0"
+__version__ = "0.9.0"

@@ -290,11 +290,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.8.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, and bounded working-memory selection with goal relevance and competitive inhibition, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
+Cogkura is in early development. Through `0.9.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, and outcome-driven learning via `Memory.learn()` with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
 
-## Scope of 0.8.0
+## Scope of 0.9.0
 
-Implemented through `0.8.0`:
+Implemented through `0.9.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -307,10 +307,11 @@ Implemented through `0.8.0`:
 - forgetting lifecycle, `Memory.apply_forgetting()`, weighted reference compaction, and `include_forgotten` on recall (`0.6`);
 - bounded working-memory selection, `Memory.select_working_memory()`, goal relevance, inhibition, and prompt budgeting (`0.7`);
 - temporal semantic reconsolidation, revision history, `Memory.list_semantic_revisions()`, and `valid_at` historical retrieval (`0.8`);
+- outcome-driven learning, `Memory.learn()`, contextual utility, HELPFUL ACT-R traces, and learned associations (`0.9`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.8.0`:
+Not implemented in `0.9.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -349,6 +350,7 @@ LLM reasoning and planning
 - `0.6`: forgetting / memory dynamics (done).
 - `0.7`: working-memory selection and inhibition (done).
 - `0.8`: temporal reconsolidation and memory updating (done).
+- `0.9`: learning and reinforcement (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

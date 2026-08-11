@@ -61,6 +61,7 @@ class WorkingMemorySelector(Protocol):
         config: WorkingMemoryConfig,
         token_estimator: TokenEstimator,
         prompt_budget_tokens: int | None = None,
+        learning_utilities: Mapping[MemoryIdentity, float] | None = None,
     ) -> WorkingMemorySnapshot:
         """Select a bounded working-memory set from recall candidates."""
         ...
@@ -73,6 +74,9 @@ class _ScoredCandidate:
     importance: float
     carryover: float
     base_priority: float
+    learned_utility: float
+    utility_adjustment: float
+    adjusted_priority: float
     estimated_tokens: int
     final_score: float = 0.0
     inhibition: float = 0.0
@@ -93,6 +97,7 @@ class DeterministicWorkingMemorySelector:
         config: WorkingMemoryConfig,
         token_estimator: TokenEstimator,
         prompt_budget_tokens: int | None = None,
+        learning_utilities: Mapping[MemoryIdentity, float] | None = None,
     ) -> WorkingMemorySnapshot:
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
@@ -140,6 +145,17 @@ class DeterministicWorkingMemorySelector:
                 + weight_i * importance
                 + weight_d * carryover
             )
+            identity = _identity_from_recall(recall)
+            learned_utility = 0.5
+            if learning_utilities is not None:
+                learned_utility = learning_utilities.get(identity, 0.5)
+            utility_signal = 2.0 * learned_utility - 1.0
+            utility_adjustment = config.learned_utility_weight * utility_signal
+            adjusted_priority = _clamp(
+                base_priority + utility_adjustment,
+                0.0,
+                1.0,
+            )
             estimated_tokens = token_estimator.estimate(recall.memory.statement)
             scored.append(
                 _ScoredCandidate(
@@ -148,6 +164,9 @@ class DeterministicWorkingMemorySelector:
                     importance=importance,
                     carryover=carryover,
                     base_priority=base_priority,
+                    learned_utility=learned_utility,
+                    utility_adjustment=utility_adjustment,
+                    adjusted_priority=adjusted_priority,
                     estimated_tokens=estimated_tokens,
                 )
             )
@@ -169,7 +188,7 @@ class DeterministicWorkingMemorySelector:
                 if inhibition > 0:
                     inhibited_identities.add(_identity_from_recall(candidate.recall))
                 candidate.final_score = _clamp(
-                    candidate.base_priority - inhibition,
+                    candidate.adjusted_priority - inhibition,
                     0.0,
                     1.0,
                 )
@@ -199,6 +218,9 @@ class DeterministicWorkingMemorySelector:
                     importance=candidate.importance,
                     carryover=candidate.carryover,
                     base_priority=candidate.base_priority,
+                    learned_utility=candidate.learned_utility,
+                    utility_adjustment=candidate.utility_adjustment,
+                    adjusted_priority=candidate.adjusted_priority,
                     inhibition=candidate.inhibition,
                     final_score=candidate.final_score,
                 ),
@@ -395,7 +417,7 @@ def _deterministic_best(scored: Sequence[_ScoredCandidate]) -> _ScoredCandidate:
 def _candidate_sort_key(candidate: _ScoredCandidate) -> tuple[float, float, float, str, str]:
     return (
         candidate.final_score,
-        candidate.base_priority,
+        candidate.adjusted_priority,
         candidate.recall.activation,
         candidate.recall.memory_kind.value,
         _memory_key_from_recall(candidate.recall),

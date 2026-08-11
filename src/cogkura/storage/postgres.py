@@ -7,7 +7,7 @@ import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -22,6 +22,9 @@ from cogkura.models import (
     EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
+    LearningOutcome,
+    LearningPlan,
+    LearningWriteResult,
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
@@ -37,7 +40,9 @@ from cogkura.models import (
     SemanticReconciliationWriteResult,
     SemanticWriteStatus,
     StoredEpisode,
+    StoredMemoryAssociation,
     StoredMemoryDynamics,
+    StoredMemoryLearningState,
     StoredSemanticMemory,
     StoredSemanticRevision,
 )
@@ -48,6 +53,7 @@ from cogkura.storage.base import (
     ActivationStore,
     CheckpointStore,
     EpisodeStore,
+    LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
     SemanticMemoryStore,
@@ -2173,5 +2179,406 @@ def _dynamics_from_row(row: Mapping[str, Any]) -> StoredMemoryDynamics:
         below_threshold_since=row["below_threshold_since"],
         forgotten_at=row["forgotten_at"],
         evaluated_at=row["evaluated_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+class PostgresLearningStore(LearningStore):
+    """PostgreSQL-backed learning and reinforcement store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cogkura") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def apply(self, plan: LearningPlan) -> LearningWriteResult:
+        async with self._engine.begin() as conn:
+            existing = await conn.execute(
+                text(
+                    f"""
+                    SELECT feedback_fingerprint
+                    FROM {self._table("memory_learning_events")}
+                    WHERE tenant_id = :tenant_id
+                      AND feedback_id = :feedback_id
+                    """
+                ),
+                {"tenant_id": plan.tenant_id, "feedback_id": plan.feedback_id},
+            )
+            row = existing.first()
+            if row is not None:
+                if row[0] == plan.feedback_fingerprint:
+                    return LearningWriteResult(
+                        created=False,
+                        unchanged=True,
+                        helpful=0,
+                        unhelpful=0,
+                        incorrect=0,
+                        associations_reinforced=0,
+                    )
+                raise StorageError(
+                    f"Conflicting feedback fingerprint for feedback_id {plan.feedback_id!r}."
+                )
+
+            helpful = unhelpful = incorrect = 0
+            for item in plan.items:
+                if item.outcome is LearningOutcome.HELPFUL:
+                    helpful += 1
+                elif item.outcome is LearningOutcome.UNHELPFUL:
+                    unhelpful += 1
+                else:
+                    incorrect += 1
+
+            await conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._table("memory_learning_events")} (
+                        tenant_id, feedback_id, feedback_fingerprint,
+                        subject_id, context_key, occurred_at, metadata, created_at
+                    ) VALUES (
+                        :tenant_id, :feedback_id, :feedback_fingerprint,
+                        :subject_id, :context_key, :occurred_at,
+                        CAST(:metadata AS jsonb), :created_at
+                    )
+                    """
+                ),
+                {
+                    "tenant_id": plan.tenant_id,
+                    "feedback_id": plan.feedback_id,
+                    "feedback_fingerprint": plan.feedback_fingerprint,
+                    "subject_id": plan.subject_id,
+                    "context_key": plan.context_key,
+                    "occurred_at": plan.occurred_at,
+                    "metadata": json.dumps(dict(plan.metadata)),
+                    "created_at": datetime.now(UTC),
+                },
+            )
+
+            for item in plan.items:
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("memory_learning_feedback")} (
+                            tenant_id, feedback_id, memory_kind, memory_key,
+                            revision_key, outcome, metadata, created_at
+                        ) VALUES (
+                            :tenant_id, :feedback_id, :memory_kind, :memory_key,
+                            :revision_key, :outcome, CAST(:metadata AS jsonb), :created_at
+                        )
+                        """
+                    ),
+                    {
+                        "tenant_id": plan.tenant_id,
+                        "feedback_id": plan.feedback_id,
+                        "memory_kind": item.identity.memory_kind.value,
+                        "memory_key": item.identity.memory_key,
+                        "revision_key": item.revision_key,
+                        "outcome": item.outcome.value,
+                        "metadata": json.dumps(dict(item.metadata)),
+                        "created_at": datetime.now(UTC),
+                    },
+                )
+                await self._increment_state(
+                    conn,
+                    tenant_id=plan.tenant_id,
+                    context_key=plan.context_key,
+                    identity=item.identity,
+                    outcome=item.outcome,
+                    at=plan.occurred_at,
+                )
+
+            associations_reinforced = 0
+            for left, right in plan.association_pairs:
+                await self._increment_association(
+                    conn,
+                    tenant_id=plan.tenant_id,
+                    left=left,
+                    right=right,
+                    at=plan.occurred_at,
+                )
+                associations_reinforced += 1
+
+        return LearningWriteResult(
+            created=True,
+            unchanged=False,
+            helpful=helpful,
+            unhelpful=unhelpful,
+            incorrect=incorrect,
+            associations_reinforced=associations_reinforced,
+        )
+
+    async def _increment_state(
+        self,
+        conn: Any,
+        *,
+        tenant_id: str,
+        context_key: str,
+        identity: MemoryIdentity,
+        outcome: LearningOutcome,
+        at: datetime,
+    ) -> None:
+        timestamp = at.astimezone(UTC)
+        helpful_delta = 1 if outcome is LearningOutcome.HELPFUL else 0
+        unhelpful_delta = 1 if outcome is LearningOutcome.UNHELPFUL else 0
+        incorrect_delta = 1 if outcome is LearningOutcome.INCORRECT else 0
+        await conn.execute(
+            text(
+                f"""
+                INSERT INTO {self._table("memory_learning_state")} (
+                    tenant_id, context_key, memory_kind, memory_key,
+                    helpful_count, unhelpful_count, incorrect_count,
+                    first_feedback_at, last_feedback_at, updated_at
+                ) VALUES (
+                    :tenant_id, :context_key, :memory_kind, :memory_key,
+                    :helpful_count, :unhelpful_count, :incorrect_count,
+                    :timestamp, :timestamp, :timestamp
+                )
+                ON CONFLICT (tenant_id, context_key, memory_kind, memory_key)
+                DO UPDATE SET
+                    helpful_count = {self._table("memory_learning_state")}.helpful_count
+                        + EXCLUDED.helpful_count,
+                    unhelpful_count = {self._table("memory_learning_state")}.unhelpful_count
+                        + EXCLUDED.unhelpful_count,
+                    incorrect_count = {self._table("memory_learning_state")}.incorrect_count
+                        + EXCLUDED.incorrect_count,
+                    last_feedback_at = EXCLUDED.last_feedback_at,
+                    updated_at = EXCLUDED.updated_at
+                """
+            ),
+            {
+                "tenant_id": tenant_id,
+                "context_key": context_key,
+                "memory_kind": identity.memory_kind.value,
+                "memory_key": identity.memory_key,
+                "helpful_count": helpful_delta,
+                "unhelpful_count": unhelpful_delta,
+                "incorrect_count": incorrect_delta,
+                "timestamp": timestamp,
+            },
+        )
+
+    async def _increment_association(
+        self,
+        conn: Any,
+        *,
+        tenant_id: str,
+        left: MemoryIdentity,
+        right: MemoryIdentity,
+        at: datetime,
+    ) -> None:
+        timestamp = at.astimezone(UTC)
+        await conn.execute(
+            text(
+                f"""
+                INSERT INTO {self._table("memory_learned_associations")} (
+                    tenant_id,
+                    left_memory_kind, left_memory_key,
+                    right_memory_kind, right_memory_key,
+                    coactivation_count,
+                    first_reinforced_at, last_reinforced_at, updated_at
+                ) VALUES (
+                    :tenant_id,
+                    :left_memory_kind, :left_memory_key,
+                    :right_memory_kind, :right_memory_key,
+                    1,
+                    :timestamp, :timestamp, :timestamp
+                )
+                ON CONFLICT (
+                    tenant_id,
+                    left_memory_kind,
+                    left_memory_key,
+                    right_memory_kind,
+                    right_memory_key
+                )
+                DO UPDATE SET
+                    coactivation_count = (
+                        {self._table("memory_learned_associations")}.coactivation_count + 1
+                    ),
+                    last_reinforced_at = EXCLUDED.last_reinforced_at,
+                    updated_at = EXCLUDED.updated_at
+                """
+            ),
+            {
+                "tenant_id": tenant_id,
+                "left_memory_kind": left.memory_kind.value,
+                "left_memory_key": left.memory_key,
+                "right_memory_kind": right.memory_kind.value,
+                "right_memory_key": right.memory_key,
+                "timestamp": timestamp,
+            },
+        )
+
+    async def list_states(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        context_keys: Sequence[str],
+    ) -> Sequence[StoredMemoryLearningState]:
+        if not identities or not context_keys:
+            return ()
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT tenant_id, context_key, memory_kind, memory_key,
+                           helpful_count, unhelpful_count, incorrect_count,
+                           first_feedback_at, last_feedback_at, updated_at
+                    FROM {self._table("memory_learning_state")}
+                    WHERE tenant_id = :tenant_id
+                      AND context_key = ANY(CAST(:context_keys AS text[]))
+                      AND (memory_kind, memory_key) IN (
+                          SELECT * FROM unnest(
+                              CAST(:kinds AS text[]),
+                              CAST(:keys AS text[])
+                          )
+                      )
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "context_keys": list(context_keys),
+                    "kinds": kinds,
+                    "keys": keys,
+                },
+            )
+            rows = result.mappings().all()
+        return tuple(_learning_state_from_row(cast(Mapping[str, Any], row)) for row in rows)
+
+    async def list_associations(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+    ) -> Sequence[StoredMemoryAssociation]:
+        if not identities:
+            return ()
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT tenant_id,
+                           left_memory_kind, left_memory_key,
+                           right_memory_kind, right_memory_key,
+                           coactivation_count,
+                           first_reinforced_at, last_reinforced_at, updated_at
+                    FROM {self._table("memory_learned_associations")}
+                    WHERE tenant_id = :tenant_id
+                      AND left_memory_kind = ANY(CAST(:kinds AS text[]))
+                      AND left_memory_key = ANY(CAST(:keys AS text[]))
+                      AND right_memory_kind = ANY(CAST(:kinds AS text[]))
+                      AND right_memory_key = ANY(CAST(:keys AS text[]))
+                    """
+                ),
+                {"tenant_id": tenant_id, "kinds": kinds, "keys": keys},
+            )
+            rows = result.mappings().all()
+        associations = tuple(_association_from_row(cast(Mapping[str, Any], row)) for row in rows)
+        identity_set = set(identities)
+        return tuple(
+            association
+            for association in associations
+            if association.left in identity_set and association.right in identity_set
+        )
+
+    async def list_reinforcement_traces(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        before_or_at: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[ActivationReferenceTrace, ...]]:
+        if not identities:
+            return {}
+        kinds = [identity.memory_kind.value for identity in identities]
+        keys = [identity.memory_key for identity in identities]
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT feedback.memory_kind, feedback.memory_key, events.occurred_at
+                    FROM {self._table("memory_learning_feedback")} AS feedback
+                    JOIN {self._table("memory_learning_events")} AS events
+                      ON events.tenant_id = feedback.tenant_id
+                     AND events.feedback_id = feedback.feedback_id
+                    WHERE feedback.tenant_id = :tenant_id
+                      AND feedback.outcome = :helpful
+                      AND events.occurred_at <= :before_or_at
+                      AND (feedback.memory_kind, feedback.memory_key) IN (
+                          SELECT * FROM unnest(
+                              CAST(:kinds AS text[]),
+                              CAST(:keys AS text[])
+                          )
+                      )
+                    ORDER BY events.occurred_at
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "helpful": LearningOutcome.HELPFUL.value,
+                    "before_or_at": before_or_at,
+                    "kinds": kinds,
+                    "keys": keys,
+                },
+            )
+            rows = result.mappings().all()
+        grouped: dict[MemoryIdentity, list[ActivationReferenceTrace]] = {}
+        for row in rows:
+            identity = MemoryIdentity(
+                memory_kind=MemoryKind(row["memory_kind"]),
+                memory_key=row["memory_key"],
+            )
+            grouped.setdefault(identity, []).append(
+                ActivationReferenceTrace(referenced_at=row["occurred_at"], weight=1)
+            )
+        return {identity: tuple(traces) for identity, traces in grouped.items()}
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memory_learning_events")}
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+
+
+def _learning_state_from_row(row: Mapping[str, Any]) -> StoredMemoryLearningState:
+    return StoredMemoryLearningState(
+        tenant_id=row["tenant_id"],
+        context_key=row["context_key"],
+        memory_kind=MemoryKind(row["memory_kind"]),
+        memory_key=row["memory_key"],
+        helpful_count=int(row["helpful_count"]),
+        unhelpful_count=int(row["unhelpful_count"]),
+        incorrect_count=int(row["incorrect_count"]),
+        first_feedback_at=row["first_feedback_at"],
+        last_feedback_at=row["last_feedback_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _association_from_row(row: Mapping[str, Any]) -> StoredMemoryAssociation:
+    return StoredMemoryAssociation(
+        tenant_id=row["tenant_id"],
+        left=MemoryIdentity(
+            memory_kind=MemoryKind(row["left_memory_kind"]),
+            memory_key=row["left_memory_key"],
+        ),
+        right=MemoryIdentity(
+            memory_kind=MemoryKind(row["right_memory_kind"]),
+            memory_key=row["right_memory_key"],
+        ),
+        coactivation_count=int(row["coactivation_count"]),
+        first_reinforced_at=row["first_reinforced_at"],
+        last_reinforced_at=row["last_reinforced_at"],
         updated_at=row["updated_at"],
     )

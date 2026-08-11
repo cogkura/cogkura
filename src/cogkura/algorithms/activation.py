@@ -20,6 +20,7 @@ from cogkura.models import (
     ActivationComponents,
     ActivationConfig,
     ActivationReferenceTrace,
+    LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
     RecallResult,
@@ -53,6 +54,7 @@ class DeclarativeActivator(Protocol):
         as_of: datetime,
         config: ActivationConfig,
         limit: int,
+        learned_associations: Sequence[LearnedAssociation] = (),
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -141,12 +143,14 @@ class ACTRDeclarativeActivator:
         as_of: datetime,
         config: ActivationConfig,
         limit: int,
+        learned_associations: Sequence[LearnedAssociation] = (),
     ) -> list[RecallResult]:
         spreading_result = (
             self._spreading_activator.calculate(
                 candidates=candidates,
                 cue=cue,
                 config=config,
+                learned_associations=learned_associations,
             )
             if config.enable_spreading_activation
             else None
@@ -259,6 +263,8 @@ def _build_reason(
             f"; spread_hop={spreading_metadata.hop}; "
             f"spread_sources={','.join(spreading_metadata.sources)}"
         )
+        if spreading_metadata.learned_association_count > 0:
+            reason += f"; learned_edges={spreading_metadata.learned_association_count}"
     return reason
 
 

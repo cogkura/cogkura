@@ -41,6 +41,7 @@ async def test_migration_files_are_ordered() -> None:
         "004_declarative_activation.sql",
         "005_forgetting_dynamics.sql",
         "006_semantic_reconsolidation.sql",
+        "007_learning_reinforcement.sql",
     ]
 
 
@@ -60,6 +61,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "004_declarative_activation",
         "005_forgetting_dynamics",
         "006_semantic_reconsolidation",
+        "007_learning_reinforcement",
     ]
 
 

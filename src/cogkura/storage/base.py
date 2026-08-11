@@ -8,12 +8,16 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from cogkura.models import (
     ActivationReferenceTrace,
+    LearningPlan,
+    LearningWriteResult,
     MemoryIdentity,
     MemoryReference,
     ReferenceCompactionResult,
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
+    StoredMemoryAssociation,
     StoredMemoryDynamics,
+    StoredMemoryLearningState,
     StoredSemanticRevision,
 )
 
@@ -223,3 +227,39 @@ class MemoryDynamicsStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove dynamics records for a tenant."""
+
+
+class LearningStore(Protocol):
+    """Persists learning feedback, utility counts, and learned associations."""
+
+    async def apply(self, plan: LearningPlan) -> LearningWriteResult:
+        """Apply a learning plan atomically and idempotently."""
+
+    async def list_states(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        context_keys: Sequence[str],
+    ) -> Sequence[StoredMemoryLearningState]:
+        """Load learning state for identities in the given contexts."""
+
+    async def list_associations(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+    ) -> Sequence[StoredMemoryAssociation]:
+        """Load learned associations whose endpoints are in the identity set."""
+
+    async def list_reinforcement_traces(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        before_or_at: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[ActivationReferenceTrace, ...]]:
+        """Load HELPFUL learning reinforcement traces for base-level activation."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove learning data for a tenant."""

@@ -828,6 +828,7 @@ class ActivationConfig:
     enable_partial_matching: bool = True
     enable_noise: bool = False
     max_candidates: int = 10_000
+    learned_association_scale: float = 0.25
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -856,6 +857,8 @@ class ActivationConfig:
             raise ValidationError("max_candidates must be greater than zero.")
         if self.enable_noise:
             raise ValidationError("enable_noise is not supported in this release.")
+        if not 0.0 <= self.learned_association_scale <= 1.0:
+            raise ValidationError("learned_association_scale must be between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1077,6 +1080,7 @@ class WorkingMemoryConfig:
     inhibition_strength: float = 0.30
     redundancy_threshold: float = 0.70
     decay_half_life_seconds: float = 300.0
+    learned_utility_weight: float = 0.10
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -1111,6 +1115,8 @@ class WorkingMemoryConfig:
             raise ValidationError("redundancy_threshold must be between 0.0 and 1.0.")
         if self.decay_half_life_seconds <= 0:
             raise ValidationError("decay_half_life_seconds must be greater than zero.")
+        if not 0.0 <= self.learned_utility_weight <= 1.0:
+            raise ValidationError("learned_utility_weight must be between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1122,6 +1128,9 @@ class WorkingMemoryComponents:
     importance: float
     carryover: float
     base_priority: float
+    learned_utility: float
+    utility_adjustment: float
+    adjusted_priority: float
     inhibition: float
     final_score: float
 
@@ -1132,6 +1141,9 @@ class WorkingMemoryComponents:
             ("importance", self.importance),
             ("carryover", self.carryover),
             ("base_priority", self.base_priority),
+            ("learned_utility", self.learned_utility),
+            ("utility_adjustment", self.utility_adjustment),
+            ("adjusted_priority", self.adjusted_priority),
             ("inhibition", self.inhibition),
             ("final_score", self.final_score),
         ):
@@ -1144,11 +1156,15 @@ class WorkingMemoryComponents:
             ("carryover", self.carryover),
             ("inhibition", self.inhibition),
             ("final_score", self.final_score),
+            ("learned_utility", self.learned_utility),
+            ("adjusted_priority", self.adjusted_priority),
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValidationError(f"{label} must be between 0.0 and 1.0.")
         if not 0.0 <= self.base_priority <= 1.0:
             raise ValidationError("base_priority must be between 0.0 and 1.0.")
+        if not -1.0 <= self.utility_adjustment <= 1.0:
+            raise ValidationError("utility_adjustment must be between -1.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1247,3 +1263,243 @@ class WorkingMemorySnapshot:
     @property
     def recall_results(self) -> tuple[RecallResult, ...]:
         return tuple(item.recall for item in self.items)
+
+
+class LearningOutcome(StrEnum):
+    """Outcome label for memory-use feedback."""
+
+    HELPFUL = "helpful"
+    UNHELPFUL = "unhelpful"
+    INCORRECT = "incorrect"
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryFeedback:
+    """Feedback for one memory identity within a learning event."""
+
+    identity: MemoryIdentity
+    outcome: LearningOutcome
+    revision_key: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
+class LearningFeedback:
+    """Application-supplied learning feedback for one task or evaluation."""
+
+    tenant_id: str
+    feedback_id: str
+    items: tuple[MemoryFeedback, ...]
+    occurred_at: datetime
+    subject_id: str | None = None
+    goal: RetrievalCue | None = None
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.feedback_id.strip():
+            raise ValidationError("feedback_id must not be empty.")
+        if not self.items:
+            raise ValidationError("items must not be empty.")
+        if self.occurred_at.tzinfo is None:
+            raise ValidationError("occurred_at must be timezone-aware.")
+        object.__setattr__(self, "occurred_at", self.occurred_at.astimezone(UTC))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+        seen: set[MemoryIdentity] = set()
+        for item in self.items:
+            if item.identity in seen:
+                raise ValidationError("items must not contain duplicate memory identities.")
+            seen.add(item.identity)
+
+
+@dataclass(frozen=True, slots=True)
+class LearningConfig:
+    """Configuration for learning, utility, and association behaviour."""
+
+    enabled: bool = True
+    utility_prior_positive: float = 1.0
+    utility_prior_negative: float = 1.0
+    incorrect_utility_weight: float = 1.0
+    association_tau: float = 3.0
+    minimum_association_coactivations: int = 2
+    max_feedback_items: int = 64
+    max_association_items_per_feedback: int = 8
+
+    def __post_init__(self) -> None:
+        if self.utility_prior_positive <= 0:
+            raise ValidationError("utility_prior_positive must be greater than zero.")
+        if self.utility_prior_negative <= 0:
+            raise ValidationError("utility_prior_negative must be greater than zero.")
+        if self.incorrect_utility_weight < 0:
+            raise ValidationError("incorrect_utility_weight must not be negative.")
+        if self.association_tau <= 0:
+            raise ValidationError("association_tau must be greater than zero.")
+        if self.minimum_association_coactivations <= 0:
+            raise ValidationError("minimum_association_coactivations must be greater than zero.")
+        if self.max_feedback_items <= 0:
+            raise ValidationError("max_feedback_items must be greater than zero.")
+        if self.max_association_items_per_feedback < 2:
+            raise ValidationError("max_association_items_per_feedback must be at least 2.")
+        if self.max_association_items_per_feedback > self.max_feedback_items:
+            raise ValidationError(
+                "max_association_items_per_feedback must not exceed max_feedback_items."
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class StoredMemoryLearningState:
+    """Persisted learning counts for one memory in one context."""
+
+    tenant_id: str
+    context_key: str
+    memory_kind: MemoryKind
+    memory_key: str
+    helpful_count: int
+    unhelpful_count: int
+    incorrect_count: int
+    first_feedback_at: datetime
+    last_feedback_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.context_key.strip():
+            raise ValidationError("context_key must not be empty.")
+        if not self.memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        for label, count in (
+            ("helpful_count", self.helpful_count),
+            ("unhelpful_count", self.unhelpful_count),
+            ("incorrect_count", self.incorrect_count),
+        ):
+            if count < 0:
+                raise ValidationError(f"{label} must not be negative.")
+        for label, timestamp in (
+            ("first_feedback_at", self.first_feedback_at),
+            ("last_feedback_at", self.last_feedback_at),
+            ("updated_at", self.updated_at),
+        ):
+            if timestamp.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+        object.__setattr__(self, "first_feedback_at", self.first_feedback_at.astimezone(UTC))
+        object.__setattr__(self, "last_feedback_at", self.last_feedback_at.astimezone(UTC))
+        object.__setattr__(self, "updated_at", self.updated_at.astimezone(UTC))
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        return MemoryIdentity(memory_kind=self.memory_kind, memory_key=self.memory_key)
+
+
+@dataclass(frozen=True, slots=True)
+class StoredMemoryAssociation:
+    """Persisted learned association between two memories."""
+
+    tenant_id: str
+    left: MemoryIdentity
+    right: MemoryIdentity
+    coactivation_count: int
+    first_reinforced_at: datetime
+    last_reinforced_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.coactivation_count <= 0:
+            raise ValidationError("coactivation_count must be greater than zero.")
+        if self.left == self.right:
+            raise ValidationError("left and right identities must differ.")
+        for label, value in (
+            ("first_reinforced_at", self.first_reinforced_at),
+            ("last_reinforced_at", self.last_reinforced_at),
+            ("updated_at", self.updated_at),
+        ):
+            if value.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+        object.__setattr__(self, "first_reinforced_at", self.first_reinforced_at.astimezone(UTC))
+        object.__setattr__(self, "last_reinforced_at", self.last_reinforced_at.astimezone(UTC))
+        object.__setattr__(self, "updated_at", self.updated_at.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class LearnedAssociation:
+    """Algorithm-facing learned association with derived strength."""
+
+    left: MemoryIdentity
+    right: MemoryIdentity
+    strength: float
+    coactivation_count: int
+
+    def __post_init__(self) -> None:
+        if self.left == self.right:
+            raise ValidationError("left and right identities must differ.")
+        if not 0.0 <= self.strength <= 1.0:
+            raise ValidationError("strength must be between 0.0 and 1.0.")
+        if self.coactivation_count <= 0:
+            raise ValidationError("coactivation_count must be greater than zero.")
+
+
+@dataclass(frozen=True, slots=True)
+class LearningPlan:
+    """Immutable plan produced by a learning processor."""
+
+    feedback_id: str
+    feedback_fingerprint: str
+    tenant_id: str
+    subject_id: str | None
+    context_key: str
+    occurred_at: datetime
+    items: tuple[MemoryFeedback, ...]
+    association_pairs: tuple[tuple[MemoryIdentity, MemoryIdentity], ...]
+    association_items_skipped: int
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not self.feedback_id.strip():
+            raise ValidationError("feedback_id must not be empty.")
+        if not self.feedback_fingerprint.strip():
+            raise ValidationError("feedback_fingerprint must not be empty.")
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.context_key.strip():
+            raise ValidationError("context_key must not be empty.")
+        if self.occurred_at.tzinfo is None:
+            raise ValidationError("occurred_at must be timezone-aware.")
+        if not self.items:
+            raise ValidationError("items must not be empty.")
+        if self.association_items_skipped < 0:
+            raise ValidationError("association_items_skipped must not be negative.")
+        object.__setattr__(self, "occurred_at", self.occurred_at.astimezone(UTC))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
+class LearningWriteResult:
+    """Outcome of applying a learning plan to storage."""
+
+    created: bool
+    unchanged: bool
+    helpful: int
+    unhelpful: int
+    incorrect: int
+    associations_reinforced: int
+
+
+@dataclass(frozen=True, slots=True)
+class LearningResult:
+    """Public outcome of Memory.learn()."""
+
+    created: bool = False
+    unchanged: bool = False
+    helpful: int = 0
+    unhelpful: int = 0
+    incorrect: int = 0
+    memories_reinforced: int = 0
+    associations_reinforced: int = 0
+    association_items_skipped: int = 0
+    reactivated: int = 0

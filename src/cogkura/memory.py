@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,6 +16,13 @@ from cogkura.algorithms.activation import (
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
+from cogkura.algorithms.learning import (
+    DeterministicLearningProcessor,
+    LearningProcessor,
+    build_learning_utilities,
+    calculate_association_strength,
+    learning_context_key,
+)
 from cogkura.algorithms.reconsolidation import (
     DeterministicSemanticReconciler,
     SemanticReconciler,
@@ -38,10 +45,17 @@ from cogkura.models import (
     ActivationCandidate,
     ActivationConfig,
     ActivationReferenceKind,
+    ActivationReferenceTrace,
     EpisodeEncodingResult,
     ForgettingConfig,
     ForgettingResult,
+    LearnedAssociation,
+    LearningConfig,
+    LearningFeedback,
+    LearningOutcome,
+    LearningResult,
     MemoryIdentity,
+    MemoryKind,
     MemoryReference,
     MemoryRetentionState,
     RecallResult,
@@ -49,6 +63,7 @@ from cogkura.models import (
     SemanticConsolidationResult,
     SemanticMemoryStatus,
     StoredEpisode,
+    StoredMemoryLearningState,
     StoredSemanticMemory,
     StoredSemanticRevision,
     WorkingMemoryConfig,
@@ -63,6 +78,7 @@ from cogkura.storage import (
     ActivationStore,
     CheckpointStore,
     EpisodeStore,
+    LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
     SemanticMemoryStore,
@@ -70,6 +86,7 @@ from cogkura.storage import (
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
+from cogkura.storage.in_memory_learning import InMemoryLearningStore
 from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 
@@ -88,6 +105,9 @@ class Memory:
         semantic_store: SemanticMemoryStore | None = None,
         activation_store: ActivationStore | None = None,
         dynamics_store: MemoryDynamicsStore | None = None,
+        learning_store: LearningStore | None = None,
+        learning_processor: LearningProcessor | None = None,
+        learning_config: LearningConfig | None = None,
         episodic_encoder: EpisodicEncoder | None = None,
         semantic_extractor: SemanticExtractor | None = None,
         semantic_consolidator: SemanticConsolidator | None = None,
@@ -118,6 +138,15 @@ class Memory:
         self._dynamics_store = (
             dynamics_store if dynamics_store is not None else InMemoryMemoryDynamicsStore()
         )
+        self._learning_store = (
+            learning_store if learning_store is not None else InMemoryLearningStore()
+        )
+        self._learning_processor = (
+            learning_processor
+            if learning_processor is not None
+            else DeterministicLearningProcessor()
+        )
+        self._learning_config = learning_config if learning_config is not None else LearningConfig()
         self._episodic_encoder = (
             episodic_encoder if episodic_encoder is not None else DeterministicEpisodicEncoder()
         )
@@ -347,10 +376,16 @@ class Memory:
             )
 
         identities = [candidate.identity for candidate in candidates]
-        references = await self._activation_store.list_reference_traces(
-            tenant_id=tenant_id,
-            identities=identities,
-            before_or_at=evaluation_time,
+        references, learned_associations = await asyncio.gather(
+            self._list_activation_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=evaluation_time,
+            ),
+            self._load_learned_associations(
+                tenant_id=tenant_id,
+                identities=identities,
+            ),
         )
         return self._declarative_activator.rank(
             candidates=candidates,
@@ -359,6 +394,7 @@ class Memory:
             as_of=evaluation_time,
             config=self._activation_config,
             limit=limit,
+            learned_associations=learned_associations,
         )
 
     async def select_working_memory(
@@ -403,6 +439,22 @@ class Memory:
             include_forgotten=include_forgotten,
         )
 
+        learning_utilities = None
+        if self._learning_config.enabled and results:
+            context_key = learning_context_key(goal_cue)
+            identities = [_identity_from_recall(result) for result in results]
+            states = await self._learning_store.list_states(
+                tenant_id=tenant_id,
+                identities=identities,
+                context_keys=("global", context_key),
+            )
+            learning_utilities = build_learning_utilities(
+                identities=identities,
+                states=states,
+                context_key=context_key,
+                config=self._learning_config,
+            )
+
         return self._working_memory_selector.select(
             candidates=results,
             goal=goal_cue,
@@ -413,6 +465,7 @@ class Memory:
             config=config,
             token_estimator=self._token_estimator,
             prompt_budget_tokens=prompt_budget_tokens,
+            learning_utilities=learning_utilities,
         )
 
     async def record_access(
@@ -496,7 +549,7 @@ class Memory:
         identities = [candidate.identity for candidate in candidates]
         dynamics, references = await asyncio.gather(
             self._dynamics_store.get_many(tenant_id=tenant_id, identities=identities),
-            self._activation_store.list_reference_traces(
+            self._list_activation_traces(
                 tenant_id=tenant_id,
                 identities=identities,
                 before_or_at=evaluation_time,
@@ -730,10 +783,106 @@ class Memory:
             )
         )
 
-    async def clear(self, *, tenant_id: str) -> None:
-        """Clear activation references, dynamics, semantic memories, episodes, and observations."""
+    async def learn(self, feedback: LearningFeedback) -> LearningResult:
+        """Apply outcome-driven learning from application feedback."""
+        if not self._learning_config.enabled:
+            return LearningResult()
+        await self._validate_learning_targets(feedback)
+        plan = self._learning_processor.plan(
+            feedback=feedback,
+            config=self._learning_config,
+        )
+        write_result = await self._learning_store.apply(plan)
+        if write_result.unchanged:
+            return LearningResult(
+                created=False,
+                unchanged=True,
+                association_items_skipped=plan.association_items_skipped,
+            )
+
+        helpful_identities = [
+            item.identity for item in plan.items if item.outcome is LearningOutcome.HELPFUL
+        ]
+        reactivated = 0
+        if helpful_identities:
+            dynamics_before = await self._dynamics_store.get_many(
+                tenant_id=plan.tenant_id,
+                identities=helpful_identities,
+            )
+            await self._dynamics_store.reactivate(
+                tenant_id=plan.tenant_id,
+                identities=helpful_identities,
+                at=plan.occurred_at,
+            )
+            reactivated = sum(
+                1
+                for identity in helpful_identities
+                if dynamics_before.get(identity) is not None
+                and dynamics_before[identity].retention_state
+                in {MemoryRetentionState.FADING, MemoryRetentionState.FORGOTTEN}
+            )
+
+        return LearningResult(
+            created=write_result.created,
+            unchanged=write_result.unchanged,
+            helpful=write_result.helpful,
+            unhelpful=write_result.unhelpful,
+            incorrect=write_result.incorrect,
+            memories_reinforced=write_result.helpful,
+            associations_reinforced=write_result.associations_reinforced,
+            association_items_skipped=plan.association_items_skipped,
+            reactivated=reactivated,
+        )
+
+    async def list_learning_state(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity] | None = None,
+        goal: RetrievalCue | None = None,
+    ) -> list[StoredMemoryLearningState]:
+        """List persisted learning counts for inspection and debugging."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
+
+        target_identities = list(identities or ())
+        if not target_identities:
+            episodes, semantic_memories = await asyncio.gather(
+                self._episode_store.list(
+                    tenant_id=tenant_id,
+                    include_inactive=False,
+                ),
+                self._semantic_store.list(
+                    tenant_id=tenant_id,
+                    include_inactive=False,
+                ),
+            )
+            target_identities = [
+                MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key=episode.memory_key)
+                for episode in episodes
+            ] + [
+                MemoryIdentity(
+                    memory_kind=MemoryKind.SEMANTIC,
+                    memory_key=memory.memory_key,
+                )
+                for memory in semantic_memories
+            ]
+
+        context_key = learning_context_key(goal)
+        context_keys = ("global",) if context_key == "global" else ("global", context_key)
+        return list(
+            await self._learning_store.list_states(
+                tenant_id=tenant_id,
+                identities=target_identities,
+                context_keys=context_keys,
+            )
+        )
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Clear learning, activation, dynamics, semantic memories, episodes, and observations."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        await self._learning_store.clear(tenant_id=tenant_id)
         await self._activation_store.clear(tenant_id=tenant_id)
         await self._dynamics_store.clear(tenant_id=tenant_id)
         await self._semantic_store.clear(tenant_id=tenant_id)
@@ -765,6 +914,134 @@ class Memory:
             if dynamics.get(candidate.identity) is None
             or dynamics[candidate.identity].retention_state is not MemoryRetentionState.FORGOTTEN
         ]
+
+    async def _list_activation_traces(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        before_or_at: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[ActivationReferenceTrace, ...]]:
+        access_traces, learning_traces = await asyncio.gather(
+            self._activation_store.list_reference_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=before_or_at,
+            ),
+            self._learning_store.list_reinforcement_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=before_or_at,
+            ),
+        )
+        merged: dict[MemoryIdentity, list[ActivationReferenceTrace]] = {}
+        for source in (access_traces, learning_traces):
+            for identity, traces in source.items():
+                merged.setdefault(identity, []).extend(traces)
+        return {
+            identity: tuple(sorted(traces, key=lambda trace: trace.referenced_at))
+            for identity, traces in merged.items()
+        }
+
+    async def _load_learned_associations(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+    ) -> tuple[LearnedAssociation, ...]:
+        if not self._learning_config.enabled or not identities:
+            return ()
+        stored = await self._learning_store.list_associations(
+            tenant_id=tenant_id,
+            identities=identities,
+        )
+        learned: list[LearnedAssociation] = []
+        for association in stored:
+            strength = calculate_association_strength(
+                association.coactivation_count,
+                config=self._learning_config,
+            )
+            if strength <= 0.0:
+                continue
+            learned.append(
+                LearnedAssociation(
+                    left=association.left,
+                    right=association.right,
+                    strength=strength,
+                    coactivation_count=association.coactivation_count,
+                )
+            )
+        return tuple(learned)
+
+    async def _validate_learning_targets(self, feedback: LearningFeedback) -> None:
+        episodes, semantic_memories = await asyncio.gather(
+            self._episode_store.list(
+                tenant_id=feedback.tenant_id,
+                subject_id=feedback.subject_id,
+                include_inactive=False,
+            ),
+            self._semantic_store.list(
+                tenant_id=feedback.tenant_id,
+                subject_id=feedback.subject_id,
+                include_inactive=False,
+            ),
+        )
+        episodes_by_key = {episode.memory_key: episode for episode in episodes}
+        semantics_by_key = {memory.memory_key: memory for memory in semantic_memories}
+        revision_keys: set[str] = {
+            item.revision_key
+            for item in feedback.items
+            if item.revision_key is not None and item.revision_key.strip()
+        }
+        revisions_by_key: dict[str, StoredSemanticRevision] = {}
+        if revision_keys:
+            revisions = await self._semantic_store.list_revisions(
+                tenant_id=feedback.tenant_id,
+                subject_id=feedback.subject_id,
+            )
+            revisions_by_key = {revision.revision_key: revision for revision in revisions}
+
+        for item in feedback.items:
+            identity = item.identity
+            if identity.memory_kind is MemoryKind.EPISODE:
+                episode = episodes_by_key.get(identity.memory_key)
+                if episode is None:
+                    raise ValidationError(
+                        f"Unknown episode memory_key {identity.memory_key!r} for tenant."
+                    )
+                if feedback.subject_id is not None and episode.subject_id != feedback.subject_id:
+                    raise ValidationError(
+                        f"Episode {identity.memory_key!r} subject_id does not match feedback."
+                    )
+                if item.revision_key is not None:
+                    raise ValidationError("revision_key is only valid for semantic memories.")
+                continue
+
+            memory = semantics_by_key.get(identity.memory_key)
+            if memory is None:
+                raise ValidationError(
+                    f"Unknown semantic memory_key {identity.memory_key!r} for tenant."
+                )
+            if feedback.subject_id is not None and memory.subject_id != feedback.subject_id:
+                raise ValidationError(
+                    f"Semantic memory {identity.memory_key!r} subject_id does not match feedback."
+                )
+            if item.revision_key is not None:
+                revision = revisions_by_key.get(item.revision_key)
+                if revision is None:
+                    raise ValidationError(f"Unknown revision_key {item.revision_key!r} for tenant.")
+                if revision.memory_key != identity.memory_key:
+                    raise ValidationError(
+                        f"revision_key {item.revision_key!r} does not belong to "
+                        f"memory_key {identity.memory_key!r}."
+                    )
+
+
+def _identity_from_recall(result: RecallResult) -> MemoryIdentity:
+    memory = result.memory
+    if isinstance(memory, StoredEpisode):
+        return MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key=memory.memory_key)
+    return MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key=memory.memory_key)
 
 
 def _normalise_cue(query: str | RetrievalCue, *, subject_id: str | None) -> RetrievalCue:

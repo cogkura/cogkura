@@ -70,6 +70,12 @@
 - immutable `WorkingMemorySnapshot`;
 - no persistent working-memory store.
 
+## 0.9 - Learning and reinforcement (done)
+
+- Outcome feedback (`HELPFUL`, `UNHELPFUL`, `INCORRECT`) via `Memory.learn()`.
+- Contextual utility for working memory; HELPFUL ACT-R traces; learned associations in spreading.
+- Migration `007_learning_reinforcement.sql`.
+
 ## 0.8 - Reconsolidation / memory updating (done)
 
 - revision-aware semantic consolidation (`SemanticRevisionCandidate`);
@@ -81,7 +87,8 @@
 
 ## Later
 
-- `0.9`: learning / reinforcement on reconsolidation (planned);
+- `0.9`: learning / reinforcement (done);
+- `0.10`: metamemory (planned);
 - `0.10`: additional cognitive maintenance (planned);
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;

@@ -145,6 +145,9 @@ def test_working_memory_components_validation() -> None:
             importance=0.5,
             carryover=0.0,
             base_priority=0.5,
+            learned_utility=0.5,
+            utility_adjustment=0.0,
+            adjusted_priority=0.5,
             inhibition=0.0,
             final_score=0.5,
         )
