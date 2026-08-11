@@ -8,6 +8,12 @@ from cogkura.algorithms.semantic import (
     SemanticConsolidator,
     SemanticExtractor,
 )
+from cogkura.algorithms.working_memory import (
+    ApproximateTokenEstimator,
+    DeterministicWorkingMemorySelector,
+    TokenEstimator,
+    WorkingMemorySelector,
+)
 from cogkura.memory import Memory
 from cogkura.models import (
     ActivationComponents,
@@ -39,6 +45,10 @@ from cogkura.models import (
     SemanticWriteStatus,
     StoredEpisode,
     StoredSemanticMemory,
+    WorkingMemoryComponents,
+    WorkingMemoryConfig,
+    WorkingMemoryItem,
+    WorkingMemorySnapshot,
 )
 from cogkura.observations import (
     DefaultObservationPolicy,
@@ -56,10 +66,12 @@ __all__ = [
     "ActivationConfig",
     "ActivationReferenceKind",
     "ActivationReferenceTrace",
+    "ApproximateTokenEstimator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
+    "DeterministicWorkingMemorySelector",
     "EpisodeEncodingResult",
     "EpisodeEntity",
     "EpisodeEvidenceInput",
@@ -96,5 +108,11 @@ __all__ = [
     "StoredEpisode",
     "StoredSemanticMemory",
     "StoredObservation",
+    "TokenEstimator",
+    "WorkingMemoryComponents",
+    "WorkingMemoryConfig",
+    "WorkingMemoryItem",
+    "WorkingMemorySelector",
+    "WorkingMemorySnapshot",
 ]
-__version__ = "0.6.0"
+__version__ = "0.7.0"

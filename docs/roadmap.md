@@ -60,11 +60,15 @@
 - weighted activation-reference compaction;
 - migration `005_forgetting_dynamics.sql`.
 
-## 0.7 - Working memory / inhibition
+## 0.7 - Working memory / inhibition (done)
 
-- bounded working-memory selection from activated candidates;
-- goal relevance and prompt budgeting;
-- inhibition and decay beyond base-level equation defaults.
+- deterministic bounded selection from `RecallResult` candidates;
+- goal-aware ranking;
+- item and prompt budgets;
+- competitive redundancy inhibition;
+- transient working-memory decay and carry-over;
+- immutable `WorkingMemorySnapshot`;
+- no persistent working-memory store.
 
 ## Later
 

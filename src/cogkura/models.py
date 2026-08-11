@@ -731,3 +731,191 @@ class ReferenceCompactionResult:
     """Outcome of activation reference compaction."""
 
     references_compacted: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class WorkingMemoryConfig:
+    """Configuration for bounded working-memory selection."""
+
+    candidate_pool_size: int = 50
+    max_items: int = 8
+    max_prompt_tokens: int = 2_048
+    activation_weight: float = 0.45
+    goal_relevance_weight: float = 0.35
+    importance_weight: float = 0.15
+    carryover_weight: float = 0.05
+    minimum_goal_relevance: float = 0.0
+    minimum_selection_score: float = 0.0
+    inhibition_strength: float = 0.30
+    redundancy_threshold: float = 0.70
+    decay_half_life_seconds: float = 300.0
+
+    def __post_init__(self) -> None:
+        if self.candidate_pool_size <= 0:
+            raise ValidationError("candidate_pool_size must be greater than zero.")
+        if self.max_items <= 0:
+            raise ValidationError("max_items must be greater than zero.")
+        if self.max_prompt_tokens <= 0:
+            raise ValidationError("max_prompt_tokens must be greater than zero.")
+        ranking_weights = (
+            self.activation_weight,
+            self.goal_relevance_weight,
+            self.importance_weight,
+            self.carryover_weight,
+        )
+        for label, weight in (
+            ("activation_weight", self.activation_weight),
+            ("goal_relevance_weight", self.goal_relevance_weight),
+            ("importance_weight", self.importance_weight),
+            ("carryover_weight", self.carryover_weight),
+        ):
+            if not math.isfinite(weight) or weight < 0:
+                raise ValidationError(f"{label} must be finite and non-negative.")
+        if sum(weight for weight in ranking_weights if weight > 0) <= 0:
+            raise ValidationError("At least one ranking weight must be positive.")
+        if not 0.0 <= self.minimum_goal_relevance <= 1.0:
+            raise ValidationError("minimum_goal_relevance must be between 0.0 and 1.0.")
+        if not 0.0 <= self.minimum_selection_score <= 1.0:
+            raise ValidationError("minimum_selection_score must be between 0.0 and 1.0.")
+        if not 0.0 <= self.inhibition_strength <= 1.0:
+            raise ValidationError("inhibition_strength must be between 0.0 and 1.0.")
+        if not 0.0 <= self.redundancy_threshold <= 1.0:
+            raise ValidationError("redundancy_threshold must be between 0.0 and 1.0.")
+        if self.decay_half_life_seconds <= 0:
+            raise ValidationError("decay_half_life_seconds must be greater than zero.")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkingMemoryComponents:
+    """Decomposed working-memory selection scores."""
+
+    activation: float
+    goal_relevance: float
+    importance: float
+    carryover: float
+    base_priority: float
+    inhibition: float
+    final_score: float
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("activation", self.activation),
+            ("goal_relevance", self.goal_relevance),
+            ("importance", self.importance),
+            ("carryover", self.carryover),
+            ("base_priority", self.base_priority),
+            ("inhibition", self.inhibition),
+            ("final_score", self.final_score),
+        ):
+            if not math.isfinite(value):
+                raise ValidationError(f"{label} must be finite.")
+        for label, value in (
+            ("activation", self.activation),
+            ("goal_relevance", self.goal_relevance),
+            ("importance", self.importance),
+            ("carryover", self.carryover),
+            ("inhibition", self.inhibition),
+            ("final_score", self.final_score),
+        ):
+            if not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be between 0.0 and 1.0.")
+        if not 0.0 <= self.base_priority <= 1.0:
+            raise ValidationError("base_priority must be between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkingMemoryItem:
+    """One memory selected into the current working-memory workspace."""
+
+    recall: RecallResult
+    estimated_tokens: int
+    transient_strength: float
+    components: WorkingMemoryComponents
+    rank: int
+    reason: str
+
+    def __post_init__(self) -> None:
+        if self.estimated_tokens < 0:
+            raise ValidationError("estimated_tokens must not be negative.")
+        if not math.isfinite(self.transient_strength):
+            raise ValidationError("transient_strength must be finite.")
+        if not 0.0 <= self.transient_strength <= 1.0:
+            raise ValidationError("transient_strength must be between 0.0 and 1.0.")
+        if self.rank <= 0:
+            raise ValidationError("rank must be greater than zero.")
+
+    @property
+    def memory_kind(self) -> MemoryKind:
+        return self.recall.memory_kind
+
+    @property
+    def memory(self) -> StoredEpisode | StoredSemanticMemory:
+        return self.recall.memory
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        memory = self.recall.memory
+        if isinstance(memory, StoredEpisode):
+            return MemoryIdentity(
+                memory_kind=MemoryKind.EPISODE,
+                memory_key=memory.memory_key,
+            )
+        return MemoryIdentity(
+            memory_kind=MemoryKind.SEMANTIC,
+            memory_key=memory.memory_key,
+        )
+
+    @property
+    def goal_relevance(self) -> float:
+        return self.components.goal_relevance
+
+    @property
+    def selection_score(self) -> float:
+        return self.components.final_score
+
+    @property
+    def inhibition_penalty(self) -> float:
+        return self.components.inhibition
+
+
+@dataclass(frozen=True, slots=True)
+class WorkingMemorySnapshot:
+    """Immutable working-memory workspace returned to the caller."""
+
+    tenant_id: str
+    subject_id: str | None
+    goal: RetrievalCue
+    items: tuple[WorkingMemoryItem, ...]
+    created_at: datetime
+    candidate_count: int
+    selected_count: int
+    estimated_prompt_tokens: int
+    prompt_budget_tokens: int
+    goal_filtered_count: int
+    inhibited_count: int
+    budget_skipped_count: int
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.created_at.tzinfo is None:
+            raise ValidationError("created_at must be timezone-aware.")
+        object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
+        if self.candidate_count < 0:
+            raise ValidationError("candidate_count must not be negative.")
+        if self.selected_count < 0:
+            raise ValidationError("selected_count must not be negative.")
+        if self.estimated_prompt_tokens < 0:
+            raise ValidationError("estimated_prompt_tokens must not be negative.")
+        if self.prompt_budget_tokens <= 0:
+            raise ValidationError("prompt_budget_tokens must be greater than zero.")
+        if self.goal_filtered_count < 0:
+            raise ValidationError("goal_filtered_count must not be negative.")
+        if self.inhibited_count < 0:
+            raise ValidationError("inhibited_count must not be negative.")
+        if self.budget_skipped_count < 0:
+            raise ValidationError("budget_skipped_count must not be negative.")
+
+    @property
+    def recall_results(self) -> tuple[RecallResult, ...]:
+        return tuple(item.recall for item in self.items)

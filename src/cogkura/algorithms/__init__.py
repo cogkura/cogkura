@@ -16,13 +16,21 @@ from cogkura.algorithms.spreading import (
     DeterministicSpreadingActivator,
     SpreadingActivator,
 )
+from cogkura.algorithms.working_memory import (
+    ApproximateTokenEstimator,
+    DeterministicWorkingMemorySelector,
+    TokenEstimator,
+    WorkingMemorySelector,
+)
 
 __all__ = [
     "ACTRDeclarativeActivator",
+    "ApproximateTokenEstimator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
     "DeterministicEpisodicEncoder",
     "DeterministicSpreadingActivator",
+    "DeterministicWorkingMemorySelector",
     "EbbinghausForgettingEvaluator",
     "EpisodicEncoder",
     "ForgettingEvaluator",
@@ -30,4 +38,6 @@ __all__ = [
     "SemanticConsolidator",
     "SemanticExtractor",
     "SpreadingActivator",
+    "TokenEstimator",
+    "WorkingMemorySelector",
 ]

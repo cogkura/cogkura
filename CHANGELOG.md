@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-11
+
+### Added
+
+- Baddeley-inspired bounded working-memory selection.
+- `Memory.select_working_memory()`.
+- `WorkingMemoryConfig`, `WorkingMemorySnapshot`, `WorkingMemoryItem`, and `WorkingMemoryComponents`.
+- `DeterministicWorkingMemorySelector`.
+- Goal-aware working-memory ranking.
+- Competitive inhibition for redundant memories.
+- Short-timescale working-memory decay and refresh.
+- Item and prompt-token budgets.
+- Injectable `TokenEstimator` and dependency-free `ApproximateTokenEstimator`.
+- Working-memory example and [`docs/working-memory.md`](docs/working-memory.md).
+
+### Notes
+
+- Working memory is transient and not persisted.
+- Working-memory decay does not modify ACT-R base-level activation.
+- Selection does not automatically reinforce activation history.
+- `Memory.recall()` semantics remain unchanged.
+
 ## [0.6.0] - 2026-08-10
 
 ### Added

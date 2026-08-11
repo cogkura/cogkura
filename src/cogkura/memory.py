@@ -22,6 +22,12 @@ from cogkura.algorithms.semantic import (
     SemanticConsolidator,
     SemanticExtractor,
 )
+from cogkura.algorithms.working_memory import (
+    ApproximateTokenEstimator,
+    DeterministicWorkingMemorySelector,
+    TokenEstimator,
+    WorkingMemorySelector,
+)
 from cogkura.exceptions import CandidateSetTooLargeError, ValidationError
 from cogkura.mappers.base import ObservationMapper
 from cogkura.models import (
@@ -40,6 +46,8 @@ from cogkura.models import (
     SemanticMemoryStatus,
     StoredEpisode,
     StoredSemanticMemory,
+    WorkingMemoryConfig,
+    WorkingMemorySnapshot,
 )
 from cogkura.observations.models import IngestionResult, IngestStatus, ObservationInput
 from cogkura.observations.pipeline import ObservationPipeline
@@ -82,6 +90,9 @@ class Memory:
         forgetting_evaluator: ForgettingEvaluator | None = None,
         activation_config: ActivationConfig | None = None,
         forgetting_config: ForgettingConfig | None = None,
+        working_memory_selector: WorkingMemorySelector | None = None,
+        working_memory_config: WorkingMemoryConfig | None = None,
+        token_estimator: TokenEstimator | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -127,6 +138,17 @@ class Memory:
         )
         self._forgetting_config = (
             forgetting_config if forgetting_config is not None else ForgettingConfig()
+        )
+        self._working_memory_selector = (
+            working_memory_selector
+            if working_memory_selector is not None
+            else DeterministicWorkingMemorySelector()
+        )
+        self._working_memory_config = (
+            working_memory_config if working_memory_config is not None else WorkingMemoryConfig()
+        )
+        self._token_estimator = (
+            token_estimator if token_estimator is not None else ApproximateTokenEstimator()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -315,6 +337,58 @@ class Memory:
             as_of=evaluation_time,
             config=self._activation_config,
             limit=limit,
+        )
+
+    async def select_working_memory(
+        self,
+        query: str | RetrievalCue,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        goal: str | RetrievalCue | None = None,
+        previous: WorkingMemorySnapshot | None = None,
+        prompt_budget_tokens: int | None = None,
+        as_of: datetime | None = None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
+        include_forgotten: bool = False,
+    ) -> WorkingMemorySnapshot:
+        """Select a bounded working-memory set from declarative recall candidates."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if prompt_budget_tokens is not None and prompt_budget_tokens <= 0:
+            raise ValidationError("prompt_budget_tokens must be greater than zero.")
+
+        query_cue = _normalise_cue(query, subject_id=subject_id)
+        if goal is None:
+            goal_cue = query_cue
+        elif isinstance(goal, RetrievalCue):
+            goal_cue = goal
+        else:
+            goal_cue = RetrievalCue(text=goal)
+
+        evaluation_time = _evaluation_time(as_of)
+        config = self._working_memory_config
+
+        results = await self.recall(
+            query,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            limit=config.candidate_pool_size,
+            as_of=evaluation_time,
+            semantic_statuses=semantic_statuses,
+            include_forgotten=include_forgotten,
+        )
+
+        return self._working_memory_selector.select(
+            candidates=results,
+            goal=goal_cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            previous=previous,
+            as_of=evaluation_time,
+            config=config,
+            token_estimator=self._token_estimator,
+            prompt_budget_tokens=prompt_budget_tokens,
         )
 
     async def record_access(

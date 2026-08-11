@@ -10,8 +10,8 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.6` forgetting / memory dynamics over episodic + semantic memories
-- Next: `0.7` working memory / inhibition — see [`docs/roadmap.md`](docs/roadmap.md)
+- Current release focus: `0.7` working memory / inhibition over episodic + semantic memories
+- Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
 
@@ -31,10 +31,11 @@ src/cogkura/
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore, MemoryDynamicsStore
   migrations/        # Cogkura-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py
+  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py
 tests/
 examples/
   basic_memory.py
+  working_memory.py
   postgres_datasource/
 docs/
 ```
@@ -46,6 +47,7 @@ docs/
 | `observe(ObservationInput)` | Ingest one normalized observation |
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
 | `recall(query, tenant_id=..., include_forgotten=False)` | ACT-R declarative activation over episodic + semantic memories |
+| `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
 | `record_access(results, tenant_id=...)` | Explicitly reinforce recalled memories (reactivates forgotten dynamics) |
 | `apply_forgetting(tenant_id=...)` | Evaluate forgetting lifecycle and compact old activation references |
 | `encode_episodes(tenant_id=...)` | Build episodic memories from stored observations |

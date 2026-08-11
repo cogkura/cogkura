@@ -305,12 +305,12 @@ Implemented through `0.6.0`:
 - ACT-R declarative activation, `Memory.recall()` over episodic + semantic memories, and `Memory.record_access()` (`0.4`);
 - spreading activation with structured `RetrievalCue.entity_ids` (`0.5`);
 - forgetting lifecycle, `Memory.apply_forgetting()`, weighted reference compaction, and `include_forgotten` on recall (`0.6`);
+- bounded working-memory selection, `Memory.select_working_memory()`, goal relevance, inhibition, and prompt budgeting (`0.7`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.6.0`:
+Not implemented in `0.7.0`:
 
-- working-memory selection and inhibition (`0.7`);
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
 
@@ -331,9 +331,9 @@ Associative world model
         ↓
 Spreading activation
         ↓
-Attention and goal filtering
+Goal relevance + inhibition
         ↓
-Working memory
+Bounded working memory
         ↓
 LLM reasoning and planning
 ```
@@ -346,7 +346,8 @@ LLM reasoning and planning
 - `0.4`: declarative activation (ACT-R recall over episodic + semantic memories) (done).
 - `0.5`: spreading activation (done).
 - `0.6`: forgetting / memory dynamics (done).
-- later: working-memory selection, additional connectors, and integrations.
+- `0.7`: working-memory selection and inhibition (done).
+- later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
 
