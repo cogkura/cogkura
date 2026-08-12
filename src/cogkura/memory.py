@@ -23,6 +23,7 @@ from cogkura.algorithms.learning import (
     calculate_association_strength,
     learning_context_key,
 )
+from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMonitor
 from cogkura.algorithms.reconsolidation import (
     DeterministicSemanticReconciler,
     SemanticReconciler,
@@ -54,10 +55,12 @@ from cogkura.models import (
     LearningFeedback,
     LearningOutcome,
     LearningResult,
+    MemoryAssessment,
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
     MemoryRetentionState,
+    MetamemoryConfig,
     RecallResult,
     RetrievalCue,
     SemanticConsolidationResult,
@@ -118,6 +121,8 @@ class Memory:
         forgetting_config: ForgettingConfig | None = None,
         working_memory_selector: WorkingMemorySelector | None = None,
         working_memory_config: WorkingMemoryConfig | None = None,
+        memory_monitor: MemoryMonitor | None = None,
+        metamemory_config: MetamemoryConfig | None = None,
         token_estimator: TokenEstimator | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
@@ -186,6 +191,12 @@ class Memory:
         )
         self._working_memory_config = (
             working_memory_config if working_memory_config is not None else WorkingMemoryConfig()
+        )
+        self._memory_monitor = (
+            memory_monitor if memory_monitor is not None else DeterministicMemoryMonitor()
+        )
+        self._metamemory_config = (
+            metamemory_config if metamemory_config is not None else MetamemoryConfig()
         )
         self._token_estimator = (
             token_estimator if token_estimator is not None else ApproximateTokenEstimator()
@@ -466,6 +477,80 @@ class Memory:
             token_estimator=self._token_estimator,
             prompt_budget_tokens=prompt_budget_tokens,
             learning_utilities=learning_utilities,
+        )
+
+    async def assess_memory(
+        self,
+        query: str | RetrievalCue,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        goal: str | RetrievalCue | None = None,
+        as_of: datetime | None = None,
+        valid_at: datetime | None = None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
+        include_forgotten: bool = False,
+    ) -> MemoryAssessment:
+        """Assess retrieved memory state without mutating cognitive stores."""
+        if not self._metamemory_config.enabled:
+            raise ValidationError("Metamemory assessment is disabled.")
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+
+        query_cue = _normalise_cue(query, subject_id=subject_id)
+        if goal is None:
+            goal_cue = query_cue
+        elif isinstance(goal, RetrievalCue):
+            goal_cue = goal
+        else:
+            goal_cue = RetrievalCue(text=goal)
+
+        evaluation_time = _evaluation_time(as_of)
+        config = self._metamemory_config
+
+        results = await self.recall(
+            query,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            limit=config.candidate_pool_size,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+            semantic_statuses=semantic_statuses,
+            include_forgotten=include_forgotten,
+        )
+
+        learning_states: tuple[StoredMemoryLearningState, ...] = ()
+        learning_utilities = None
+        if self._learning_config.enabled and results:
+            context_key = learning_context_key(goal_cue)
+            identities = [_identity_from_recall(result) for result in results]
+            learning_states_list = await self._learning_store.list_states(
+                tenant_id=tenant_id,
+                identities=identities,
+                context_keys=("global", context_key),
+            )
+            learning_states = tuple(learning_states_list)
+            learning_utilities = build_learning_utilities(
+                identities=identities,
+                states=learning_states,
+                context_key=context_key,
+                config=self._learning_config,
+            )
+
+        return self._memory_monitor.assess(
+            candidates=results,
+            query=query_cue,
+            goal=goal_cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+            config=config,
+            activation_config=self._activation_config,
+            learning_utilities=learning_utilities,
+            learning_states=learning_states,
         )
 
     async def record_access(

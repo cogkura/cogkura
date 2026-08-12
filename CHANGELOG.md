@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-08-12
+
+### Added
+
+- Deterministic metamemory and memory monitoring.
+- `Memory.assess_memory()`, `MemoryAssessment`, `MetamemorySignals`, `MetamemoryItem`, `MemoryAssessmentFlag`, `MetamemoryConfig`.
+- `MemoryMonitor` protocol and `DeterministicMemoryMonitor`.
+- Cue-coverage monitoring, retrieval-strength monitoring, retrieval-weighted evidence confidence.
+- Semantic conflict monitoring, observation-provenance diversity, optional evidence freshness.
+- Continuous forgetting-pressure monitoring and context-aware learned-utility monitoring.
+- Structured diagnostic warning flags.
+- Metamemory example and [`docs/metamemory.md`](docs/metamemory.md).
+
+### Changed
+
+- Working-memory relevance matching is shared with metamemory through `algorithms/relevance.py`.
+- Learning count aggregation is reusable by working memory and metamemory.
+
+### Notes
+
+- Metamemory is read-only: no `record_access()`, no forgetting lifecycle writes, no learning feedback.
+- No overall answer-confidence score is produced.
+- No PostgreSQL migration is required.
+
 ## [0.9.0] - 2026-08-11
 
 ### Added

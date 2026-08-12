@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import math
-import re
-import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
+from cogkura.algorithms.relevance import calculate_cue_relevance
+from cogkura.algorithms.relevance import tokenize as _tokenize
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
     MemoryIdentity,
@@ -17,15 +17,11 @@ from cogkura.models import (
     RecallResult,
     RetrievalCue,
     StoredEpisode,
-    StoredSemanticMemory,
     WorkingMemoryComponents,
     WorkingMemoryConfig,
     WorkingMemoryItem,
     WorkingMemorySnapshot,
 )
-
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
-_WHITESPACE_PATTERN = re.compile(r"\s+")
 
 
 class TokenEstimator(Protocol):
@@ -246,45 +242,7 @@ class DeterministicWorkingMemorySelector:
         )
 
 
-def calculate_goal_relevance(recall: RecallResult, goal: RetrievalCue) -> float:
-    """Compute mean goal-relevance across supplied goal cue fields."""
-    memory = recall.memory
-    text, subject_id, entity_ids, predicate, object_value, qualifiers = _memory_cue_fields(memory)
-    components: list[float] = []
-
-    if goal.text and goal.text.strip():
-        components.append(_text_coverage(goal.text, text))
-
-    if goal.subject_id and goal.subject_id.strip():
-        goal_subject = goal.subject_id.strip()
-        candidate_subject = subject_id.strip() if subject_id else None
-        components.append(1.0 if goal_subject == candidate_subject else 0.0)
-
-    if goal.entity_ids:
-        goal_entities = set(goal.entity_ids)
-        candidate_entities = set(entity_ids)
-        matched = len(goal_entities.intersection(candidate_entities))
-        components.append(matched / len(goal_entities))
-
-    if goal.predicate and goal.predicate.strip():
-        goal_predicate = _normalise_text(goal.predicate)
-        candidate_predicate = _normalise_text(predicate) if predicate else ""
-        components.append(1.0 if goal_predicate == candidate_predicate else 0.0)
-
-    if goal.object_value and goal.object_value.strip():
-        goal_object = goal.object_value
-        if object_value and _normalise_text(goal_object) == _normalise_text(object_value):
-            components.append(1.0)
-        else:
-            components.append(_text_coverage(goal_object, text))
-
-    if goal.qualifiers:
-        components.append(_qualifier_coverage(goal.qualifiers, qualifiers))
-
-    if not components:
-        return 1.0
-
-    return sum(components) / len(components)
+calculate_goal_relevance = calculate_cue_relevance
 
 
 def _validate_previous_scope(
@@ -344,34 +302,6 @@ def _memory_importance(recall: RecallResult) -> float:
     return recall.memory.importance
 
 
-def _memory_cue_fields(
-    memory: StoredEpisode | StoredSemanticMemory,
-) -> tuple[str, str | None, tuple[str, ...], str | None, str | None, Mapping[str, object]]:
-    if isinstance(memory, StoredEpisode):
-        entity_ids = tuple(sorted({entity.entity_id for entity in memory.entities}))
-        return (
-            memory.statement,
-            memory.subject_id,
-            entity_ids,
-            None,
-            None,
-            memory.metadata,
-        )
-    entity_id_set = {entity.entity_id for entity in memory.entities}
-    if memory.subject_entity_id:
-        entity_id_set.add(memory.subject_entity_id)
-    if memory.object_entity_id:
-        entity_id_set.add(memory.object_entity_id)
-    return (
-        memory.statement,
-        memory.subject_id,
-        tuple(sorted(entity_id_set)),
-        memory.predicate,
-        memory.object_value,
-        memory.qualifiers,
-    )
-
-
 def _identity_from_recall(recall: RecallResult) -> MemoryIdentity:
     memory = recall.memory
     if isinstance(memory, StoredEpisode):
@@ -422,43 +352,6 @@ def _candidate_sort_key(candidate: _ScoredCandidate) -> tuple[float, float, floa
         candidate.recall.memory_kind.value,
         _memory_key_from_recall(candidate.recall),
     )
-
-
-def _text_coverage(goal_text: str, candidate_text: str) -> float:
-    goal_tokens = _tokenize(goal_text)
-    if not goal_tokens:
-        return 0.0
-    candidate_tokens = _tokenize(candidate_text)
-    if not candidate_tokens:
-        return 0.0
-    matched = goal_tokens.intersection(candidate_tokens)
-    return len(matched) / len(goal_tokens)
-
-
-def _qualifier_coverage(
-    goal_qualifiers: Mapping[str, object],
-    candidate_qualifiers: Mapping[str, object],
-) -> float:
-    goal_pairs = {_qualifier_pair(key, value) for key, value in goal_qualifiers.items()}
-    if not goal_pairs:
-        return 1.0
-    candidate_pairs = {_qualifier_pair(key, value) for key, value in candidate_qualifiers.items()}
-    matched = len(goal_pairs.intersection(candidate_pairs))
-    return matched / len(goal_pairs)
-
-
-def _tokenize(text: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_PATTERN.findall(text)}
-
-
-def _normalise_text(value: str) -> str:
-    normalised = unicodedata.normalize("NFKC", value)
-    normalised = _WHITESPACE_PATTERN.sub(" ", normalised).strip()
-    return normalised.casefold()
-
-
-def _qualifier_pair(key: object, value: object) -> tuple[str, str]:
-    return (_normalise_text(str(key)), _normalise_text(str(value)))
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:

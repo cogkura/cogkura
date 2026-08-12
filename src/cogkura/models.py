@@ -1503,3 +1503,210 @@ class LearningResult:
     associations_reinforced: int = 0
     association_items_skipped: int = 0
     reactivated: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class MetamemoryConfig:
+    """Configuration for read-only metamemory assessment."""
+
+    enabled: bool = True
+    candidate_pool_size: int = 50
+    max_report_items: int = 8
+    low_cue_coverage_threshold: float = 0.40
+    low_retrieval_strength_threshold: float = 0.40
+    low_evidence_confidence_threshold: float = 0.50
+    semantic_conflict_threshold: float = 0.25
+    provenance_diversity_tau: float = 3.0
+    low_provenance_diversity_threshold: float = 0.30
+    forgetting_pressure_threshold: float = 0.70
+    low_learned_utility_threshold: float = 0.35
+    freshness_half_life_seconds: float | None = None
+    stale_evidence_threshold: float = 0.25
+
+    def __post_init__(self) -> None:
+        if self.candidate_pool_size <= 0:
+            raise ValidationError("candidate_pool_size must be greater than zero.")
+        if self.max_report_items <= 0:
+            raise ValidationError("max_report_items must be greater than zero.")
+        if self.max_report_items > self.candidate_pool_size:
+            raise ValidationError("max_report_items must not exceed candidate_pool_size.")
+        for label, threshold in (
+            ("low_cue_coverage_threshold", self.low_cue_coverage_threshold),
+            ("low_retrieval_strength_threshold", self.low_retrieval_strength_threshold),
+            ("low_evidence_confidence_threshold", self.low_evidence_confidence_threshold),
+            ("semantic_conflict_threshold", self.semantic_conflict_threshold),
+            ("low_provenance_diversity_threshold", self.low_provenance_diversity_threshold),
+            ("forgetting_pressure_threshold", self.forgetting_pressure_threshold),
+            ("low_learned_utility_threshold", self.low_learned_utility_threshold),
+            ("stale_evidence_threshold", self.stale_evidence_threshold),
+        ):
+            if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        if not math.isfinite(self.provenance_diversity_tau) or self.provenance_diversity_tau <= 0:
+            raise ValidationError("provenance_diversity_tau must be finite and greater than zero.")
+        if self.freshness_half_life_seconds is not None:
+            if (
+                not math.isfinite(self.freshness_half_life_seconds)
+                or self.freshness_half_life_seconds <= 0
+            ):
+                raise ValidationError(
+                    "freshness_half_life_seconds must be finite and greater than zero."
+                )
+
+
+class MemoryAssessmentFlag(StrEnum):
+    """Deterministic diagnostic flags for memory assessment."""
+
+    NO_RETRIEVED_MEMORY = "no_retrieved_memory"
+    LOW_CUE_COVERAGE = "low_cue_coverage"
+    LOW_RETRIEVAL_STRENGTH = "low_retrieval_strength"
+    LOW_EVIDENCE_CONFIDENCE = "low_evidence_confidence"
+    CONFLICTING_SEMANTIC_MEMORY = "conflicting_semantic_memory"
+    LOW_PROVENANCE_DIVERSITY = "low_provenance_diversity"
+    HIGH_FORGETTING_PRESSURE = "high_forgetting_pressure"
+    LOW_LEARNED_UTILITY = "low_learned_utility"
+    STALE_EVIDENCE = "stale_evidence"
+
+
+@dataclass(frozen=True, slots=True)
+class MetamemorySignals:
+    """Aggregate metamemory signals for a retrieval assessment."""
+
+    cue_coverage: float
+    top_retrieval_strength: float
+    mean_retrieval_strength: float
+    evidence_confidence: float | None
+    semantic_conflict: float
+    provenance_diversity: float
+    forgetting_pressure: float | None
+    learned_utility: float | None
+    freshness: float | None
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("cue_coverage", self.cue_coverage),
+            ("top_retrieval_strength", self.top_retrieval_strength),
+            ("mean_retrieval_strength", self.mean_retrieval_strength),
+            ("semantic_conflict", self.semantic_conflict),
+            ("provenance_diversity", self.provenance_diversity),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        for label, optional_value in (
+            ("evidence_confidence", self.evidence_confidence),
+            ("forgetting_pressure", self.forgetting_pressure),
+            ("learned_utility", self.learned_utility),
+            ("freshness", self.freshness),
+        ):
+            if optional_value is not None and (
+                not math.isfinite(optional_value) or not 0.0 <= optional_value <= 1.0
+            ):
+                raise ValidationError(f"{label} must be None or finite between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
+class MetamemoryItem:
+    """Per-memory metamemory diagnostics for one recalled candidate."""
+
+    recall: RecallResult
+    cue_relevance: float
+    evidence_confidence: float
+    semantic_conflict: float
+    observation_count: int
+    evidence_at: datetime
+    evidence_age_seconds: float
+    retention_score: float
+    forgetting_pressure: float
+    learned_utility: float | None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.cue_relevance) or not 0.0 <= self.cue_relevance <= 1.0:
+            raise ValidationError("cue_relevance must be finite and between 0.0 and 1.0.")
+        if (
+            not math.isfinite(self.evidence_confidence)
+            or not 0.0 <= self.evidence_confidence <= 1.0
+        ):
+            raise ValidationError("evidence_confidence must be finite and between 0.0 and 1.0.")
+        if not math.isfinite(self.semantic_conflict) or not 0.0 <= self.semantic_conflict <= 1.0:
+            raise ValidationError("semantic_conflict must be finite and between 0.0 and 1.0.")
+        if self.observation_count < 0:
+            raise ValidationError("observation_count must not be negative.")
+        if self.evidence_at.tzinfo is None:
+            raise ValidationError("evidence_at must be timezone-aware.")
+        if not math.isfinite(self.evidence_age_seconds) or self.evidence_age_seconds < 0:
+            raise ValidationError("evidence_age_seconds must be finite and non-negative.")
+        if not math.isfinite(self.retention_score) or not 0.0 <= self.retention_score <= 1.0:
+            raise ValidationError("retention_score must be finite and between 0.0 and 1.0.")
+        if (
+            not math.isfinite(self.forgetting_pressure)
+            or not 0.0 <= self.forgetting_pressure <= 1.0
+        ):
+            raise ValidationError("forgetting_pressure must be finite and between 0.0 and 1.0.")
+        if self.learned_utility is not None and (
+            not math.isfinite(self.learned_utility) or not 0.0 <= self.learned_utility <= 1.0
+        ):
+            raise ValidationError("learned_utility must be None or finite between 0.0 and 1.0.")
+
+    @property
+    def identity(self) -> MemoryIdentity:
+        memory = self.recall.memory
+        if isinstance(memory, StoredEpisode):
+            return MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key=memory.memory_key)
+        return MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key=memory.memory_key)
+
+    @property
+    def memory(self) -> StoredEpisode | StoredSemanticMemory:
+        return self.recall.memory
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryAssessment:
+    """Immutable read-only assessment of retrieved memory state."""
+
+    tenant_id: str
+    subject_id: str | None
+    query: RetrievalCue
+    goal: RetrievalCue
+    assessed_at: datetime
+    valid_at: datetime | None
+    signals: MetamemorySignals
+    flags: tuple[MemoryAssessmentFlag, ...]
+    items: tuple[MetamemoryItem, ...]
+    retrieved_count: int
+    episode_count: int
+    semantic_count: int
+    contested_count: int
+    historical_revision_count: int
+    distinct_observation_count: int
+    helpful_feedback_count: int
+    unhelpful_feedback_count: int
+    incorrect_feedback_count: int
+    newest_evidence_at: datetime | None
+    oldest_evidence_at: datetime | None
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.assessed_at.tzinfo is None:
+            raise ValidationError("assessed_at must be timezone-aware.")
+        if self.valid_at is not None and self.valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+        if self.retrieved_count < 0:
+            raise ValidationError("retrieved_count must not be negative.")
+        if self.episode_count < 0:
+            raise ValidationError("episode_count must not be negative.")
+        if self.semantic_count < 0:
+            raise ValidationError("semantic_count must not be negative.")
+        if self.contested_count < 0:
+            raise ValidationError("contested_count must not be negative.")
+        if self.historical_revision_count < 0:
+            raise ValidationError("historical_revision_count must not be negative.")
+        if self.distinct_observation_count < 0:
+            raise ValidationError("distinct_observation_count must not be negative.")
+        for label, count in (
+            ("helpful_feedback_count", self.helpful_feedback_count),
+            ("unhelpful_feedback_count", self.unhelpful_feedback_count),
+            ("incorrect_feedback_count", self.incorrect_feedback_count),
+        ):
+            if count < 0:
+                raise ValidationError(f"{label} must not be negative.")

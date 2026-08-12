@@ -3,6 +3,7 @@
 from cogkura.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.learning import DeterministicLearningProcessor, LearningProcessor
+from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMonitor
 from cogkura.algorithms.reconsolidation import (
     DeterministicSemanticReconciler,
     SemanticReconciler,
@@ -37,11 +38,16 @@ from cogkura.models import (
     LearningFeedback,
     LearningOutcome,
     LearningResult,
+    MemoryAssessment,
+    MemoryAssessmentFlag,
     MemoryFeedback,
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
     MemoryRetentionState,
+    MetamemoryConfig,
+    MetamemoryItem,
+    MetamemorySignals,
     RecallResult,
     RetrievalCue,
     SemanticCardinality,
@@ -91,6 +97,7 @@ __all__ = [
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
     "DeterministicLearningProcessor",
+    "DeterministicMemoryMonitor",
     "DeterministicSemanticReconciler",
     "DeterministicWorkingMemorySelector",
     "EpisodeEncodingResult",
@@ -111,11 +118,17 @@ __all__ = [
     "IngestionResult",
     "IngestStatus",
     "Memory",
+    "MemoryAssessment",
+    "MemoryAssessmentFlag",
     "MemoryIdentity",
     "MemoryKind",
+    "MemoryMonitor",
     "MemoryReference",
     "MemoryRetentionState",
     "MetadataSemanticExtractor",
+    "MetamemoryConfig",
+    "MetamemoryItem",
+    "MetamemorySignals",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",
@@ -152,4 +165,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.9.0"
+__version__ = "0.10.0"

@@ -184,6 +184,26 @@ For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `Postgr
 
 See [`docs/forgetting.md`](docs/forgetting.md) for lifecycle thresholds and compaction details.
 
+## Metamemory (memory assessment)
+
+`assess_memory()` reports the state of currently retrievable memory. It does not record access, apply forgetting, or create learning feedback, and it does not produce an overall confidence score.
+
+```python
+assessment = await memory.assess_memory(
+    "What database did we select for production?",
+    tenant_id="company_123",
+    goal="Recall the production database decision.",
+)
+
+print(assessment.signals.cue_coverage)
+print(assessment.signals.top_retrieval_strength)
+print(assessment.signals.evidence_confidence)
+print(assessment.signals.semantic_conflict)
+print(assessment.flags)
+```
+
+See [`docs/metamemory.md`](docs/metamemory.md) and [`examples/metamemory.py`](examples/metamemory.py).
+
 ## Observation ingestion (PostgreSQL)
 
 ```python
@@ -290,11 +310,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.9.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, and outcome-driven learning via `Memory.learn()` with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
+Cogkura is in early development. Through `0.10.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
 
-## Scope of 0.9.0
+## Scope of 0.10.0
 
-Implemented through `0.9.0`:
+Implemented through `0.10.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -308,10 +328,11 @@ Implemented through `0.9.0`:
 - bounded working-memory selection, `Memory.select_working_memory()`, goal relevance, inhibition, and prompt budgeting (`0.7`);
 - temporal semantic reconsolidation, revision history, `Memory.list_semantic_revisions()`, and `valid_at` historical retrieval (`0.8`);
 - outcome-driven learning, `Memory.learn()`, contextual utility, HELPFUL ACT-R traces, and learned associations (`0.9`);
+- read-only metamemory, `Memory.assess_memory()`, independent monitoring signals, and diagnostic flags (`0.10`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.9.0`:
+Not implemented in `0.10.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -337,7 +358,13 @@ Goal relevance + inhibition
         ↓
 Bounded working memory
         ↓
+Memory assessment
+        ↓
 LLM reasoning and planning
+        ↓
+Outcome feedback
+        ↓
+Learning / reinforcement
 ```
 
 ## Roadmap
@@ -351,6 +378,7 @@ LLM reasoning and planning
 - `0.7`: working-memory selection and inhibition (done).
 - `0.8`: temporal reconsolidation and memory updating (done).
 - `0.9`: learning and reinforcement (done).
+- `0.10`: metamemory / memory monitoring (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

@@ -7,7 +7,7 @@ import json
 import math
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -25,6 +25,15 @@ from cogkura.models import (
 
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 _GLOBAL_CONTEXT_KEY = "global"
+
+
+@dataclass(frozen=True, slots=True)
+class LearningCounts:
+    """Combined helpful, unhelpful, and incorrect learning counts."""
+
+    helpful: int
+    unhelpful: int
+    incorrect: int
 
 
 class LearningProcessor(Protocol):
@@ -169,7 +178,7 @@ def combine_learning_counts(
     global_state: StoredMemoryLearningState | None,
     context_state: StoredMemoryLearningState | None,
     context_key: str,
-) -> tuple[int, int, int]:
+) -> LearningCounts:
     """Combine global and contextual counts without double-counting."""
     helpful = 0
     unhelpful = 0
@@ -182,17 +191,16 @@ def combine_learning_counts(
         helpful += context_state.helpful_count
         unhelpful += context_state.unhelpful_count
         incorrect += context_state.incorrect_count
-    return helpful, unhelpful, incorrect
+    return LearningCounts(helpful=helpful, unhelpful=unhelpful, incorrect=incorrect)
 
 
-def build_learning_utilities(
+def learning_counts_by_identity(
     *,
     identities: Sequence[MemoryIdentity],
     states: Sequence[StoredMemoryLearningState],
     context_key: str,
-    config: LearningConfig,
-) -> dict[MemoryIdentity, float]:
-    """Build combined contextual utilities for working-memory selection."""
+) -> Mapping[MemoryIdentity, LearningCounts]:
+    """Combine global and contextual counts for each identity."""
     by_identity_context: dict[tuple[str, str, str], StoredMemoryLearningState] = {}
     for state in states:
         by_identity_context[
@@ -203,7 +211,7 @@ def build_learning_utilities(
             )
         ] = state
 
-    utilities: dict[MemoryIdentity, float] = {}
+    counts: dict[MemoryIdentity, LearningCounts] = {}
     for identity in identities:
         global_state = by_identity_context.get(
             (identity.memory_kind.value, identity.memory_key, _GLOBAL_CONTEXT_KEY)
@@ -211,15 +219,35 @@ def build_learning_utilities(
         context_state = by_identity_context.get(
             (identity.memory_kind.value, identity.memory_key, context_key)
         )
-        helpful, unhelpful, incorrect = combine_learning_counts(
+        counts[identity] = combine_learning_counts(
             global_state=global_state,
             context_state=context_state,
             context_key=context_key,
         )
+    return counts
+
+
+def build_learning_utilities(
+    *,
+    identities: Sequence[MemoryIdentity],
+    states: Sequence[StoredMemoryLearningState],
+    context_key: str,
+    config: LearningConfig,
+) -> dict[MemoryIdentity, float]:
+    """Build combined contextual utilities for working-memory selection."""
+    counts_by_identity = learning_counts_by_identity(
+        identities=identities,
+        states=states,
+        context_key=context_key,
+    )
+
+    utilities: dict[MemoryIdentity, float] = {}
+    for identity in identities:
+        counts = counts_by_identity[identity]
         utilities[identity] = calculate_utility(
-            helpful=helpful,
-            unhelpful=unhelpful,
-            incorrect=incorrect,
+            helpful=counts.helpful,
+            unhelpful=counts.unhelpful,
+            incorrect=counts.incorrect,
             config=config,
         )
     return utilities

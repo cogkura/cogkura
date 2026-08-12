@@ -88,8 +88,8 @@
 ## Later
 
 - `0.9`: learning / reinforcement (done);
-- `0.10`: metamemory (planned);
-- `0.10`: additional cognitive maintenance (planned);
+- `0.10`: metamemory / memory monitoring (done);
+- `0.11+`: additional cognitive maintenance (planned);
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

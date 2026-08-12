@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.9` learning and reinforcement over episodic + semantic memories
+- Current release focus: `0.10` metamemory / memory monitoring over episodic + semantic memories
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -31,13 +31,14 @@ src/cogkura/
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore, MemoryDynamicsStore, LearningStore
   migrations/        # Cogkura-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py, reconsolidation.py, learning.py
+  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py, reconsolidation.py, learning.py, relevance.py, metamemory.py
 tests/
 examples/
   basic_memory.py
   working_memory.py
   reconsolidation.py
   learning.py
+  metamemory.py
   postgres_datasource/
 docs/
 ```
@@ -50,6 +51,7 @@ docs/
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
 | `recall(query, tenant_id=..., include_forgotten=False)` | ACT-R declarative activation over episodic + semantic memories |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
+| `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment over recalled memories |
 | `record_access(results, tenant_id=...)` | Explicitly reinforce recalled memories (reactivates forgotten dynamics) |
 | `learn(feedback)` | Apply HELPFUL/UNHELPFUL/INCORRECT outcome feedback (idempotent by `feedback_id`) |
 | `list_learning_state(tenant_id=..., identities=..., goal=...)` | Inspect persisted learning counts |
