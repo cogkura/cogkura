@@ -63,7 +63,16 @@ exclude_forgotten_from_recall: true
 enable_reference_compaction:   true
 compact_after_seconds:         2592000 (30 days)
 compaction_bucket_seconds:     86400   (1 day)
+enable_importance_scaling:     true
+importance_retention_floor:    0.15
+protect_semantic_support:      true
 ```
+
+When `enable_importance_scaling` is enabled, retention scores are scaled by episode/semantic `importance` so low-salience chatter fades faster.
+
+When `protect_semantic_support` is enabled, episodes that `SUPPORT` a non-superseded semantic memory cannot reach `FORGOTTEN` (capped at `FADING`).
+
+See [`design-ranking-time-current-state.md`](design-ranking-time-current-state.md).
 
 ## Weighted reference compaction
 

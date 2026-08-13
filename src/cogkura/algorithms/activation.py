@@ -25,6 +25,7 @@ from cogkura.models import (
     MemoryKind,
     RecallResult,
     RetrievalCue,
+    SemanticMemoryStatus,
     StoredEpisode,
     StoredSemanticMemory,
 )
@@ -104,6 +105,7 @@ def activation_candidate_from_episode(episode: StoredEpisode) -> ActivationCandi
         object_value=None,
         qualifiers={},
         memory=episode,
+        importance=episode.importance,
     )
 
 
@@ -125,6 +127,10 @@ def activation_candidate_from_semantic(memory: StoredSemanticMemory) -> Activati
         object_value=memory.object_value,
         qualifiers=memory.qualifiers,
         memory=memory,
+        importance=memory.importance,
+        slot_key=memory.slot_key,
+        semantic_status=memory.status,
+        last_supported_at=memory.last_supported_at,
     )
 
 
@@ -157,6 +163,8 @@ class ACTRDeclarativeActivator:
         )
         spreading_by_identity = spreading_result.scores if spreading_result is not None else {}
         spreading_metadata = spreading_result.metadata if spreading_result is not None else {}
+        idf_weights = _candidate_idf_weights(candidates) if config.enable_candidate_idf else None
+        current_state_cue = _cue_requests_current_state(cue, config)
         results: list[RecallResult] = []
 
         for candidate in candidates:
@@ -177,12 +185,22 @@ class ACTRDeclarativeActivator:
             )
             spreading = spreading_by_identity.get(identity, 0.0)
             partial_match = (
-                _calculate_partial_match(candidate, cue, config)
+                _calculate_partial_match(
+                    candidate,
+                    cue,
+                    config,
+                    idf_weights=idf_weights,
+                )
                 if config.enable_partial_matching
                 else 0.0
             )
+            current_state = _current_state_activation(
+                candidate,
+                current_state_cue=current_state_cue,
+                config=config,
+            )
             noise = 0.0
-            activation = base_level + spreading + partial_match + noise
+            activation = base_level + spreading + partial_match + current_state + noise
             if activation < config.retrieval_threshold:
                 continue
 
@@ -193,7 +211,7 @@ class ACTRDeclarativeActivator:
             components = ActivationComponents(
                 base_level=base_level,
                 spreading=spreading,
-                partial_match=partial_match,
+                partial_match=partial_match + current_state,
                 noise=noise,
                 total=activation,
             )
@@ -207,6 +225,7 @@ class ACTRDeclarativeActivator:
                 matched_entities=matched_entities,
                 cue_entity_count=len(cue.entity_ids),
                 spreading_metadata=spreading_metadata.get(identity),
+                current_state=current_state,
             )
             results.append(
                 RecallResult(
@@ -227,6 +246,8 @@ class ACTRDeclarativeActivator:
                 _memory_key(item),
             )
         )
+        if config.enable_duplicate_collapse:
+            return _collapse_near_duplicates(results, limit=limit, config=config)
         return results[:limit]
 
 
@@ -251,6 +272,7 @@ def _build_reason(
     matched_entities: int,
     cue_entity_count: int,
     spreading_metadata: SpreadingMetadata | None,
+    current_state: float = 0.0,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -258,6 +280,8 @@ def _build_reason(
         f"references={reference_count}; "
         f"matched_entities={matched_entities}/{cue_entity_count}"
     )
+    if current_state != 0.0:
+        reason += f"; current_state={current_state:.3f}"
     if spreading > 0.0 and spreading_metadata is not None:
         reason += (
             f"; spread_hop={spreading_metadata.hop}; "
@@ -272,12 +296,14 @@ def _calculate_partial_match(
     candidate: ActivationCandidate,
     cue: RetrievalCue,
     config: ActivationConfig,
+    *,
+    idf_weights: Mapping[str, float] | None = None,
 ) -> float:
     mismatches: list[float] = []
     weights: list[float] = []
 
     if cue.text and cue.text.strip():
-        similarity = _text_similarity(cue.text, candidate.text)
+        similarity = _text_similarity(cue.text, candidate.text, idf_weights=idf_weights)
         mismatches.append(similarity - 1.0)
         weights.append(_PARTIAL_MATCH_WEIGHTS["text"])
 
@@ -313,7 +339,12 @@ def _calculate_partial_match(
     return config.mismatch_penalty * average_mismatch
 
 
-def _text_similarity(query: str, candidate_text: str) -> float:
+def _text_similarity(
+    query: str,
+    candidate_text: str,
+    *,
+    idf_weights: Mapping[str, float] | None = None,
+) -> float:
     query_tokens = _tokenize(query)
     if not query_tokens:
         return 0.0
@@ -321,7 +352,114 @@ def _text_similarity(query: str, candidate_text: str) -> float:
     if not candidate_tokens:
         return 0.0
     matched = query_tokens.intersection(candidate_tokens)
-    return len(matched) / len(query_tokens)
+    if not matched:
+        return 0.0
+    if idf_weights is None:
+        return len(matched) / len(query_tokens)
+    weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
+    weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
+    if weighted_total <= 0.0:
+        return 0.0
+    return weighted_match / weighted_total
+
+
+def _candidate_idf_weights(
+    candidates: Sequence[ActivationCandidate],
+) -> dict[str, float]:
+    document_count = len(candidates)
+    if document_count == 0:
+        return {}
+    frequencies: dict[str, int] = {}
+    for candidate in candidates:
+        for token in _tokenize(candidate.text):
+            frequencies[token] = frequencies.get(token, 0) + 1
+    return {
+        token: math.log((document_count + 1) / (count + 1)) + 1.0
+        for token, count in frequencies.items()
+    }
+
+
+def _cue_requests_current_state(cue: RetrievalCue, config: ActivationConfig) -> bool:
+    if cue.predicate is not None or cue.object_value is not None:
+        return False
+    if not cue.text or not cue.text.strip():
+        return False
+    cue_tokens = _tokenize(cue.text)
+    return bool(cue_tokens.intersection(config.current_state_cue_tokens))
+
+
+def _current_state_activation(
+    candidate: ActivationCandidate,
+    *,
+    current_state_cue: bool,
+    config: ActivationConfig,
+) -> float:
+    if candidate.semantic_status is SemanticMemoryStatus.SUPERSEDED:
+        return -config.current_state_weight
+    bonus = 0.0
+    if candidate.semantic_status is SemanticMemoryStatus.ACTIVE:
+        bonus += config.current_state_weight * 0.5
+    if candidate.last_supported_at is not None and candidate.slot_key is not None:
+        bonus += config.current_state_weight * 0.25
+    if current_state_cue and candidate.semantic_status is SemanticMemoryStatus.ACTIVE:
+        bonus += config.current_state_weight
+    if current_state_cue and candidate.slot_key is not None and candidate.semantic_status is None:
+        bonus -= config.current_state_weight * 0.25
+    return bonus
+
+
+def _collapse_near_duplicates(
+    results: Sequence[RecallResult],
+    *,
+    limit: int,
+    config: ActivationConfig,
+) -> list[RecallResult]:
+    selected: list[RecallResult] = []
+    for result in results:
+        if len(selected) >= limit:
+            break
+        if any(_results_near_duplicate(existing, result, config=config) for existing in selected):
+            continue
+        selected.append(result)
+    return selected
+
+
+def _results_near_duplicate(
+    left: RecallResult,
+    right: RecallResult,
+    *,
+    config: ActivationConfig,
+) -> bool:
+    left_fingerprint = _content_fingerprint_from_result(left)
+    right_fingerprint = _content_fingerprint_from_result(right)
+    if left_fingerprint and left_fingerprint == right_fingerprint:
+        return True
+    left_tokens = _tokenize(_result_text(left))
+    right_tokens = _tokenize(_result_text(right))
+    if not left_tokens or not right_tokens:
+        return False
+    intersection = len(left_tokens.intersection(right_tokens))
+    union = len(left_tokens.union(right_tokens))
+    if union == 0:
+        return False
+    return (intersection / union) >= config.duplicate_jaccard_threshold
+
+
+def _content_fingerprint_from_result(result: RecallResult) -> str | None:
+    memory = result.memory
+    metadata = memory.metadata
+    if isinstance(memory, StoredEpisode):
+        fingerprint = metadata.get("episode", {}).get("content_fingerprint")
+    else:
+        fingerprint = metadata.get("semantic", {}).get("content_fingerprint")
+    return fingerprint if isinstance(fingerprint, str) and fingerprint else None
+
+
+def _result_text(result: RecallResult) -> str:
+    memory = result.memory
+    if isinstance(memory, StoredEpisode):
+        return memory.statement
+    return memory.statement
 
 
 def _tokenize(text: str) -> set[str]:

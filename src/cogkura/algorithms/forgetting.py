@@ -14,6 +14,7 @@ from cogkura.models import (
     ActivationReferenceTrace,
     ForgettingConfig,
     ForgettingDecision,
+    MemoryIdentity,
     MemoryRetentionState,
     StoredMemoryDynamics,
 )
@@ -41,6 +42,7 @@ class ForgettingEvaluator(Protocol):
         activation_config: ActivationConfig,
         forgetting_config: ForgettingConfig,
         tenant_id: str,
+        protected_identities: frozenset[MemoryIdentity] = frozenset(),
     ) -> ForgettingDecision:
         """Return the forgetting decision for one memory candidate."""
 
@@ -58,6 +60,7 @@ class EbbinghausForgettingEvaluator:
         activation_config: ActivationConfig,
         forgetting_config: ForgettingConfig,
         tenant_id: str,
+        protected_identities: frozenset[MemoryIdentity] = frozenset(),
     ) -> ForgettingDecision:
         creation_trace = ActivationReferenceTrace(
             referenced_at=candidate.created_at,
@@ -76,7 +79,14 @@ class EbbinghausForgettingEvaluator:
             base_level,
             retrieval_threshold=activation_config.retrieval_threshold,
         )
+        if forgetting_config.enable_importance_scaling:
+            floor = forgetting_config.importance_retention_floor
+            retention_score *= floor + (1.0 - floor) * candidate.importance
         previous_state = previous.retention_state if previous is not None else None
+        protected = (
+            forgetting_config.protect_semantic_support
+            and candidate.identity in protected_identities
+        )
 
         if retention_score >= forgetting_config.fading_retention_threshold:
             dynamics = _build_dynamics(
@@ -124,6 +134,23 @@ class EbbinghausForgettingEvaluator:
 
         grace_elapsed = (as_of - below_since).total_seconds()
         if grace_elapsed < forgetting_config.grace_period_seconds:
+            dynamics = _build_dynamics(
+                tenant_id=tenant_id,
+                candidate=candidate,
+                retention_state=MemoryRetentionState.FADING,
+                base_level=base_level,
+                retention_score=retention_score,
+                below_threshold_since=below_since,
+                forgotten_at=None,
+                as_of=as_of,
+            )
+            return ForgettingDecision(
+                dynamics=dynamics,
+                previous_state=previous_state,
+                reactivated=False,
+            )
+
+        if protected:
             dynamics = _build_dynamics(
                 tenant_id=tenant_id,
                 candidate=candidate,

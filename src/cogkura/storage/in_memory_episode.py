@@ -23,10 +23,15 @@ class InMemoryEpisodeStore(EpisodeStore):
     def _key(self, tenant_id: str, memory_key: str) -> tuple[str, str]:
         return (tenant_id, memory_key)
 
-    async def upsert(self, episode: EpisodeInput) -> EpisodeWriteStatus:
+    async def upsert(
+        self,
+        episode: EpisodeInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> EpisodeWriteStatus:
         key = self._key(episode.tenant_id, episode.memory_key)
         existing = self._episodes.get(key)
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         fingerprint = episode.metadata["episode"]["content_fingerprint"]
         if existing is not None:
             existing_fingerprint = existing.metadata["episode"]["content_fingerprint"]
@@ -100,9 +105,10 @@ class InMemoryEpisodeStore(EpisodeStore):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         deactivated = 0
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         for key, episode in list(self._episodes.items()):
             if episode.tenant_id != tenant_id:
                 continue

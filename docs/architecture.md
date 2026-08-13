@@ -59,7 +59,7 @@ Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detecte
 
 ### Retrieval
 
-`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). `FORGOTTEN` memories are excluded by default (`include_forgotten=True` to opt in). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories and reactivates forgotten dynamics. `apply_forgetting()` evaluates lifecycle state and compacts old activation references.
+`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). `valid_at` filters semantic revision windows and episodes (`started_at <= valid_at`). `encode_episodes()` and `consolidate_semantics()` accept optional `as_of` for simulated replay timestamps. `FORGOTTEN` memories are excluded by default (`include_forgotten=True` to opt in). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories and reactivates forgotten dynamics. `apply_forgetting()` evaluates lifecycle state and compacts old activation references.
 
 ### Embeddings and LLM integrations
 

@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.10` metamemory / memory monitoring over episodic + semantic memories
+- Current release focus: `0.11` ranking, simulated time, and current-state recall improvements
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -49,16 +49,16 @@ docs/
 |-----|---------|
 | `observe(ObservationInput)` | Ingest one normalized observation |
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
-| `recall(query, tenant_id=..., include_forgotten=False)` | ACT-R declarative activation over episodic + semantic memories |
+| `recall(query, tenant_id=..., valid_at=..., as_of=...)` | ACT-R declarative activation over episodic + semantic memories |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
 | `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment over recalled memories |
 | `record_access(results, tenant_id=...)` | Explicitly reinforce recalled memories (reactivates forgotten dynamics) |
 | `learn(feedback)` | Apply HELPFUL/UNHELPFUL/INCORRECT outcome feedback (idempotent by `feedback_id`) |
 | `list_learning_state(tenant_id=..., identities=..., goal=...)` | Inspect persisted learning counts |
-| `apply_forgetting(tenant_id=...)` | Evaluate forgetting lifecycle and compact old activation references |
-| `encode_episodes(tenant_id=...)` | Build episodic memories from stored observations |
+| `apply_forgetting(tenant_id=..., as_of=...)` | Evaluate forgetting lifecycle and compact old activation references |
+| `encode_episodes(tenant_id=..., as_of=...)` | Build episodic memories from stored observations |
 | `list_episodes(tenant_id=...)` | List encoded episodes for a tenant |
-| `consolidate_semantics(tenant_id=...)` | Build semantic memories from active episodes (includes reconsolidation) |
+| `consolidate_semantics(tenant_id=..., as_of=...)` | Build semantic memories from active episodes (includes reconsolidation) |
 | `list_semantic_memories(tenant_id=..., valid_at=...)` | List consolidated semantic memories for a tenant |
 | `list_semantic_revisions(tenant_id=..., valid_at=...)` | List semantic revision history |
 | `clear(tenant_id=...)` | Remove learning, activation refs, dynamics, semantic memories, episodes, observations |

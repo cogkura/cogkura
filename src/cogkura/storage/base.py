@@ -100,7 +100,12 @@ class CheckpointStore(Protocol):
 class EpisodeStore(Protocol):
     """Persists derived episodic memories and their evidence."""
 
-    async def upsert(self, episode: EpisodeInput) -> EpisodeWriteStatus:
+    async def upsert(
+        self,
+        episode: EpisodeInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> EpisodeWriteStatus:
         """Create, update, or preserve an episodic memory."""
 
     async def list(
@@ -119,6 +124,7 @@ class EpisodeStore(Protocol):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         """Deactivate episodes no longer produced by current observations."""
 
@@ -129,7 +135,12 @@ class EpisodeStore(Protocol):
 class SemanticMemoryStore(Protocol):
     """Persists derived semantic memories and their provenance."""
 
-    async def upsert(self, memory: SemanticMemoryInput) -> SemanticWriteStatus:
+    async def upsert(
+        self,
+        memory: SemanticMemoryInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> SemanticWriteStatus:
         """Create, update, or preserve a semantic memory."""
 
     async def list(
@@ -158,6 +169,8 @@ class SemanticMemoryStore(Protocol):
     async def apply_reconciliation(
         self,
         plan: SemanticReconciliationPlan,
+        *,
+        as_of: datetime | None = None,
     ) -> SemanticReconciliationWriteResult:
         """Apply a reconciliation plan atomically."""
 
@@ -167,6 +180,7 @@ class SemanticMemoryStore(Protocol):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         """Deactivate semantic memories no longer produced."""
 

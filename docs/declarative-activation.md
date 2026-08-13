@@ -40,9 +40,22 @@ time_unit_seconds:      3600.0   # one hour per activation unit
 retrieval_threshold:   -3.0
 enable_spreading_activation: true
 enable_partial_matching:     true
+enable_candidate_idf:        true
+enable_duplicate_collapse:   true
+duplicate_jaccard_threshold: 0.75
+current_state_weight:        0.5
 ```
 
 Spreading defaults and behaviour: [`spreading-activation.md`](spreading-activation.md).
+
+## 0.11 ranking improvements
+
+See [`design-ranking-time-current-state.md`](design-ranking-time-current-state.md).
+
+- Candidate-set IDF downweights corpus-constant tokens in text partial match (`enable_candidate_idf`, default `true`).
+- Near-duplicate collapse after scoring (`enable_duplicate_collapse`, `duplicate_jaccard_threshold=0.75`).
+- Current-state activation bias for active semantics and configured cue tokens (`current_state_weight`, `current_state_cue_tokens`).
+- `recall(..., valid_at=...)` excludes episodes with `started_at > valid_at`.
 
 ## Storage
 

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-08-13
+
+### Added
+
+- Simulated time on `Memory.encode_episodes(..., as_of=...)` and `Memory.consolidate_semantics(..., as_of=...)`.
+- Episode visibility at `valid_at` in `recall()`, `select_working_memory()`, and `assess_memory()` (`started_at <= valid_at`).
+- Candidate-set IDF for text partial matching (`ActivationConfig.enable_candidate_idf`).
+- Near-duplicate collapse at rank time (`enable_duplicate_collapse`, `duplicate_jaccard_threshold`).
+- Current-state activation bias for active semantics and configured cue tokens.
+- Importance-scaled forgetting and semantic-support protection (`ForgettingConfig`).
+- [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md).
+
+### Changed
+
+- Episode and semantic store upserts honour optional `as_of` for `created_at` / `updated_at` (in-memory and Postgres).
+- `apply_forgetting()` excludes episodes with `started_at > as_of` and protects supporting episodes from `FORGOTTEN`.
+
+### Notes
+
+- No PostgreSQL migration is required.
+- String cues remain the compatibility path; structured `RetrievalCue` fields are unchanged.
+
 ## [0.10.0] - 2026-08-12
 
 ### Added

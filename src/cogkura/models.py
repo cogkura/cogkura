@@ -829,6 +829,13 @@ class ActivationConfig:
     enable_noise: bool = False
     max_candidates: int = 10_000
     learned_association_scale: float = 0.25
+    enable_candidate_idf: bool = True
+    enable_duplicate_collapse: bool = True
+    duplicate_jaccard_threshold: float = 0.75
+    current_state_weight: float = 0.5
+    current_state_cue_tokens: frozenset[str] = frozenset(
+        {"currently", "current", "now", "live", "today"}
+    )
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -859,6 +866,10 @@ class ActivationConfig:
             raise ValidationError("enable_noise is not supported in this release.")
         if not 0.0 <= self.learned_association_scale <= 1.0:
             raise ValidationError("learned_association_scale must be between 0.0 and 1.0.")
+        if not 0.0 <= self.duplicate_jaccard_threshold <= 1.0:
+            raise ValidationError("duplicate_jaccard_threshold must be between 0.0 and 1.0.")
+        if self.current_state_weight < 0:
+            raise ValidationError("current_state_weight must not be negative.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -897,6 +908,10 @@ class ActivationCandidate:
     object_value: str | None
     qualifiers: Mapping[str, Any]
     memory: StoredEpisode | StoredSemanticMemory
+    importance: float = 0.5
+    slot_key: str | None = None
+    semantic_status: SemanticMemoryStatus | None = None
+    last_supported_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.memory_key.strip():
@@ -907,6 +922,16 @@ class ActivationCandidate:
             raise ValidationError("created_at must be timezone-aware.")
         object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
         object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+        if not math.isfinite(self.importance) or not 0.0 <= self.importance <= 1.0:
+            raise ValidationError("importance must be between 0.0 and 1.0.")
+        if self.last_supported_at is not None:
+            if self.last_supported_at.tzinfo is None:
+                raise ValidationError("last_supported_at must be timezone-aware.")
+            object.__setattr__(
+                self,
+                "last_supported_at",
+                self.last_supported_at.astimezone(UTC),
+            )
 
     @property
     def identity(self) -> MemoryIdentity:
@@ -971,6 +996,9 @@ class ForgettingConfig:
     enable_reference_compaction: bool = True
     compact_after_seconds: float = 2_592_000.0
     compaction_bucket_seconds: float = 86_400.0
+    enable_importance_scaling: bool = True
+    importance_retention_floor: float = 0.15
+    protect_semantic_support: bool = True
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.forgotten_retention_threshold < self.fading_retention_threshold <= 1.0:
@@ -981,6 +1009,8 @@ class ForgettingConfig:
             raise ValidationError("compact_after_seconds must be greater than zero.")
         if self.compaction_bucket_seconds <= 0:
             raise ValidationError("compaction_bucket_seconds must be greater than zero.")
+        if not 0.0 <= self.importance_retention_floor <= 1.0:
+            raise ValidationError("importance_retention_floor must be between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)

@@ -35,10 +35,15 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
     def _revision_key(self, tenant_id: str, revision_key: str) -> tuple[str, str]:
         return (tenant_id, revision_key)
 
-    async def upsert(self, memory: SemanticMemoryInput) -> SemanticWriteStatus:
+    async def upsert(
+        self,
+        memory: SemanticMemoryInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> SemanticWriteStatus:
         key = self._memory_key(memory.tenant_id, memory.memory_key)
         existing = self._memories.get(key)
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         fingerprint = memory.metadata["semantic"]["content_fingerprint"]
         if existing is not None:
             existing_fingerprint = existing.metadata["semantic"]["content_fingerprint"]
@@ -119,11 +124,13 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
     async def apply_reconciliation(
         self,
         plan: SemanticReconciliationPlan,
+        *,
+        as_of: datetime | None = None,
     ) -> SemanticReconciliationWriteResult:
         memories = dict(self._memories)
         revisions = dict(self._revisions)
         relations = dict(self._relations)
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         created = 0
         updated = 0
         unchanged = 0
@@ -270,9 +277,10 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         deactivated = 0
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         for key, memory in list(self._memories.items()):
             if memory.tenant_id != tenant_id:
                 continue

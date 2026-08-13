@@ -509,7 +509,12 @@ class PostgresEpisodeStore(EpisodeStore):
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
 
-    async def upsert(self, episode: EpisodeInput) -> EpisodeWriteStatus:
+    async def upsert(
+        self,
+        episode: EpisodeInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> EpisodeWriteStatus:
         fingerprint = episode.metadata["episode"]["content_fingerprint"]
         existing = await self._get_by_memory_key(
             tenant_id=episode.tenant_id,
@@ -519,10 +524,10 @@ class PostgresEpisodeStore(EpisodeStore):
             existing_fingerprint = existing.metadata["episode"]["content_fingerprint"]
             if existing_fingerprint == fingerprint:
                 return EpisodeWriteStatus.UNCHANGED
-            await self._update(existing.id, episode)
+            await self._update(existing.id, episode, as_of=as_of)
             return EpisodeWriteStatus.UPDATED
 
-        await self._create(episode)
+        await self._create(episode, as_of=as_of)
         return EpisodeWriteStatus.CREATED
 
     async def _get_by_memory_key(
@@ -596,7 +601,7 @@ class PostgresEpisodeStore(EpisodeStore):
             memory_row, evidence_result.mappings().all(), entity_result.mappings().all()
         )
 
-    async def _create(self, episode: EpisodeInput) -> None:
+    async def _create(self, episode: EpisodeInput, *, as_of: datetime | None = None) -> None:
         memory_id = str(uuid4())
         async with self._engine.begin() as conn:
             await conn.execute(
@@ -615,13 +620,20 @@ class PostgresEpisodeStore(EpisodeStore):
                     )
                     """
                 ),
-                self._memory_params(memory_id, episode),
+                self._memory_params(memory_id, episode, as_of=as_of),
             )
             await self._replace_evidence(conn, memory_id, episode.evidence)
             await self._replace_entities(conn, memory_id, episode.entities)
 
-    async def _update(self, memory_id: str, episode: EpisodeInput) -> None:
+    async def _update(
+        self,
+        memory_id: str,
+        episode: EpisodeInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> None:
         metadata_json = json.dumps(dict(episode.metadata))
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -649,7 +661,7 @@ class PostgresEpisodeStore(EpisodeStore):
                     "valid_from": episode.started_at,
                     "valid_until": episode.ended_at,
                     "metadata": metadata_json,
-                    "now": datetime.now(UTC),
+                    "now": now,
                 },
             )
             await self._replace_evidence(conn, memory_id, episode.evidence)
@@ -715,8 +727,14 @@ class PostgresEpisodeStore(EpisodeStore):
                 },
             )
 
-    def _memory_params(self, memory_id: str, episode: EpisodeInput) -> dict[str, Any]:
-        now = datetime.now(UTC)
+    def _memory_params(
+        self,
+        memory_id: str,
+        episode: EpisodeInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> dict[str, Any]:
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         return {
             "id": memory_id,
             "tenant_id": episode.tenant_id,
@@ -775,6 +793,7 @@ class PostgresEpisodeStore(EpisodeStore):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         clauses = [
             "tenant_id = :tenant_id",
@@ -798,6 +817,7 @@ class PostgresEpisodeStore(EpisodeStore):
             )
             rows = result.mappings().all()
 
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         deactivated = 0
         for row in rows:
             memory_key = row["memory_key"]
@@ -812,7 +832,7 @@ class PostgresEpisodeStore(EpisodeStore):
                         WHERE id = :id
                         """
                     ),
-                    {"id": str(row["id"]), "now": datetime.now(UTC)},
+                    {"id": str(row["id"]), "now": now},
                 )
             deactivated += 1
         return deactivated
@@ -880,7 +900,12 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
 
-    async def upsert(self, memory: SemanticMemoryInput) -> SemanticWriteStatus:
+    async def upsert(
+        self,
+        memory: SemanticMemoryInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> SemanticWriteStatus:
         fingerprint = memory.metadata["semantic"]["content_fingerprint"]
         existing = await self._get_by_memory_key(
             tenant_id=memory.tenant_id,
@@ -890,10 +915,10 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             existing_fingerprint = existing.metadata["semantic"]["content_fingerprint"]
             if existing_fingerprint == fingerprint:
                 return SemanticWriteStatus.UNCHANGED
-            await self._update(existing.id, memory)
+            await self._update(existing.id, memory, as_of=as_of)
             return SemanticWriteStatus.UPDATED
 
-        await self._create(memory)
+        await self._create(memory, as_of=as_of)
         return SemanticWriteStatus.CREATED
 
     async def _get_by_memory_key(
@@ -991,7 +1016,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             entity_result.mappings().all(),
         )
 
-    async def _create(self, memory: SemanticMemoryInput) -> None:
+    async def _create(self, memory: SemanticMemoryInput, *, as_of: datetime | None = None) -> None:
         memory_id = str(uuid4())
         async with self._engine.begin() as conn:
             await conn.execute(
@@ -1010,7 +1035,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     )
                     """
                 ),
-                self._memory_params(memory_id, memory),
+                self._memory_params(memory_id, memory, as_of=as_of),
             )
             await self._upsert_claim(conn, memory_id, memory)
             await self._replace_derivations(
@@ -1023,8 +1048,15 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             await self._replace_evidence(conn, memory_id, memory.observation_evidence)
             await self._replace_entities(conn, memory_id, memory.entities)
 
-    async def _update(self, memory_id: str, memory: SemanticMemoryInput) -> None:
+    async def _update(
+        self,
+        memory_id: str,
+        memory: SemanticMemoryInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> None:
         metadata_json = json.dumps(dict(memory.metadata))
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -1052,7 +1084,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     "valid_from": memory.valid_from,
                     "valid_until": memory.valid_until,
                     "metadata": metadata_json,
-                    "now": datetime.now(UTC),
+                    "now": now,
                 },
             )
             await self._upsert_claim(conn, memory_id, memory)
@@ -1226,8 +1258,14 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 },
             )
 
-    def _memory_params(self, memory_id: str, memory: SemanticMemoryInput) -> dict[str, Any]:
-        now = datetime.now(UTC)
+    def _memory_params(
+        self,
+        memory_id: str,
+        memory: SemanticMemoryInput,
+        *,
+        as_of: datetime | None = None,
+    ) -> dict[str, Any]:
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         return {
             "id": memory_id,
             "tenant_id": memory.tenant_id,
@@ -1366,8 +1404,10 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
     async def apply_reconciliation(
         self,
         plan: SemanticReconciliationPlan,
+        *,
+        as_of: datetime | None = None,
     ) -> SemanticReconciliationWriteResult:
-        now = datetime.now(UTC)
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         created = updated = unchanged = 0
         revisions_created = revisions_updated = 0
         relations_written = 0
@@ -1680,6 +1720,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         tenant_id: str,
         subject_id: str | None,
         active_memory_keys: set[str],
+        as_of: datetime | None = None,
     ) -> int:
         clauses = [
             "tenant_id = :tenant_id",
@@ -1703,6 +1744,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             )
             rows = result.mappings().all()
 
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         deactivated = 0
         for row in rows:
             memory_key = row["memory_key"]
@@ -1717,7 +1759,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                         WHERE id = :id
                         """
                     ),
-                    {"id": str(row["id"]), "now": datetime.now(UTC)},
+                    {"id": str(row["id"]), "now": now},
                 )
             deactivated += 1
         return deactivated

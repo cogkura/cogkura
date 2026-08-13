@@ -64,6 +64,7 @@ from cogkura.models import (
     RecallResult,
     RetrievalCue,
     SemanticConsolidationResult,
+    SemanticDerivationRelation,
     SemanticMemoryStatus,
     StoredEpisode,
     StoredMemoryLearningState,
@@ -359,6 +360,8 @@ class Memory:
                 valid_at=valid_at,
             ),
         )
+        if valid_at is not None:
+            episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         if valid_at is None:
             eligible_semantics = [
                 memory
@@ -623,6 +626,9 @@ class Memory:
                 include_inactive=False,
             ),
         )
+        episodes = [
+            episode for episode in episodes if _episode_visible_at(episode, evaluation_time)
+        ]
         candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
             activation_candidate_from_semantic(memory)
             for memory in semantic_memories
@@ -630,6 +636,25 @@ class Memory:
         ]
         if not candidates:
             return ForgettingResult()
+
+        episode_id_to_identity = {
+            episode.id: MemoryIdentity(
+                memory_kind=MemoryKind.EPISODE,
+                memory_key=episode.memory_key,
+            )
+            for episode in episodes
+        }
+        protected_identities: set[MemoryIdentity] = set()
+        if self._forgetting_config.protect_semantic_support:
+            for memory in semantic_memories:
+                if memory.status is SemanticMemoryStatus.SUPERSEDED:
+                    continue
+                for derivation in memory.derivations:
+                    if derivation.relation is not SemanticDerivationRelation.SUPPORTS:
+                        continue
+                    identity = episode_id_to_identity.get(derivation.episode_id)
+                    if identity is not None:
+                        protected_identities.add(identity)
 
         identities = [candidate.identity for candidate in candidates]
         dynamics, references = await asyncio.gather(
@@ -650,6 +675,7 @@ class Memory:
                 activation_config=self._activation_config,
                 forgetting_config=self._forgetting_config,
                 tenant_id=tenant_id,
+                protected_identities=frozenset(protected_identities),
             )
             for candidate in candidates
         ]
@@ -696,11 +722,13 @@ class Memory:
         *,
         tenant_id: str,
         subject_id: str | None = None,
+        as_of: datetime | None = None,
     ) -> EpisodeEncodingResult:
         """Build current episodic memories from stored observations."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
 
+        evaluation_time = _evaluation_time(as_of)
         observations = await self._observation_store.list(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -713,13 +741,14 @@ class Memory:
         active_keys: set[str] = set()
         for candidate in candidates:
             active_keys.add(candidate.memory_key)
-            status = await self._episode_store.upsert(candidate)
+            status = await self._episode_store.upsert(candidate, as_of=evaluation_time)
             result = result.record(status)
 
         deactivated = await self._episode_store.deactivate_missing(
             tenant_id=tenant_id,
             subject_id=subject_id,
             active_memory_keys=active_keys,
+            as_of=evaluation_time,
         )
         return replace(result, deactivated=deactivated)
 
@@ -748,11 +777,13 @@ class Memory:
         *,
         tenant_id: str,
         subject_id: str | None = None,
+        as_of: datetime | None = None,
     ) -> SemanticConsolidationResult:
         """Build semantic memories from active episodic memories."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
 
+        evaluation_time = _evaluation_time(as_of)
         episodes = await self._episode_store.list(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -787,9 +818,12 @@ class Memory:
             candidates=revision_candidates,
             existing_memories=existing_memories,
             existing_revisions=existing_revisions,
-            as_of=datetime.now(UTC),
+            as_of=evaluation_time,
         )
-        write_result = await self._semantic_store.apply_reconciliation(plan)
+        write_result = await self._semantic_store.apply_reconciliation(
+            plan,
+            as_of=evaluation_time,
+        )
         result = SemanticConsolidationResult(
             episodes=len(episodes),
             extracted_candidates=len(extraction.candidates),
@@ -1162,3 +1196,8 @@ def _evaluation_time(as_of: datetime | None) -> datetime:
             raise ValidationError("as_of must be timezone-aware.")
         return as_of.astimezone(UTC)
     return datetime.now(UTC)
+
+
+def _episode_visible_at(episode: StoredEpisode, valid_at: datetime) -> bool:
+    """Return whether an episode had started by valid_at."""
+    return episode.started_at.astimezone(UTC) <= valid_at.astimezone(UTC)
