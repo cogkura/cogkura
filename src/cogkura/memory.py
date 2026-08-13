@@ -13,6 +13,7 @@ from cogkura.algorithms.activation import (
     DeclarativeActivator,
     activation_candidate_from_episode,
     activation_candidate_from_semantic,
+    build_episode_support_index,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
@@ -360,6 +361,17 @@ class Memory:
                 valid_at=valid_at,
             ),
         )
+        superseded_semantics: Sequence[StoredSemanticMemory] = ()
+        if valid_at is None:
+            superseded_semantics = await self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+                status=SemanticMemoryStatus.SUPERSEDED,
+            )
+        episode_support_index = build_episode_support_index(
+            [*semantic_memories, *superseded_semantics]
+        )
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         if valid_at is None:
@@ -409,6 +421,7 @@ class Memory:
             config=self._activation_config,
             limit=limit,
             learned_associations=learned_associations,
+            episode_support_index=episode_support_index,
         )
 
     async def select_working_memory(
@@ -564,6 +577,7 @@ class Memory:
         referenced_at: datetime | None = None,
         reference_kind: ActivationReferenceKind = ActivationReferenceKind.RETRIEVED,
         request_id: str | None = None,
+        min_score: float | None = None,
     ) -> None:
         """Record explicit access to recalled memories for base-level activation."""
         if not tenant_id.strip():
@@ -576,6 +590,49 @@ class Memory:
             timestamp = datetime.now(UTC)
         if not results:
             return
+
+        score_floor = (
+            min_score if min_score is not None else self._activation_config.access_minimum_score
+        )
+        filtered = list(results)
+        if score_floor is not None:
+            filtered = [result for result in filtered if result.score >= score_floor]
+        if not filtered:
+            return
+
+        burst_limit = self._activation_config.access_burst_limit
+        if burst_limit is not None:
+            window = self._activation_config.access_burst_window_seconds
+            identities = [
+                MemoryIdentity(
+                    memory_kind=result.memory_kind,
+                    memory_key=_memory_key_from_result(result),
+                )
+                for result in filtered
+            ]
+            traces = await self._activation_store.list_reference_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=timestamp,
+            )
+            burst_filtered: list[RecallResult] = []
+            for result in filtered:
+                identity = MemoryIdentity(
+                    memory_kind=result.memory_kind,
+                    memory_key=_memory_key_from_result(result),
+                )
+                recent_count = sum(
+                    1
+                    for trace in traces.get(identity, ())
+                    if (timestamp - trace.referenced_at).total_seconds() <= window
+                )
+                if recent_count >= burst_limit:
+                    continue
+                burst_filtered.append(result)
+            filtered = burst_filtered
+            if not filtered:
+                return
+
         references = [
             MemoryReference(
                 tenant_id=tenant_id,
@@ -585,7 +642,7 @@ class Memory:
                 referenced_at=timestamp,
                 request_id=request_id,
             )
-            for result in results
+            for result in filtered
         ]
         await self._activation_store.append_references(references)
         await self._dynamics_store.reactivate(
@@ -595,7 +652,7 @@ class Memory:
                     memory_kind=result.memory_kind,
                     memory_key=_memory_key_from_result(result),
                 )
-                for result in results
+                for result in filtered
             ],
             at=timestamp,
         )

@@ -187,7 +187,8 @@ results = await memory.recall(
 for result in results:
     print(result.activation, result.score, result.memory.statement)
 
-await memory.record_access(results, tenant_id="company_123")
+# record_access is use, not presentation — filter weak rows when needed
+await memory.record_access(results, tenant_id="company_123", min_score=0.5)
 
 # Forgetting maintenance (explicit; sleep() is a no-op)
 result = await memory.apply_forgetting(tenant_id="company_123", as_of=as_of)
@@ -195,7 +196,7 @@ result = await memory.apply_forgetting(tenant_id="company_123", as_of=as_of)
 
 For simulated replay, pass the same `as_of` to `encode_episodes()` and `consolidate_semantics()` so `created_at` is not wall clock. Live callers can omit it.
 
-Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md).
+Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md) and [`docs/design-string-cues-current-state.md`](docs/design-string-cues-current-state.md).
 
 For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, and `PostgresMemoryDynamicsStore` to `Memory`.
 
@@ -327,11 +328,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.11.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement, `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, and current-state semantic bias.
+Cogkura is in early development. Through `0.12.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, current-state semantic bias, string-cue entity seeding, semantic slot admission, and superseded-slot episode penalties.
 
-## Scope of 0.11.0
+## Scope of 0.12.0
 
-Implemented through `0.11.0`:
+Implemented through `0.12.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -347,10 +348,11 @@ Implemented through `0.11.0`:
 - outcome-driven learning, `Memory.learn()`, contextual utility, HELPFUL ACT-R traces, and learned associations (`0.9`);
 - read-only metamemory, `Memory.assess_memory()`, independent monitoring signals, and diagnostic flags (`0.10`);
 - simulated `as_of` on encode/consolidate, episode `valid_at` visibility, candidate-set IDF, near-duplicate collapse, current-state ranking, and importance-aware forgetting (`0.11`);
+- string-cue entity seeding, semantic slot admission, superseded-support penalties, numeric duplicate collapse, and `record_access(..., min_score=...)` (`0.12`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.11.0`:
+Not implemented in `0.12.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -398,6 +400,7 @@ Learning / reinforcement
 - `0.9`: learning and reinforcement (done).
 - `0.10`: metamemory / memory monitoring (done).
 - `0.11`: ranking, simulated time, and current-state recall (done).
+- `0.12`: string cues, slot admission, and access recording (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

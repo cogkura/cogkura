@@ -43,6 +43,7 @@ class SpreadingActivator(Protocol):
         cue: RetrievalCue,
         config: ActivationConfig,
         learned_associations: Sequence[LearnedAssociation] = (),
+        spread_sources: Sequence[str] | None = None,
     ) -> SpreadingResult:
         """Return bounded spreading scores for each activated memory."""
 
@@ -115,9 +116,13 @@ def calculate_spreading_activation(
     cue: RetrievalCue,
     config: ActivationConfig,
     learned_associations: Sequence[LearnedAssociation] = (),
+    spread_sources: Sequence[str] | None = None,
 ) -> SpreadingResult:
     """Compute deterministic spreading activation over the candidate graph."""
-    sources = _unique_cue_sources(cue)
+    if spread_sources is not None:
+        sources = _unique_sorted_entity_ids(spread_sources)
+    else:
+        sources = _unique_cue_sources(cue)
     candidate_by_identity = _build_candidate_index(candidates)
     learned_neighbours = _build_learned_neighbours(learned_associations)
 
@@ -248,10 +253,12 @@ class DeterministicSpreadingActivator:
         cue: RetrievalCue,
         config: ActivationConfig,
         learned_associations: Sequence[LearnedAssociation] = (),
+        spread_sources: Sequence[str] | None = None,
     ) -> SpreadingResult:
         return calculate_spreading_activation(
             candidates=candidates,
             cue=cue,
             config=config,
             learned_associations=learned_associations,
+            spread_sources=spread_sources,
         )

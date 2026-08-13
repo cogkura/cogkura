@@ -85,11 +85,20 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.12 - String cues and access recording (done)
+
+- String-cue entity seeding for spreading (`enable_text_entity_seeding`).
+- Semantic slot admission before threshold cut.
+- Superseded-slot current-state penalties on supporting episodes.
+- Numeric-token duplicate collapse; `record_access(..., min_score=...)`.
+- [`docs/design-string-cues-current-state.md`](design-string-cues-current-state.md).
+
 ## Later
 
 - `0.9`: learning / reinforcement (done);
 - `0.10`: metamemory / memory monitoring (done);
-- `0.11+`: additional cognitive maintenance (planned);
+- `0.11`: ranking, simulated time, and current-state recall (done);
+- `0.12+`: additional cognitive maintenance (planned);
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

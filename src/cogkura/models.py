@@ -836,6 +836,13 @@ class ActivationConfig:
     current_state_cue_tokens: frozenset[str] = frozenset(
         {"currently", "current", "now", "live", "today"}
     )
+    enable_text_entity_seeding: bool = True
+    seeded_entity_partial_match_weight: float = 0.75
+    enable_semantic_slot_admission: bool = True
+    collapse_normalize_numeric_tokens: bool = True
+    access_minimum_score: float | None = None
+    access_burst_limit: int | None = None
+    access_burst_window_seconds: float = 3600.0
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -870,6 +877,14 @@ class ActivationConfig:
             raise ValidationError("duplicate_jaccard_threshold must be between 0.0 and 1.0.")
         if self.current_state_weight < 0:
             raise ValidationError("current_state_weight must not be negative.")
+        if self.seeded_entity_partial_match_weight < 0:
+            raise ValidationError("seeded_entity_partial_match_weight must not be negative.")
+        if self.access_minimum_score is not None and not (0.0 <= self.access_minimum_score <= 1.0):
+            raise ValidationError("access_minimum_score must be between 0.0 and 1.0.")
+        if self.access_burst_limit is not None and self.access_burst_limit <= 0:
+            raise ValidationError("access_burst_limit must be greater than zero.")
+        if self.access_burst_window_seconds <= 0:
+            raise ValidationError("access_burst_window_seconds must be greater than zero.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -881,6 +896,7 @@ class ActivationComponents:
     partial_match: float
     noise: float
     total: float
+    current_state: float = 0.0
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -889,6 +905,7 @@ class ActivationComponents:
             ("partial_match", self.partial_match),
             ("noise", self.noise),
             ("total", self.total),
+            ("current_state", self.current_state),
         ):
             if not math.isfinite(value):
                 raise ValidationError(f"{label} must be finite.")

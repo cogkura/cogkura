@@ -378,7 +378,29 @@ def test_spreading_disabled() -> None:
     assert results[0].components.spreading == 0.0
 
 
-def test_text_only_cue_produces_no_spreading() -> None:
+def test_text_only_cue_produces_no_spreading_without_seeding() -> None:
+    candidates = [
+        activation_candidate_from_episode(
+            _episode(memory_key="a", statement="Alice memory", entity_ids=("alice",))
+        ),
+    ]
+    activator = ACTRDeclarativeActivator()
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="Alice memory"),
+        references={},
+        as_of=_AS_OF,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_text_entity_seeding=False,
+        ),
+        limit=5,
+    )
+    assert results[0].components.spreading == 0.0
+    assert results[0].components.base_level != 0.0 or results[0].components.partial_match != 0.0
+
+
+def test_text_only_cue_seeds_spreading_from_candidate_entities() -> None:
     candidates = [
         activation_candidate_from_episode(
             _episode(memory_key="a", statement="Alice memory", entity_ids=("alice",))
@@ -393,8 +415,7 @@ def test_text_only_cue_produces_no_spreading() -> None:
         config=ActivationConfig(retrieval_threshold=-10.0),
         limit=5,
     )
-    assert results[0].components.spreading == 0.0
-    assert results[0].components.base_level != 0.0 or results[0].components.partial_match != 0.0
+    assert results[0].components.spreading > 0.0
 
 
 def test_candidate_order_independence() -> None:

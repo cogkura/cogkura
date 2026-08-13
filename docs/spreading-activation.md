@@ -35,7 +35,7 @@ results = await memory.recall(
 
 Associatively retrieved memories expose `result.components.spreading > 0`.
 
-Plain text cues continue to work; spreading is zero without `entity_ids`.
+Plain text cues seed spreading from candidate entity overlap when `enable_text_entity_seeding` is `true` (default). Explicit `RetrievalCue.entity_ids` behaviour is unchanged. Disable seeding to reproduce pre-`0.12` text-only spreading (`spreading == 0` without `entity_ids`).
 
 ## Configuration defaults
 

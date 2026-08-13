@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-08-13
+
+### Added
+
+- String-cue entity seeding for spreading activation (`enable_text_entity_seeding`, `seeded_entity_partial_match_weight`).
+- Semantic slot admission before the retrieval threshold cut (`enable_semantic_slot_admission`).
+- Superseded-slot current-state penalty for supporting episodes; `ActivationComponents.current_state`.
+- Numeric-token normalisation for near-duplicate collapse only (`collapse_normalize_numeric_tokens`).
+- `Memory.record_access(..., min_score=...)`, `ActivationConfig.access_minimum_score`, and optional access burst limits.
+- [`docs/design-string-cues-current-state.md`](docs/design-string-cues-current-state.md).
+
+### Changed
+
+- `recall()` builds an episode support index from superseded semantics (derivation-only when `valid_at is None`).
+- In-memory semantic `list(..., status=SUPERSEDED)` returns superseded rows when explicitly requested.
+- Spreading activation accepts optional `spread_sources` for seeded entity propagation.
+
+### Notes
+
+- `recall()` is presentation; `record_access()` is use. No migration required.
+- Explicit `RetrievalCue.entity_ids` behaviour is unchanged from `0.11` when seeding is disabled.
+
 ## [0.11.0] - 2026-08-13
 
 ### Added

@@ -86,7 +86,10 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
                 continue
             if status is not None and memory.status != status:
                 continue
-            if memory.status is SemanticMemoryStatus.SUPERSEDED:
+            if (
+                memory.status is SemanticMemoryStatus.SUPERSEDED
+                and status is not SemanticMemoryStatus.SUPERSEDED
+            ):
                 continue
             results.append(memory)
         results.sort(key=lambda item: (item.first_supported_at, item.id))
