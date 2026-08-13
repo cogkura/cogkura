@@ -112,6 +112,8 @@ episodes = await memory.list_episodes(tenant_id="company_123", subject_id="custo
 print(result.created, len(episodes[0].evidence))
 ```
 
+Pass `as_of=` when replaying a frozen timeline; omit it for live encoding.
+
 ## Semantic consolidation
 
 Attach structured facts to observation metadata, encode episodes, then consolidate:
@@ -148,11 +150,15 @@ memories = await memory.list_semantic_memories(tenant_id="company_123", subject_
 print(result.promoted, memories[0].statement)
 ```
 
+Pass the same `as_of=` used for encoding when consolidating a simulated timeline.
+
 ## Declarative activation (recall)
 
-After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level, spreading activation, and partial matching:
+After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level, spreading activation, and partial matching. Text matching downweights tokens that are common in the current candidate set. Near-duplicate statements are collapsed before the rank limit is applied. Active semantic slot values are preferred over superseded ones.
 
 ```python
+from datetime import UTC, datetime
+
 from cogkura import ActivationConfig, RetrievalCue
 
 results = await memory.recall(
@@ -169,16 +175,27 @@ results = await memory.recall(
     tenant_id="company_123",
 )
 
+# Historical recall: semantics use revision windows; episodes need started_at <= valid_at
+as_of = datetime(2026, 1, 6, tzinfo=UTC)
+results = await memory.recall(
+    "What did we currently use for job coordination?",
+    tenant_id="company_123",
+    as_of=as_of,
+    valid_at=as_of,
+)
+
 for result in results:
     print(result.activation, result.score, result.memory.statement)
 
 await memory.record_access(results, tenant_id="company_123")
 
 # Forgetting maintenance (explicit; sleep() is a no-op)
-result = await memory.apply_forgetting(tenant_id="company_123")
+result = await memory.apply_forgetting(tenant_id="company_123", as_of=as_of)
 ```
 
-Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`.
+For simulated replay, pass the same `as_of` to `encode_episodes()` and `consolidate_semantics()` so `created_at` is not wall clock. Live callers can omit it.
+
+Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md).
 
 For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, and `PostgresMemoryDynamicsStore` to `Memory`.
 
@@ -310,11 +327,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.10.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement and `apply_forgetting()` maintenance.
+Cogkura is in early development. Through `0.11.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement, `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, and current-state semantic bias.
 
-## Scope of 0.10.0
+## Scope of 0.11.0
 
-Implemented through `0.10.0`:
+Implemented through `0.11.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -329,10 +346,11 @@ Implemented through `0.10.0`:
 - temporal semantic reconsolidation, revision history, `Memory.list_semantic_revisions()`, and `valid_at` historical retrieval (`0.8`);
 - outcome-driven learning, `Memory.learn()`, contextual utility, HELPFUL ACT-R traces, and learned associations (`0.9`);
 - read-only metamemory, `Memory.assess_memory()`, independent monitoring signals, and diagnostic flags (`0.10`);
+- simulated `as_of` on encode/consolidate, episode `valid_at` visibility, candidate-set IDF, near-duplicate collapse, current-state ranking, and importance-aware forgetting (`0.11`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.10.0`:
+Not implemented in `0.11.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -379,6 +397,7 @@ Learning / reinforcement
 - `0.8`: temporal reconsolidation and memory updating (done).
 - `0.9`: learning and reinforcement (done).
 - `0.10`: metamemory / memory monitoring (done).
+- `0.11`: ranking, simulated time, and current-state recall (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
