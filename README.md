@@ -335,11 +335,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.12.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, current-state semantic bias, string-cue entity seeding, semantic slot admission, and superseded-slot episode penalties.
+Cogkura is in early development. Through `0.13.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, current-state semantic bias, gated semantic slot admission, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
 
-## Scope of 0.12.0
+## Scope of 0.13.0
 
-Implemented through `0.12.0`:
+Implemented through `0.13.0`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -356,10 +356,11 @@ Implemented through `0.12.0`:
 - read-only metamemory, `Memory.assess_memory()`, independent monitoring signals, and diagnostic flags (`0.10`);
 - simulated `as_of` on encode/consolidate, episode `valid_at` visibility, candidate-set IDF, near-duplicate collapse, current-state ranking, and importance-aware forgetting (`0.11`);
 - string-cue entity seeding, semantic slot admission, superseded-support penalties, numeric duplicate collapse, and `record_access(..., min_score=...)` (`0.12`);
+- gated slot admission, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and WM same-slot collapse (`0.13`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.12.0`:
+Not implemented in `0.13.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -407,6 +408,7 @@ Learning / reinforcement
 - `0.9`: learning and reinforcement (done).
 - `0.10`: metamemory / memory monitoring (done).
 - `0.11`: ranking, simulated time, and current-state recall (done).
+- `0.13`: gated slot admission, association, and metamemory (done).
 - `0.12`: string cues, slot admission, and access recording (done).
 - later: additional connectors, and integrations.
 

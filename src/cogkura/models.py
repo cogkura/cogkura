@@ -843,6 +843,17 @@ class ActivationConfig:
     access_minimum_score: float | None = None
     access_burst_limit: int | None = None
     access_burst_window_seconds: float = 3600.0
+    slot_admission_requires_current_state_or_predicate: bool = True
+    force_slot_admission: bool = False
+    enable_multi_entity_conjunction: bool = True
+    conjunction_weight: float = 0.5
+    distinctive_token_idf_scale: float = 1.5
+    incident_cue_tokens: frozenset[str] = frozenset(
+        {"incident", "on", "call", "alert", "woke", "3am", "am", "overnight"}
+    )
+    enable_incident_tag_seeding: bool = True
+    exclude_superseded_support_on_current_state: bool = True
+    collapse_same_slot_support: bool = True
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -885,6 +896,10 @@ class ActivationConfig:
             raise ValidationError("access_burst_limit must be greater than zero.")
         if self.access_burst_window_seconds <= 0:
             raise ValidationError("access_burst_window_seconds must be greater than zero.")
+        if self.conjunction_weight < 0:
+            raise ValidationError("conjunction_weight must not be negative.")
+        if self.distinctive_token_idf_scale <= 0:
+            raise ValidationError("distinctive_token_idf_scale must be greater than zero.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1128,6 +1143,8 @@ class WorkingMemoryConfig:
     redundancy_threshold: float = 0.70
     decay_half_life_seconds: float = 300.0
     learned_utility_weight: float = 0.10
+    collapse_same_slot_support: bool = True
+    stale_goal_penalty: float = 0.35
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -1164,6 +1181,8 @@ class WorkingMemoryConfig:
             raise ValidationError("decay_half_life_seconds must be greater than zero.")
         if not 0.0 <= self.learned_utility_weight <= 1.0:
             raise ValidationError("learned_utility_weight must be between 0.0 and 1.0.")
+        if not math.isfinite(self.stale_goal_penalty) or not 0.0 <= self.stale_goal_penalty <= 1.0:
+            raise ValidationError("stale_goal_penalty must be finite and between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1569,6 +1588,8 @@ class MetamemoryConfig:
     low_learned_utility_threshold: float = 0.35
     freshness_half_life_seconds: float | None = None
     stale_evidence_threshold: float = 0.25
+    missing_knowledge_coverage_threshold: float = 0.35
+    missing_knowledge_strength_threshold: float = 0.45
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -1586,6 +1607,8 @@ class MetamemoryConfig:
             ("forgetting_pressure_threshold", self.forgetting_pressure_threshold),
             ("low_learned_utility_threshold", self.low_learned_utility_threshold),
             ("stale_evidence_threshold", self.stale_evidence_threshold),
+            ("missing_knowledge_coverage_threshold", self.missing_knowledge_coverage_threshold),
+            ("missing_knowledge_strength_threshold", self.missing_knowledge_strength_threshold),
         ):
             if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
                 raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
@@ -1613,6 +1636,7 @@ class MemoryAssessmentFlag(StrEnum):
     HIGH_FORGETTING_PRESSURE = "high_forgetting_pressure"
     LOW_LEARNED_UTILITY = "low_learned_utility"
     STALE_EVIDENCE = "stale_evidence"
+    MISSING_KNOWLEDGE = "missing_knowledge"
 
 
 @dataclass(frozen=True, slots=True)

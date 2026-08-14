@@ -4,19 +4,26 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Protocol
 
+from cogkura.algorithms.activation import (
+    _collapse_results,
+    build_episode_slot_index_from_results,
+)
 from cogkura.algorithms.relevance import calculate_cue_relevance
 from cogkura.algorithms.relevance import tokenize as _tokenize
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
+    ActivationConfig,
     MemoryIdentity,
     MemoryKind,
     RecallResult,
     RetrievalCue,
+    SemanticMemoryStatus,
     StoredEpisode,
+    StoredSemanticMemory,
     WorkingMemoryComponents,
     WorkingMemoryConfig,
     WorkingMemoryItem,
@@ -58,6 +65,8 @@ class WorkingMemorySelector(Protocol):
         token_estimator: TokenEstimator,
         prompt_budget_tokens: int | None = None,
         learning_utilities: Mapping[MemoryIdentity, float] | None = None,
+        activation_config: ActivationConfig | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
     ) -> WorkingMemorySnapshot:
         """Select a bounded working-memory set from recall candidates."""
         ...
@@ -94,6 +103,8 @@ class DeterministicWorkingMemorySelector:
         token_estimator: TokenEstimator,
         prompt_budget_tokens: int | None = None,
         learning_utilities: Mapping[MemoryIdentity, float] | None = None,
+        activation_config: ActivationConfig | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
     ) -> WorkingMemorySnapshot:
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
@@ -114,13 +125,37 @@ class DeterministicWorkingMemorySelector:
                 subject_id=subject_id,
             )
 
+        pool = list(candidates)
+        if config.collapse_same_slot_support:
+            base_config = activation_config or ActivationConfig()
+            collapse_config = replace(
+                base_config,
+                enable_duplicate_collapse=False,
+                collapse_same_slot_support=True,
+            )
+            slot_index = episode_slot_index or build_episode_slot_index_from_results(pool)
+            pool = _collapse_results(
+                sorted(
+                    pool,
+                    key=lambda item: (
+                        -item.activation,
+                        item.memory_kind.value,
+                        _memory_key_from_recall(item),
+                    ),
+                ),
+                limit=len(pool),
+                config=collapse_config,
+                support_index={},
+                slot_index=slot_index,
+            )
+
         previous_strengths = _previous_strengths(previous)
         weight_a, weight_g, weight_i, weight_d = _normalised_ranking_weights(config)
 
         scored: list[_ScoredCandidate] = []
         goal_filtered_count = 0
 
-        for recall in candidates:
+        for recall in pool:
             goal_relevance = calculate_goal_relevance(recall, goal)
             if goal_relevance < config.minimum_goal_relevance:
                 goal_filtered_count += 1
@@ -147,8 +182,9 @@ class DeterministicWorkingMemorySelector:
                 learned_utility = learning_utilities.get(identity, 0.5)
             utility_signal = 2.0 * learned_utility - 1.0
             utility_adjustment = config.learned_utility_weight * utility_signal
+            stale_penalty = _stale_goal_penalty(recall, goal, config)
             adjusted_priority = _clamp(
-                base_priority + utility_adjustment,
+                base_priority + utility_adjustment - stale_penalty,
                 0.0,
                 1.0,
             )
@@ -243,6 +279,42 @@ class DeterministicWorkingMemorySelector:
 
 
 calculate_goal_relevance = calculate_cue_relevance
+
+
+def _stale_goal_penalty(
+    recall: RecallResult,
+    goal: RetrievalCue,
+    config: WorkingMemoryConfig,
+) -> float:
+    goal_text = (goal.text or "").casefold()
+    if "stale" not in goal_text:
+        return 0.0
+    penalty = 0.0
+    memory = recall.memory
+    if (
+        isinstance(memory, StoredSemanticMemory)
+        and memory.status is SemanticMemoryStatus.SUPERSEDED
+    ):
+        penalty += config.stale_goal_penalty
+    for tag in _memory_tags(memory):
+        if tag == "stale":
+            penalty += config.stale_goal_penalty
+            break
+    return min(penalty, 1.0)
+
+
+def _memory_tags(memory: StoredEpisode | StoredSemanticMemory) -> set[str]:
+    metadata = memory.metadata
+    tags: set[str] = set()
+    raw_tags = metadata.get("tags")
+    if isinstance(raw_tags, (list, tuple, set, frozenset)):
+        tags.update(str(tag).casefold() for tag in raw_tags)
+    episode_meta = metadata.get("episode")
+    if isinstance(episode_meta, Mapping):
+        episode_tags = episode_meta.get("tags")
+        if isinstance(episode_tags, (list, tuple, set, frozenset)):
+            tags.update(str(tag).casefold() for tag in episode_tags)
+    return tags
 
 
 def _validate_previous_scope(

@@ -68,6 +68,16 @@ See [`design-string-cues-current-state.md`](design-string-cues-current-state.md)
 - Near-duplicate collapse strips purely numeric tokens before Jaccard (`collapse_normalize_numeric_tokens`).
 - `record_access(..., min_score=...)` and optional burst limits filter reinforcement writes.
 
+## 0.13 gated admission and association
+
+See [`design-gated-slot-admission.md`](design-gated-slot-admission.md).
+
+- Slot admission requires current-state cue tokens, `predicate`, or `force_slot_admission`; entity ids seed spreading only.
+- Multi-entity conjunction bonus when two or more cue entities overlap a candidate.
+- Incident cue IDF scaling and optional tag seeding from episode metadata.
+- SUPERSEDED-only SUPPORT episodes are excluded on current-state recall when `valid_at is None`.
+- Same-slot SUPPORT collapse at rank time and in working memory.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

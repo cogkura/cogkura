@@ -337,8 +337,15 @@ def test_current_state_penalises_superseded_support_episode() -> None:
         episode_support_index=support_index,
     )
     episode_results = [result for result in results if result.memory_kind is MemoryKind.EPISODE]
-    assert episode_results[0].memory.memory_key == "postgres-support"  # type: ignore[union-attr]
-    assert episode_results[0].components.current_state > episode_results[1].components.current_state
+    keys = {result.memory.memory_key for result in episode_results}  # type: ignore[union-attr]
+    assert "postgres-support" in keys
+    assert "dynamo-support" not in keys
+    postgres_result = next(
+        result
+        for result in episode_results
+        if result.memory.memory_key == "postgres-support"  # type: ignore[union-attr]
+    )
+    assert postgres_result.components.current_state > 0.0
 
 
 def test_without_current_state_tokens_superseded_episode_stays_retrievable() -> None:

@@ -85,6 +85,15 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.13 - Gated slot admission and association (done)
+
+- Gate slot admission to current-state lexicon, `predicate`, or `force_slot_admission`.
+- Multi-entity conjunction bonus; incident IDF scale and tag seeding.
+- Hard-exclude SUPERSEDED-only SUPPORT on current-state recall.
+- Metamemory `MISSING_KNOWLEDGE`; WM same-slot collapse and stale-goal penalty.
+- Rank-time same-slot SUPPORT collapse; `__version__` fix.
+- [`docs/design-gated-slot-admission.md`](design-gated-slot-admission.md).
+
 ## 0.12 - String cues and access recording (done)
 
 - String-cue entity seeding for spreading (`enable_text_entity_seeding`).

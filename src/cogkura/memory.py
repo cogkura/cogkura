@@ -13,6 +13,7 @@ from cogkura.algorithms.activation import (
     DeclarativeActivator,
     activation_candidate_from_episode,
     activation_candidate_from_semantic,
+    build_episode_slot_index,
     build_episode_support_index,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
@@ -369,9 +370,9 @@ class Memory:
                 include_inactive=False,
                 status=SemanticMemoryStatus.SUPERSEDED,
             )
-        episode_support_index = build_episode_support_index(
-            [*semantic_memories, *superseded_semantics]
-        )
+        all_semantics = [*semantic_memories, *superseded_semantics]
+        episode_support_index = build_episode_support_index(all_semantics)
+        episode_slot_index = build_episode_slot_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         if valid_at is None:
@@ -422,6 +423,8 @@ class Memory:
             limit=limit,
             learned_associations=learned_associations,
             episode_support_index=episode_support_index,
+            valid_at=valid_at,
+            episode_slot_index=episode_slot_index,
         )
 
     async def select_working_memory(
@@ -493,6 +496,7 @@ class Memory:
             token_estimator=self._token_estimator,
             prompt_budget_tokens=prompt_budget_tokens,
             learning_utilities=learning_utilities,
+            activation_config=self._activation_config,
         )
 
     async def assess_memory(

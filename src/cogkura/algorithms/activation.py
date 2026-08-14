@@ -59,6 +59,8 @@ class DeclarativeActivator(Protocol):
         limit: int,
         learned_associations: Sequence[LearnedAssociation] = (),
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
+        valid_at: datetime | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -149,6 +151,33 @@ def build_episode_support_index(
     return {episode_id: frozenset(statuses) for episode_id, statuses in index.items()}
 
 
+def build_episode_slot_index(
+    semantics: Sequence[StoredSemanticMemory],
+) -> dict[str, str]:
+    """Map episode ids to semantic slot keys they support."""
+    index: dict[str, str] = {}
+    for memory in semantics:
+        for derivation in memory.derivations:
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS:
+                index[derivation.episode_id] = memory.slot_key
+    return index
+
+
+def build_episode_slot_index_from_results(
+    results: Sequence[RecallResult],
+) -> dict[str, str]:
+    """Map episode ids to slot keys using semantic memories in recall results."""
+    index: dict[str, str] = {}
+    for result in results:
+        memory = result.memory
+        if not isinstance(memory, StoredSemanticMemory):
+            continue
+        for derivation in memory.derivations:
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS:
+                index[derivation.episode_id] = memory.slot_key
+    return index
+
+
 class ACTRDeclarativeActivator:
     """Deterministic ACT-R declarative activation (base-level + partial matching)."""
 
@@ -166,11 +195,17 @@ class ACTRDeclarativeActivator:
         limit: int,
         learned_associations: Sequence[LearnedAssociation] = (),
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
+        valid_at: datetime | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
     ) -> list[RecallResult]:
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
+        tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
+        effective_entity_ids = (
+            cue.entity_ids if cue.entity_ids else _merge_seed_ids(seeded_entity_ids, tag_seed_ids)
+        )
         spread_sources: tuple[str, ...] | None = None
-        if seeded_entity_ids and not cue.entity_ids:
-            spread_sources = seeded_entity_ids
+        if not cue.entity_ids and effective_entity_ids:
+            spread_sources = effective_entity_ids
 
         spreading_result = (
             self._spreading_activator.calculate(
@@ -185,10 +220,15 @@ class ACTRDeclarativeActivator:
         )
         spreading_by_identity = spreading_result.scores if spreading_result is not None else {}
         spreading_metadata = spreading_result.metadata if spreading_result is not None else {}
-        idf_weights = _candidate_idf_weights(candidates) if config.enable_candidate_idf else None
+        idf_weights = _scaled_idf_weights(candidates, cue, config)
         current_state_cue = _cue_requests_current_state(cue, config)
         support_index = episode_support_index or {}
-        effective_entity_ids = cue.entity_ids if cue.entity_ids else seeded_entity_ids
+        slot_index = episode_slot_index or {}
+        slot_admission_active = _slot_admission_active(
+            cue,
+            config=config,
+            current_state_cue=current_state_cue,
+        )
 
         scored: list[RecallResult] = []
         for candidate in candidates:
@@ -205,6 +245,7 @@ class ACTRDeclarativeActivator:
                     current_state_cue=current_state_cue,
                     effective_entity_ids=effective_entity_ids,
                     episode_support_index=support_index,
+                    slot_admission_active=slot_admission_active,
                 )
             )
 
@@ -250,9 +291,64 @@ class ACTRDeclarativeActivator:
                 ordered.append(result)
                 seen_identities.add(identity)
 
+        if config.exclude_superseded_support_on_current_state and slot_admission_active:
+            if valid_at is None:
+                ordered = [
+                    result
+                    for result in ordered
+                    if not _is_superseded_only_support_episode(result, support_index)
+                ]
+
         if config.enable_duplicate_collapse:
-            return _collapse_near_duplicates(ordered, limit=limit, config=config)
+            return _collapse_results(
+                ordered,
+                limit=limit,
+                config=config,
+                support_index=support_index,
+                slot_index=slot_index,
+            )
         return ordered[:limit]
+
+
+def _merge_seed_ids(*groups: Sequence[str]) -> tuple[str, ...]:
+    merged: set[str] = set()
+    for group in groups:
+        merged.update(group)
+    return tuple(sorted(merged))
+
+
+def _slot_admission_active(
+    cue: RetrievalCue,
+    *,
+    config: ActivationConfig,
+    current_state_cue: bool,
+) -> bool:
+    if not config.enable_semantic_slot_admission:
+        return False
+    if config.force_slot_admission:
+        return True
+    if not config.slot_admission_requires_current_state_or_predicate:
+        return True
+    return current_state_cue or cue.predicate is not None
+
+
+def _scaled_idf_weights(
+    candidates: Sequence[ActivationCandidate],
+    cue: RetrievalCue,
+    config: ActivationConfig,
+) -> dict[str, float] | None:
+    if not config.enable_candidate_idf:
+        return None
+    base = _candidate_idf_weights(candidates)
+    if not cue.text or not cue.text.strip():
+        return base
+    cue_tokens = _tokenize(cue.text)
+    if not cue_tokens.intersection(config.incident_cue_tokens):
+        return base
+    scale = config.distinctive_token_idf_scale
+    return {
+        token: weight * (scale if token in cue_tokens else 1.0) for token, weight in base.items()
+    }
 
 
 def _score_candidate(
@@ -268,6 +364,7 @@ def _score_candidate(
     current_state_cue: bool,
     effective_entity_ids: Sequence[str],
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_admission_active: bool,
 ) -> RecallResult:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
@@ -300,15 +397,21 @@ def _score_candidate(
         current_state_cue=current_state_cue,
         config=config,
         episode_support_index=episode_support_index,
+        slot_admission_active=slot_admission_active,
+    )
+    conjunction = _multi_entity_conjunction_bonus(
+        candidate,
+        effective_entity_ids=effective_entity_ids,
+        config=config,
     )
     noise = 0.0
-    activation = base_level + spreading + partial_match + current_state + noise
+    activation = base_level + spreading + partial_match + current_state + conjunction + noise
     latency_seconds = config.latency_factor * math.exp(-config.latency_exponent * activation)
     score = _presentation_score(activation, config.retrieval_threshold)
     components = ActivationComponents(
         base_level=base_level,
         spreading=spreading,
-        partial_match=partial_match,
+        partial_match=partial_match + conjunction,
         noise=noise,
         total=activation,
         current_state=current_state,
@@ -324,6 +427,7 @@ def _score_candidate(
         cue_entity_count=len(effective_entity_ids),
         spreading_metadata=spreading_metadata,
         current_state=current_state,
+        conjunction=conjunction,
     )
     return RecallResult(
         memory_kind=candidate.memory_kind,
@@ -333,6 +437,37 @@ def _score_candidate(
         latency_seconds=latency_seconds,
         components=components,
         reason=reason,
+    )
+
+
+def _multi_entity_conjunction_bonus(
+    candidate: ActivationCandidate,
+    *,
+    effective_entity_ids: Sequence[str],
+    config: ActivationConfig,
+) -> float:
+    if not config.enable_multi_entity_conjunction:
+        return 0.0
+    if len(effective_entity_ids) < 2:
+        return 0.0
+    overlap = set(effective_entity_ids).intersection(candidate.entity_ids)
+    if len(overlap) < 2:
+        return 0.0
+    return config.conjunction_weight
+
+
+def _is_superseded_only_support_episode(
+    result: RecallResult,
+    support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+) -> bool:
+    if result.memory_kind is not MemoryKind.EPISODE:
+        return False
+    memory = result.memory
+    if not isinstance(memory, StoredEpisode):
+        return False
+    statuses = support_index.get(memory.id, frozenset())
+    return (
+        SemanticMemoryStatus.SUPERSEDED in statuses and SemanticMemoryStatus.ACTIVE not in statuses
     )
 
 
@@ -362,6 +497,7 @@ def _build_reason(
     cue_entity_count: int,
     spreading_metadata: SpreadingMetadata | None,
     current_state: float = 0.0,
+    conjunction: float = 0.0,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -371,6 +507,8 @@ def _build_reason(
     )
     if current_state != 0.0:
         reason += f"; current_state={current_state:.3f}"
+    if conjunction != 0.0:
+        reason += f"; conjunction={conjunction:.3f}"
     if spreading > 0.0 and spreading_metadata is not None:
         reason += (
             f"; spread_hop={spreading_metadata.hop}; "
@@ -413,6 +551,47 @@ def _seed_entity_ids_from_text(
     return tuple(sorted(seeded))
 
 
+def _seed_tag_tokens_from_text(
+    cue: RetrievalCue,
+    candidates: Sequence[ActivationCandidate],
+    config: ActivationConfig,
+) -> tuple[str, ...]:
+    if not config.enable_incident_tag_seeding:
+        return ()
+    if not cue.text or not cue.text.strip():
+        return ()
+    cue_tokens = _tokenize(cue.text)
+    if not cue_tokens:
+        return ()
+    seeded: set[str] = set()
+    for candidate in candidates:
+        for tag in _candidate_tag_tokens(candidate):
+            if tag in cue_tokens:
+                seeded.add(tag)
+    return tuple(sorted(seeded))
+
+
+def _candidate_tag_tokens(candidate: ActivationCandidate) -> set[str]:
+    memory = candidate.memory
+    if not isinstance(memory, StoredEpisode):
+        return set()
+    metadata = memory.metadata
+    tags: set[str] = set()
+    raw_tags = metadata.get("tags")
+    if isinstance(raw_tags, (list, tuple, set, frozenset)):
+        tags.update(_normalise_tag(token) for token in raw_tags if isinstance(token, str))
+    episode_meta = metadata.get("episode")
+    if isinstance(episode_meta, Mapping):
+        episode_tags = episode_meta.get("tags")
+        if isinstance(episode_tags, (list, tuple, set, frozenset)):
+            tags.update(_normalise_tag(token) for token in episode_tags if isinstance(token, str))
+    return {tag for tag in tags if tag}
+
+
+def _normalise_tag(value: str) -> str:
+    return _normalise_text(value).replace(" ", "-")
+
+
 def _semantic_slot_admission_identities(
     candidates: Sequence[ActivationCandidate],
     cue: RetrievalCue,
@@ -421,14 +600,10 @@ def _semantic_slot_admission_identities(
     seeded_entity_ids: tuple[str, ...],
     current_state_cue: bool,
 ) -> set[MemoryIdentity]:
-    if not config.enable_semantic_slot_admission:
+    if not _slot_admission_active(cue, config=config, current_state_cue=current_state_cue):
         return set()
 
     effective_sources = cue.entity_ids if cue.entity_ids else seeded_entity_ids
-    should_admit = current_state_cue or cue.predicate is not None or bool(effective_sources)
-    if not should_admit:
-        return set()
-
     cue_tokens = _tokenize(cue.text) if cue.text else set()
     distinctive_tokens = cue_tokens - config.current_state_cue_tokens
 
@@ -583,6 +758,7 @@ def _current_state_activation(
     current_state_cue: bool,
     config: ActivationConfig,
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_admission_active: bool,
 ) -> float:
     if candidate.semantic_status is SemanticMemoryStatus.SUPERSEDED:
         return -config.current_state_weight
@@ -593,7 +769,12 @@ def _current_state_activation(
         bonus += config.current_state_weight * 0.25
     if current_state_cue and candidate.semantic_status is SemanticMemoryStatus.ACTIVE:
         bonus += config.current_state_weight
-    if current_state_cue and candidate.slot_key is not None and candidate.semantic_status is None:
+    if (
+        current_state_cue
+        and candidate.slot_key is not None
+        and candidate.semantic_status is None
+        and slot_admission_active
+    ):
         bonus -= config.current_state_weight * 0.25
 
     if (
@@ -610,20 +791,48 @@ def _current_state_activation(
     return bonus
 
 
-def _collapse_near_duplicates(
+def _collapse_results(
     results: Sequence[RecallResult],
     *,
     limit: int,
     config: ActivationConfig,
+    support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_index: Mapping[str, str],
 ) -> list[RecallResult]:
     selected: list[RecallResult] = []
     for result in results:
         if len(selected) >= limit:
             break
-        if any(_results_near_duplicate(existing, result, config=config) for existing in selected):
+        if any(
+            _should_collapse(
+                existing,
+                result,
+                config=config,
+                support_index=support_index,
+                slot_index=slot_index,
+            )
+            for existing in selected
+        ):
             continue
         selected.append(result)
     return selected
+
+
+def _should_collapse(
+    left: RecallResult,
+    right: RecallResult,
+    *,
+    config: ActivationConfig,
+    support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_index: Mapping[str, str],
+) -> bool:
+    if config.enable_duplicate_collapse and _results_near_duplicate(left, right, config=config):
+        return True
+    if config.collapse_same_slot_support and _results_same_slot_support(
+        left, right, slot_index=slot_index
+    ):
+        return True
+    return False
 
 
 def _results_near_duplicate(
@@ -645,6 +854,82 @@ def _results_near_duplicate(
     if union == 0:
         return False
     return (intersection / union) >= config.duplicate_jaccard_threshold
+
+
+def _results_same_slot_support(
+    left: RecallResult,
+    right: RecallResult,
+    *,
+    slot_index: Mapping[str, str],
+) -> bool:
+    left_key = _slot_support_group(left, slot_index)
+    right_key = _slot_support_group(right, slot_index)
+    if left_key is None or right_key is None or left_key != right_key:
+        return False
+    left_active_semantic = _is_active_semantic(left)
+    right_active_semantic = _is_active_semantic(right)
+    left_support_episode = _is_slot_support_episode(left, slot_index)
+    right_support_episode = _is_slot_support_episode(right, slot_index)
+    if left_active_semantic and right_support_episode:
+        return False
+    if right_active_semantic and left_support_episode:
+        return False
+    preferred = _preferred_same_slot_result(left, right)
+    return preferred is left
+
+
+def _is_slot_support_episode(
+    result: RecallResult,
+    slot_index: Mapping[str, str],
+) -> bool:
+    memory = result.memory
+    if not isinstance(memory, StoredEpisode):
+        return False
+    return memory.id in slot_index
+
+
+def _slot_support_group(
+    result: RecallResult,
+    slot_index: Mapping[str, str],
+) -> str | None:
+    memory = result.memory
+    if isinstance(memory, StoredSemanticMemory):
+        return memory.slot_key
+    if isinstance(memory, StoredEpisode):
+        return slot_index.get(memory.id)
+    return None
+
+
+def _preferred_same_slot_result(left: RecallResult, right: RecallResult) -> RecallResult:
+    left_semantic_active = _is_active_semantic(left)
+    right_semantic_active = _is_active_semantic(right)
+    if left_semantic_active and not right_semantic_active:
+        return left
+    if right_semantic_active and not left_semantic_active:
+        return right
+    if left.activation >= right.activation:
+        return left
+    return right
+
+
+def _is_active_semantic(result: RecallResult) -> bool:
+    memory = result.memory
+    return isinstance(memory, StoredSemanticMemory) and memory.status is SemanticMemoryStatus.ACTIVE
+
+
+def _collapse_near_duplicates(
+    results: Sequence[RecallResult],
+    *,
+    limit: int,
+    config: ActivationConfig,
+) -> list[RecallResult]:
+    return _collapse_results(
+        results,
+        limit=limit,
+        config=config,
+        support_index={},
+        slot_index={},
+    )
 
 
 def _collapse_jaccard_tokens(tokens: set[str], *, config: ActivationConfig) -> set[str]:

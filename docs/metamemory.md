@@ -48,7 +48,9 @@ Independent dimensions (never collapsed into one score):
 
 ## Warning flags
 
-Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`, and `NO_RETRIEVED_MEMORY` are emitted in a fixed order when thresholds are crossed.
+Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`, `MISSING_KNOWLEDGE`, and `NO_RETRIEVED_MEMORY` are emitted in a fixed order when thresholds are crossed.
+
+`MISSING_KNOWLEDGE` (`0.13`) fires when recall returns weak or low-coverage results and no retrieved ACTIVE semantic matches the cue slot (predicate, entities, or current-state tokens). A full pool of unrelated weak hits still abstains; empty pools emit `NO_RETRIEVED_MEMORY` only.
 
 ## Read-only guarantees
 

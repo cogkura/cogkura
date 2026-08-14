@@ -37,6 +37,8 @@ Associatively retrieved memories expose `result.components.spreading > 0`.
 
 Plain text cues seed spreading from candidate entity overlap when `enable_text_entity_seeding` is `true` (default). Explicit `RetrievalCue.entity_ids` behaviour is unchanged. Disable seeding to reproduce pre-`0.12` text-only spreading (`spreading == 0` without `entity_ids`).
 
+`0.13` adds optional incident tag seeding (`enable_incident_tag_seeding`) from episode metadata tags. Tag tokens propagate spreading like entity ids and do not trigger slot admission.
+
 ## Configuration defaults
 
 ```text

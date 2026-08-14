@@ -91,6 +91,8 @@ await memory.record_access(workspace.recall_results, tenant_id="company_123")
 
 See `WorkingMemoryConfig` in `src/cogkura/models.py`. Defaults include `candidate_pool_size=50`, `max_items=8`, `max_prompt_tokens=2048`, and `decay_half_life_seconds=300`.
 
+`0.13` adds same-slot SUPPORT collapse before selection (`collapse_same_slot_support`, default `true`) and a stale-goal penalty (`stale_goal_penalty`) when goal text contains `stale`, applied to SUPERSEDED semantics and metadata tags tagged `stale`.
+
 ## Limitations
 
 - No LLM or embedding relevance judges

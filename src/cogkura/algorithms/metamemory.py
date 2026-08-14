@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
+from cogkura.algorithms.activation import (
+    _cue_requests_current_state,
+    _normalised_equality,
+    _tokenize,
+)
 from cogkura.algorithms.forgetting import retention_score_from_base_level
 from cogkura.algorithms.learning import learning_context_key, learning_counts_by_identity
 from cogkura.algorithms.relevance import calculate_cue_coverage, calculate_cue_relevance
@@ -30,6 +35,7 @@ from cogkura.models import (
 
 _FLAG_ORDER: tuple[MemoryAssessmentFlag, ...] = (
     MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,
+    MemoryAssessmentFlag.MISSING_KNOWLEDGE,
     MemoryAssessmentFlag.LOW_CUE_COVERAGE,
     MemoryAssessmentFlag.LOW_RETRIEVAL_STRENGTH,
     MemoryAssessmentFlag.LOW_EVIDENCE_CONFIDENCE,
@@ -192,7 +198,14 @@ class DeterministicMemoryMonitor:
             freshness=freshness,
         )
 
-        flags = _build_flags(signals=signals, config=config, has_candidates=True)
+        flags = _build_flags(
+            signals=signals,
+            config=config,
+            has_candidates=True,
+            candidates=candidates,
+            query=query,
+            activation_config=activation_config,
+        )
 
         report_limit = min(config.max_report_items, len(candidates))
         items = tuple(item_diagnostics[:report_limit])
@@ -343,11 +356,24 @@ def _build_flags(
     signals: MetamemorySignals,
     config: MetamemoryConfig,
     has_candidates: bool,
+    candidates: Sequence[RecallResult] = (),
+    query: RetrievalCue | None = None,
+    activation_config: ActivationConfig | None = None,
 ) -> tuple[MemoryAssessmentFlag, ...]:
     if not has_candidates:
         return (MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,)
 
     active: set[MemoryAssessmentFlag] = set()
+    if (
+        query is not None
+        and activation_config is not None
+        and not _has_active_semantic_slot_match(candidates, query, activation_config)
+        and (
+            signals.cue_coverage < config.missing_knowledge_coverage_threshold
+            or signals.top_retrieval_strength < config.missing_knowledge_strength_threshold
+        )
+    ):
+        active.add(MemoryAssessmentFlag.MISSING_KNOWLEDGE)
     if signals.cue_coverage < config.low_cue_coverage_threshold:
         active.add(MemoryAssessmentFlag.LOW_CUE_COVERAGE)
     if signals.top_retrieval_strength < config.low_retrieval_strength_threshold:
@@ -372,6 +398,48 @@ def _build_flags(
         active.add(MemoryAssessmentFlag.STALE_EVIDENCE)
 
     return tuple(flag for flag in _FLAG_ORDER if flag in active)
+
+
+def _has_active_semantic_slot_match(
+    candidates: Sequence[RecallResult],
+    query: RetrievalCue,
+    activation_config: ActivationConfig,
+) -> bool:
+    current_state_cue = _cue_requests_current_state(query, activation_config)
+    cue_tokens = _tokenize(query.text) if query.text else set()
+    distinctive_tokens = cue_tokens - activation_config.current_state_cue_tokens
+
+    for recall in candidates:
+        if recall.memory_kind is not MemoryKind.SEMANTIC:
+            continue
+        memory = recall.memory
+        if not isinstance(memory, StoredSemanticMemory):
+            continue
+        if memory.status is not SemanticMemoryStatus.ACTIVE:
+            continue
+
+        if query.predicate is not None:
+            if _normalised_equality(query.predicate, memory.predicate) >= 1.0:
+                return True
+            continue
+
+        semantic_entities = {entity.entity_id for entity in memory.entities}
+        if memory.subject_entity_id:
+            semantic_entities.add(memory.subject_entity_id)
+        if memory.object_entity_id:
+            semantic_entities.add(memory.object_entity_id)
+        if query.entity_ids:
+            if set(query.entity_ids).intersection(semantic_entities):
+                return True
+            continue
+
+        if current_state_cue and distinctive_tokens:
+            statement_tokens = _tokenize(memory.statement)
+            object_tokens = _tokenize(memory.object_value or "")
+            if distinctive_tokens.intersection(statement_tokens.union(object_tokens)):
+                return True
+
+    return False
 
 
 def _identity_from_recall(recall: RecallResult) -> MemoryIdentity:

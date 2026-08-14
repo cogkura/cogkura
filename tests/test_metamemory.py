@@ -301,6 +301,8 @@ def test_flag_ordering() -> None:
         low_learned_utility_threshold=0.0,
         freshness_half_life_seconds=86400.0,
         stale_evidence_threshold=1.0,
+        missing_knowledge_coverage_threshold=0.0,
+        missing_knowledge_strength_threshold=0.0,
     )
     semantic = _semantic(status=SemanticMemoryStatus.CONTESTED)
     old = _NOW - timedelta(days=10)

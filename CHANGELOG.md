@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-08-14
+
+### Added
+
+- Gated semantic slot admission (`slot_admission_requires_current_state_or_predicate`, `force_slot_admission`).
+- Multi-entity conjunction bonus (`enable_multi_entity_conjunction`, `conjunction_weight`).
+- Incident cue IDF scaling and tag seeding (`distinctive_token_idf_scale`, `incident_cue_tokens`, `enable_incident_tag_seeding`).
+- Hard exclusion of SUPERSEDED-only SUPPORT episodes on current-state recall (`exclude_superseded_support_on_current_state`).
+- Metamemory `MemoryAssessmentFlag.MISSING_KNOWLEDGE` with coverage/strength thresholds.
+- Working-memory same-slot SUPPORT collapse and stale-goal penalty (`collapse_same_slot_support`, `stale_goal_penalty`).
+- Rank-time same-slot SUPPORT collapse (`ActivationConfig.collapse_same_slot_support`).
+- [`docs/design-gated-slot-admission.md`](docs/design-gated-slot-admission.md).
+
+### Changed
+
+- `Memory.recall()` passes `valid_at` and an episode slot index into declarative activation.
+- Package `__version__` aligned with `pyproject.toml` (`0.13.0`).
+
+### Notes
+
+- Entity ids and incident tags seed spreading/partial match only; they no longer trigger slot admission by default.
+- No migration required.
+
 ## [0.12.0] - 2026-08-13
 
 ### Added
