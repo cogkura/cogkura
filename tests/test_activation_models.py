@@ -34,6 +34,8 @@ def test_activation_config_defaults() -> None:
     assert config.spreading_decay == 0.5
     assert config.spreading_max_hops == 2
     assert config.spreading_min_activation == 0.01
+    assert config.enable_entity_slot_admission is True
+    assert config.enable_text_precision_matching is True
 
 
 def test_activation_config_validates_spreading_fields() -> None:

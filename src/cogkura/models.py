@@ -839,6 +839,7 @@ class ActivationConfig:
     enable_text_entity_seeding: bool = True
     seeded_entity_partial_match_weight: float = 0.75
     enable_semantic_slot_admission: bool = True
+    enable_entity_slot_admission: bool = True
     collapse_normalize_numeric_tokens: bool = True
     access_minimum_score: float | None = None
     access_burst_limit: int | None = None
@@ -852,6 +853,7 @@ class ActivationConfig:
         {"incident", "on", "call", "alert", "woke", "3am", "am", "overnight"}
     )
     enable_incident_tag_seeding: bool = True
+    enable_text_precision_matching: bool = True
     exclude_superseded_support_on_current_state: bool = True
     collapse_same_slot_support: bool = True
 

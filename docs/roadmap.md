@@ -85,6 +85,14 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.14 - Retrieval eligibility, global ranking, and temporal relevance (done)
+
+- Global ranking over eligible candidates; admission is threshold bypass only.
+- Soft entity slot admission (`enable_entity_slot_admission`).
+- Current-state policy decoupled from admission; lifecycle bias only under policy.
+- Precision-aware text matching (`enable_text_precision_matching`) for recall and WM relevance.
+- [`docs/design-retrieval-eligibility-ranking.md`](design-retrieval-eligibility-ranking.md).
+
 ## 0.13 - Gated slot admission and association (done)
 
 - Gate slot admission to current-state lexicon, `predicate`, or `force_slot_admission`.

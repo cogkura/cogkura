@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-08-14
+
+### Added
+
+- Soft entity-based semantic slot admission (`enable_entity_slot_admission`).
+- Precision-aware deterministic text matching for declarative partial match and working-memory goal relevance (`enable_text_precision_matching`).
+- [`docs/design-retrieval-eligibility-ranking.md`](docs/design-retrieval-eligibility-ranking.md).
+
+### Changed
+
+- Admitted candidates compete in the global activation ranking; admission no longer grants rank priority.
+- Current-state lifecycle bias applies only when current-state policy is active (live current/predicate/object cues).
+- Historical `valid_at` retrieval does not apply present-day lifecycle bias.
+- SUPERSEDED-only SUPPORT exclusion keys off current-state policy, not slot admission alone.
+- Working-memory text relevance uses precision-aware F1 matching.
+
+### Preserved
+
+- `0.13` superseded SUPPORT exclusion for live current-state retrieval.
+- `0.13` multi-entity conjunction.
+- `0.13` incident tag seeding.
+- `0.13` metamemory `MISSING_KNOWLEDGE`.
+- Same-slot SUPPORT collapse at rank and in working memory.
+
+### Notes
+
+- No migration required.
+- Package `__version__` aligned with `pyproject.toml` (`0.14.0`).
+
 ## [0.13.0] - 2026-08-14
 
 ### Added

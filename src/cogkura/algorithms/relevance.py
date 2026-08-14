@@ -170,7 +170,17 @@ def _text_coverage(goal_text: str, candidate_text: str) -> float:
     if not candidate_tokens:
         return 0.0
     matched = goal_tokens.intersection(candidate_tokens)
-    return len(matched) / len(goal_tokens)
+    if not matched:
+        return 0.0
+    goal_weight = float(len(goal_tokens))
+    candidate_weight = float(len(candidate_tokens))
+    matched_weight = float(len(matched))
+    recall = matched_weight / goal_weight
+    precision = matched_weight / candidate_weight
+    denominator = precision + recall
+    if denominator <= 0.0:
+        return 0.0
+    return 2.0 * precision * recall / denominator
 
 
 def _qualifier_coverage(

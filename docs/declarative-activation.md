@@ -78,6 +78,15 @@ See [`design-gated-slot-admission.md`](design-gated-slot-admission.md).
 - SUPERSEDED-only SUPPORT episodes are excluded on current-state recall when `valid_at is None`.
 - Same-slot SUPPORT collapse at rank time and in working memory.
 
+## 0.14 retrieval eligibility and global ranking
+
+See [`design-retrieval-eligibility-ranking.md`](design-retrieval-eligibility-ranking.md).
+
+- Admitted candidates compete in one global activation sort; admission bypasses threshold only.
+- `enable_entity_slot_admission` restores soft entity-based slot admission without rank priority.
+- Current-state policy (live cue, predicate, or object) drives lifecycle bias and superseded SUPPORT exclusion.
+- `enable_text_precision_matching` uses weighted F1 for declarative partial match and WM goal text relevance.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

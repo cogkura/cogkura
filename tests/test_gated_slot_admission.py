@@ -141,7 +141,7 @@ def _recall(
     )
 
 
-def test_entity_ids_alone_do_not_trigger_slot_admission() -> None:
+def test_entity_cue_admits_slot_without_rank_priority() -> None:
     activator = ACTRDeclarativeActivator()
     ledger_support = _episode(
         episode_id="ep-ledger",

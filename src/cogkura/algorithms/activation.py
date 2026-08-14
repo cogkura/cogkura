@@ -224,9 +224,9 @@ class ACTRDeclarativeActivator:
         current_state_cue = _cue_requests_current_state(cue, config)
         support_index = episode_support_index or {}
         slot_index = episode_slot_index or {}
-        slot_admission_active = _slot_admission_active(
+        current_state_policy_active = _current_state_policy_active(
             cue,
-            config=config,
+            valid_at=valid_at,
             current_state_cue=current_state_cue,
         )
 
@@ -245,7 +245,7 @@ class ACTRDeclarativeActivator:
                     current_state_cue=current_state_cue,
                     effective_entity_ids=effective_entity_ids,
                     episode_support_index=support_index,
-                    slot_admission_active=slot_admission_active,
+                    current_state_policy_active=current_state_policy_active,
                 )
             )
 
@@ -257,41 +257,24 @@ class ACTRDeclarativeActivator:
             current_state_cue=current_state_cue,
         )
 
-        scored_by_identity = {_result_identity(result): result for result in scored}
-        ordered: list[RecallResult] = []
-        seen_identities: set[MemoryIdentity] = set()
-
-        for result in sorted(
-            (
-                scored_by_identity[identity]
-                for identity in admitted_identities
-                if identity in scored_by_identity
-            ),
+        eligible = [
+            result
+            for result in scored
+            if (
+                result.activation >= config.retrieval_threshold
+                or _result_identity(result) in admitted_identities
+            )
+        ]
+        ordered = sorted(
+            eligible,
             key=lambda item: (
                 -item.activation,
                 item.memory_kind.value,
                 _memory_key(item),
             ),
-        ):
-            ordered.append(result)
-            seen_identities.add(_result_identity(result))
+        )
 
-        for result in sorted(
-            scored,
-            key=lambda item: (
-                -item.activation,
-                item.memory_kind.value,
-                _memory_key(item),
-            ),
-        ):
-            identity = _result_identity(result)
-            if identity in seen_identities:
-                continue
-            if result.activation >= config.retrieval_threshold:
-                ordered.append(result)
-                seen_identities.add(identity)
-
-        if config.exclude_superseded_support_on_current_state and slot_admission_active:
+        if config.exclude_superseded_support_on_current_state and current_state_policy_active:
             if valid_at is None:
                 ordered = [
                     result
@@ -322,6 +305,7 @@ def _slot_admission_active(
     *,
     config: ActivationConfig,
     current_state_cue: bool,
+    seeded_entity_ids: tuple[str, ...],
 ) -> bool:
     if not config.enable_semantic_slot_admission:
         return False
@@ -329,7 +313,27 @@ def _slot_admission_active(
         return True
     if not config.slot_admission_requires_current_state_or_predicate:
         return True
+    effective_entity_ids = cue.entity_ids if cue.entity_ids else seeded_entity_ids
+    if config.enable_entity_slot_admission and effective_entity_ids:
+        return True
     return current_state_cue or cue.predicate is not None
+
+
+def _current_state_policy_active(
+    cue: RetrievalCue,
+    *,
+    valid_at: datetime | None,
+    current_state_cue: bool,
+) -> bool:
+    if valid_at is not None:
+        return False
+    if current_state_cue:
+        return True
+    if cue.predicate is not None:
+        return True
+    if cue.object_value is not None:
+        return True
+    return False
 
 
 def _scaled_idf_weights(
@@ -364,7 +368,7 @@ def _score_candidate(
     current_state_cue: bool,
     effective_entity_ids: Sequence[str],
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
-    slot_admission_active: bool,
+    current_state_policy_active: bool,
 ) -> RecallResult:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
@@ -397,7 +401,7 @@ def _score_candidate(
         current_state_cue=current_state_cue,
         config=config,
         episode_support_index=episode_support_index,
-        slot_admission_active=slot_admission_active,
+        current_state_policy_active=current_state_policy_active,
     )
     conjunction = _multi_entity_conjunction_bonus(
         candidate,
@@ -600,7 +604,12 @@ def _semantic_slot_admission_identities(
     seeded_entity_ids: tuple[str, ...],
     current_state_cue: bool,
 ) -> set[MemoryIdentity]:
-    if not _slot_admission_active(cue, config=config, current_state_cue=current_state_cue):
+    if not _slot_admission_active(
+        cue,
+        config=config,
+        current_state_cue=current_state_cue,
+        seeded_entity_ids=seeded_entity_ids,
+    ):
         return set()
 
     effective_sources = cue.entity_ids if cue.entity_ids else seeded_entity_ids
@@ -663,7 +672,12 @@ def _calculate_partial_match(
     weights: list[float] = []
 
     if cue.text and cue.text.strip():
-        similarity = _text_similarity(cue.text, candidate.text, idf_weights=idf_weights)
+        similarity = _text_similarity(
+            cue.text,
+            candidate.text,
+            config=config,
+            idf_weights=idf_weights,
+        )
         mismatches.append(similarity - 1.0)
         weights.append(_PARTIAL_MATCH_WEIGHTS["text"])
 
@@ -707,6 +721,7 @@ def _text_similarity(
     query: str,
     candidate_text: str,
     *,
+    config: ActivationConfig,
     idf_weights: Mapping[str, float] | None = None,
 ) -> float:
     query_tokens = _tokenize(query)
@@ -718,13 +733,31 @@ def _text_similarity(
     matched = query_tokens.intersection(candidate_tokens)
     if not matched:
         return 0.0
+    if not config.enable_text_precision_matching:
+        if idf_weights is None:
+            return len(matched) / len(query_tokens)
+        weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
+        weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
+        if weighted_total <= 0.0:
+            return 0.0
+        return weighted_match / weighted_total
+
     if idf_weights is None:
-        return len(matched) / len(query_tokens)
-    weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
-    weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
-    if weighted_total <= 0.0:
+        query_weight = float(len(query_tokens))
+        candidate_weight = float(len(candidate_tokens))
+        matched_weight = float(len(matched))
+    else:
+        query_weight = sum(idf_weights.get(token, 1.0) for token in query_tokens)
+        candidate_weight = sum(idf_weights.get(token, 1.0) for token in candidate_tokens)
+        matched_weight = sum(idf_weights.get(token, 1.0) for token in matched)
+    if query_weight <= 0.0 or candidate_weight <= 0.0:
         return 0.0
-    return weighted_match / weighted_total
+    recall = matched_weight / query_weight
+    precision = matched_weight / candidate_weight
+    denominator = precision + recall
+    if denominator <= 0.0:
+        return 0.0
+    return 2.0 * precision * recall / denominator
 
 
 def _candidate_idf_weights(
@@ -758,8 +791,10 @@ def _current_state_activation(
     current_state_cue: bool,
     config: ActivationConfig,
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
-    slot_admission_active: bool,
+    current_state_policy_active: bool,
 ) -> float:
+    if not current_state_policy_active:
+        return 0.0
     if candidate.semantic_status is SemanticMemoryStatus.SUPERSEDED:
         return -config.current_state_weight
     bonus = 0.0
@@ -769,12 +804,7 @@ def _current_state_activation(
         bonus += config.current_state_weight * 0.25
     if current_state_cue and candidate.semantic_status is SemanticMemoryStatus.ACTIVE:
         bonus += config.current_state_weight
-    if (
-        current_state_cue
-        and candidate.slot_key is not None
-        and candidate.semantic_status is None
-        and slot_admission_active
-    ):
+    if current_state_cue and candidate.slot_key is not None and candidate.semantic_status is None:
         bonus -= config.current_state_weight * 0.25
 
     if (

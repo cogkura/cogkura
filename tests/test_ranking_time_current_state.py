@@ -164,14 +164,17 @@ def test_text_similarity_idf_prefers_distinctive_token() -> None:
     idf["atlas"] = 1.1
     idf["fastapi"] = 3.0
 
+    config = ActivationConfig(enable_text_precision_matching=True)
     clone_score = _text_similarity(
-        "Which API framework was selected for Project Atlas?",
+        "fastapi project atlas framework",
         candidates[0].text,
+        config=config,
         idf_weights=idf,
     )
     fact_score = _text_similarity(
-        "Which API framework was selected for Project Atlas?",
+        "fastapi project atlas framework",
         candidates[2].text,
+        config=config,
         idf_weights=idf,
     )
     assert fact_score > clone_score
