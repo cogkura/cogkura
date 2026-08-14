@@ -154,7 +154,9 @@ Pass the same `as_of=` used for encoding when consolidating a simulated timeline
 
 ## Declarative activation (recall)
 
-After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level, spreading activation, and partial matching. Text matching downweights tokens that are common in the current candidate set. Near-duplicate statements are collapsed before the rank limit is applied. Active semantic slot values are preferred over superseded ones.
+After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level, spreading activation, and partial matching. String queries seed spreading sources from cue tokens that overlap candidate entity ids; structured `RetrievalCue.entity_ids` still take precedence. Matching `ACTIVE` slot semantics (and their `SUPPORT` episodes) can be admitted before the retrieval threshold cut. Text matching downweights tokens that are common in the current candidate set. Near-duplicate statements are collapsed before the rank limit is applied, ignoring purely numeric tokens. Active semantic slot values are preferred over superseded ones; episodes that support a superseded slot are penalized on current-state cues.
+
+`recall()` is presentation. `record_access()` records use.
 
 ```python
 from datetime import UTC, datetime
@@ -166,7 +168,8 @@ results = await memory.recall(
     tenant_id="company_123",
 )
 
-# Associative recall via cue entities (spreading activation)
+# String cues can seed spreading from candidate entity overlap.
+# Explicit entity_ids keep 0.11 associative behaviour.
 results = await memory.recall(
     RetrievalCue(
         text="What database was involved?",
@@ -198,7 +201,7 @@ For simulated replay, pass the same `as_of` to `encode_episodes()` and `consolid
 
 Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md) and [`docs/design-string-cues-current-state.md`](docs/design-string-cues-current-state.md).
 
-For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, and `PostgresMemoryDynamicsStore` to `Memory`.
+For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, `PostgresMemoryDynamicsStore`, and `PostgresLearningStore` to `Memory`.
 
 See [`docs/forgetting.md`](docs/forgetting.md) for lifecycle thresholds and compaction details.
 
@@ -233,6 +236,8 @@ from cogkura.storage.postgres import (
     PostgresActivationStore,
     PostgresCheckpointStore,
     PostgresEpisodeStore,
+    PostgresLearningStore,
+    PostgresMemoryDynamicsStore,
     PostgresObservationStore,
     PostgresSemanticMemoryStore,
 )
@@ -246,6 +251,8 @@ memory = Memory(
     episode_store=PostgresEpisodeStore(memory_engine),
     semantic_store=PostgresSemanticMemoryStore(memory_engine),
     activation_store=PostgresActivationStore(memory_engine),
+    dynamics_store=PostgresMemoryDynamicsStore(memory_engine),
+    learning_store=PostgresLearningStore(memory_engine),
 )
 
 source = PostgresTableSource(
