@@ -85,6 +85,14 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.14.1 - Retrieval corrections and ranking separation (done)
+
+- Lexical current-state intent independent of structured cue fields.
+- Historical slot admission respects `valid_at` rather than present ACTIVE status.
+- Query coverage for accessibility; precision-aware F1 for eligible ranking only.
+- Current-state bonuses scoped to matched semantic slots.
+- [`docs/design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14.1.md).
+
 ## 0.14 - Retrieval eligibility, global ranking, and temporal relevance (done)
 
 - Global ranking over eligible candidates; admission is threshold bypass only.

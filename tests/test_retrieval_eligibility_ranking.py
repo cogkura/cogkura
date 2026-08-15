@@ -7,7 +7,10 @@ from types import MappingProxyType
 
 from cogkura.algorithms.activation import (
     ACTRDeclarativeActivator,
-    _text_similarity,
+    _cue_requests_current_state,
+    _current_state_policy_active,
+    _text_cue_fit,
+    _text_query_coverage,
     activation_candidate_from_episode,
     activation_candidate_from_semantic,
     build_episode_slot_index,
@@ -416,28 +419,26 @@ def test_generic_entity_query_no_lifecycle_bonus() -> None:
 
 
 def test_precision_matching_prefers_concise_candidate() -> None:
-    config = ActivationConfig(enable_text_precision_matching=True)
     query = "charge ledger overnight incident"
     concise = "charge ledger overnight incident triage"
     verbose = (
         "charge ledger overnight incident service project deployment database "
         "architecture migration customer configuration"
     )
-    concise_score = _text_similarity(query, concise, config=config)
-    verbose_score = _text_similarity(query, verbose, config=config)
+    concise_score = _text_cue_fit(query, concise)
+    verbose_score = _text_cue_fit(query, verbose)
     assert concise_score > verbose_score
 
 
 def test_coverage_matching_when_precision_disabled() -> None:
-    config = ActivationConfig(enable_text_precision_matching=False)
     query = "charge ledger overnight incident"
     concise = "charge ledger overnight incident triage"
     verbose = (
         "charge ledger overnight incident service project deployment database "
         "architecture migration customer configuration"
     )
-    concise_score = _text_similarity(query, concise, config=config)
-    verbose_score = _text_similarity(query, verbose, config=config)
+    concise_score = _text_query_coverage(query, concise)
+    verbose_score = _text_query_coverage(query, verbose)
     assert concise_score == verbose_score == 1.0
 
 
@@ -558,3 +559,400 @@ def test_goal_relevance_precision_beats_coverage_equivalent() -> None:
         RetrievalCue(text="operational complexity database"),
     )
     assert concise_relevance > verbose_relevance
+
+
+def test_lexical_current_state_ignores_structured_fields() -> None:
+    config = ActivationConfig()
+    text_cue = RetrievalCue(text="what is currently live?")
+    assert _cue_requests_current_state(text_cue, config) is True
+    assert (
+        _cue_requests_current_state(
+            RetrievalCue(text="what is currently live?", predicate="backing-store"),
+            config,
+        )
+        is True
+    )
+    assert (
+        _cue_requests_current_state(
+            RetrievalCue(text="what is currently live?", object_value="postgres"),
+            config,
+        )
+        is True
+    )
+    assert (
+        _cue_requests_current_state(
+            RetrievalCue(text="historical backing store", predicate="backing-store"),
+            config,
+        )
+        is False
+    )
+    predicate_only = RetrievalCue(predicate="backing-store")
+    assert _cue_requests_current_state(predicate_only, config) is False
+    assert (
+        _current_state_policy_active(
+            predicate_only,
+            valid_at=None,
+            current_state_cue=False,
+        )
+        is True
+    )
+
+
+def test_structured_current_state_prefers_live_slot() -> None:
+    activator = ACTRDeclarativeActivator()
+    dynamo_episode = _episode(
+        episode_id="ep-dynamo",
+        memory_key="dynamo-support",
+        statement="The system used Dynamo for storage.",
+        entity_ids=("dynamodb",),
+    )
+    postgres_episode = _episode(
+        episode_id="ep-postgres",
+        memory_key="postgres-support",
+        statement="The system currently uses Postgres for storage.",
+        entity_ids=("postgresql",),
+    )
+    dynamo_semantic = _semantic(
+        semantic_id="sem-dynamo",
+        memory_key="backing-dynamo",
+        statement="Primary database was Dynamo.",
+        status=SemanticMemoryStatus.SUPERSEDED,
+        entity_ids=("dynamodb",),
+        object_value="dynamodb",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-dynamo",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    postgres_semantic = _semantic(
+        semantic_id="sem-postgres",
+        memory_key="backing-postgres",
+        statement="Primary database is Postgres.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("postgresql",),
+        object_value="postgresql",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-postgres",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    candidates = [
+        activation_candidate_from_episode(dynamo_episode),
+        activation_candidate_from_episode(postgres_episode),
+        activation_candidate_from_semantic(dynamo_semantic),
+        activation_candidate_from_semantic(postgres_semantic),
+    ]
+    semantics = [dynamo_semantic, postgres_semantic]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(
+            text="what is the current live backing store?",
+            predicate="backing-store",
+        ),
+        references={},
+        as_of=_T2,
+        config=ActivationConfig(retrieval_threshold=-10.0, enable_text_entity_seeding=False),
+        limit=5,
+        episode_support_index=build_episode_support_index(semantics),
+        episode_slot_index=build_episode_slot_index(semantics),
+    )
+    keys = [result.memory.memory_key for result in results]  # type: ignore[union-attr]
+    assert keys[0] in {"backing-postgres", "postgres-support"}
+    assert "dynamo-support" not in keys
+    postgres = next(item for item in results if item.memory.memory_key == "backing-postgres")
+    assert postgres.components.current_state > 0.0
+
+
+def test_historical_superseded_revision_can_be_admitted() -> None:
+    activator = ACTRDeclarativeActivator()
+    dynamo_episode = _episode(
+        episode_id="ep-dynamo",
+        memory_key="dynamo-support",
+        statement="The system used Dynamo for storage.",
+        entity_ids=("dynamodb",),
+        started_at=_T0,
+    )
+    dynamo_semantic = _semantic(
+        semantic_id="sem-dynamo",
+        memory_key="backing-dynamo",
+        statement="Primary database was Dynamo.",
+        status=SemanticMemoryStatus.SUPERSEDED,
+        entity_ids=("dynamodb",),
+        object_value="dynamodb",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-dynamo",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    candidates = [
+        activation_candidate_from_episode(dynamo_episode),
+        activation_candidate_from_semantic(dynamo_semantic),
+    ]
+    semantics = [dynamo_semantic]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="backing store", predicate="backing-store"),
+        references={},
+        as_of=_T2,
+        config=ActivationConfig(
+            retrieval_threshold=5.0,
+            enable_text_entity_seeding=False,
+            enable_duplicate_collapse=False,
+        ),
+        limit=5,
+        valid_at=_T1,
+        episode_support_index=build_episode_support_index(semantics),
+        episode_slot_index=build_episode_slot_index(semantics),
+    )
+    keys = {result.memory.memory_key for result in results}  # type: ignore[union-attr]
+    assert "backing-dynamo" in keys
+    assert "dynamo-support" in keys
+    for result in results:
+        assert result.components.current_state == 0.0
+
+
+def test_weak_associative_coverage_keeps_verbose_episode_eligible() -> None:
+    activator = ACTRDeclarativeActivator()
+    verbose = _episode(
+        episode_id="ep-assoc",
+        memory_key="alpha-beta-incident",
+        statement=(
+            "Alpha and Beta coordinated an operational incident during the service "
+            "project deployment database architecture migration customer configuration "
+            "review of unrelated platform work."
+        ),
+        entity_ids=("alpha", "beta"),
+    )
+    filler = _episode(
+        episode_id="ep-fill",
+        memory_key="unrelated-fill",
+        statement="Unrelated filler about weather and traffic.",
+        entity_ids=("weather",),
+    )
+    candidates = [
+        activation_candidate_from_episode(verbose),
+        activation_candidate_from_episode(filler),
+    ]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="alpha beta operational incident", entity_ids=("alpha", "beta")),
+        references={},
+        as_of=_T1,
+        config=ActivationConfig(
+            retrieval_threshold=-2.5,
+            enable_text_entity_seeding=False,
+            enable_duplicate_collapse=False,
+        ),
+        limit=5,
+    )
+    keys = {result.memory.memory_key for result in results}  # type: ignore[union-attr]
+    assert "alpha-beta-incident" in keys
+    verbose_result = next(
+        item for item in results if item.memory.memory_key == "alpha-beta-incident"
+    )
+    assert "text_coverage=" in verbose_result.reason
+
+
+def test_cue_fit_ranks_concise_above_verbose_without_dropping_verbose() -> None:
+    activator = ACTRDeclarativeActivator()
+    concise = _episode(
+        episode_id="ep-concise",
+        memory_key="concise-evidence",
+        statement="charge ledger overnight incident",
+    )
+    verbose = _episode(
+        episode_id="ep-verbose",
+        memory_key="verbose-evidence",
+        statement=(
+            "charge ledger overnight incident service project deployment database "
+            "architecture migration customer configuration"
+        ),
+    )
+    candidates = [
+        activation_candidate_from_episode(concise),
+        activation_candidate_from_episode(verbose),
+    ]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="charge ledger overnight incident"),
+        references={},
+        as_of=_T1,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_text_entity_seeding=False,
+            enable_duplicate_collapse=False,
+        ),
+        limit=5,
+    )
+    keys = [result.memory.memory_key for result in results]  # type: ignore[union-attr]
+    assert keys[0] == "concise-evidence"
+    assert "verbose-evidence" in keys
+
+
+def test_exact_and_empty_text_similarity() -> None:
+    assert _text_query_coverage("charge ledger", "charge ledger") == 1.0
+    assert _text_cue_fit("charge ledger", "charge ledger") == 1.0
+    assert _text_query_coverage("charge ledger", "unrelated weather") == 0.0
+    assert _text_cue_fit("charge ledger", "unrelated weather") == 0.0
+
+
+def test_precision_flag_off_uses_coverage_for_ranking() -> None:
+    activator = ACTRDeclarativeActivator()
+    concise = _episode(
+        episode_id="ep-concise",
+        memory_key="concise-evidence",
+        statement="charge ledger overnight incident",
+    )
+    verbose = _episode(
+        episode_id="ep-verbose",
+        memory_key="verbose-evidence",
+        statement=(
+            "charge ledger overnight incident service project deployment database "
+            "architecture migration customer configuration"
+        ),
+    )
+    candidates = [
+        activation_candidate_from_episode(concise),
+        activation_candidate_from_episode(verbose),
+    ]
+    config = ActivationConfig(
+        retrieval_threshold=-10.0,
+        enable_text_entity_seeding=False,
+        enable_duplicate_collapse=False,
+        enable_text_precision_matching=False,
+    )
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="charge ledger overnight incident"),
+        references={},
+        as_of=_T1,
+        config=config,
+        limit=5,
+    )
+    concise_result = next(item for item in results if item.memory.memory_key == "concise-evidence")
+    verbose_result = next(item for item in results if item.memory.memory_key == "verbose-evidence")
+    assert "text_cue_fit=" not in concise_result.reason
+    assert "text_cue_fit=" not in verbose_result.reason
+    assert abs(concise_result.activation - verbose_result.activation) < 1e-9
+
+
+def test_current_state_bonus_scoped_to_matched_slot() -> None:
+    activator = ACTRDeclarativeActivator()
+    database = _semantic(
+        semantic_id="sem-db",
+        memory_key="slot-database",
+        statement="Helios current database is Postgres.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("helios", "postgresql"),
+        predicate="database",
+        object_value="postgresql",
+    )
+    region = _semantic(
+        semantic_id="sem-region",
+        memory_key="slot-region",
+        statement="Helios current region is eu-west-1.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("helios",),
+        predicate="region",
+        object_value="eu-west-1",
+    )
+    candidates = [
+        activation_candidate_from_semantic(database),
+        activation_candidate_from_semantic(region),
+    ]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="current database", predicate="database"),
+        references={},
+        as_of=_T1,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_text_entity_seeding=False,
+            enable_duplicate_collapse=False,
+        ),
+        limit=5,
+    )
+    by_key = {result.memory.memory_key: result for result in results}  # type: ignore[union-attr]
+    assert by_key["slot-database"].components.current_state > 0.0
+    assert by_key["slot-region"].components.current_state == 0.0
+
+
+def test_current_support_bonus_scoped_to_matched_slot() -> None:
+    activator = ACTRDeclarativeActivator()
+    db_episode = _episode(
+        episode_id="ep-db",
+        memory_key="db-support",
+        statement="Helios migrated the database to Postgres.",
+        entity_ids=("postgresql",),
+    )
+    region_episode = _episode(
+        episode_id="ep-region",
+        memory_key="region-support",
+        statement="Helios deployed the region to eu-west-1.",
+        entity_ids=("helios",),
+    )
+    database = _semantic(
+        semantic_id="sem-db",
+        memory_key="slot-database",
+        statement="Helios current database is Postgres.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("helios", "postgresql"),
+        predicate="database",
+        object_value="postgresql",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-db",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    region = _semantic(
+        semantic_id="sem-region",
+        memory_key="slot-region",
+        statement="Helios current region is eu-west-1.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("helios",),
+        predicate="region",
+        object_value="eu-west-1",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-region",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    candidates = [
+        activation_candidate_from_episode(db_episode),
+        activation_candidate_from_episode(region_episode),
+        activation_candidate_from_semantic(database),
+        activation_candidate_from_semantic(region),
+    ]
+    semantics = [database, region]
+    results = activator.rank(
+        candidates=candidates,
+        cue=RetrievalCue(text="current database", predicate="database"),
+        references={},
+        as_of=_T1,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_text_entity_seeding=False,
+            enable_duplicate_collapse=False,
+        ),
+        limit=5,
+        episode_support_index=build_episode_support_index(semantics),
+        episode_slot_index=build_episode_slot_index(semantics),
+    )
+    by_key = {result.memory.memory_key: result for result in results}  # type: ignore[union-attr]
+    assert by_key["db-support"].components.current_state > 0.0
+    assert by_key["region-support"].components.current_state == 0.0

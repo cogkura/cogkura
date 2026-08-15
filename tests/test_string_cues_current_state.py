@@ -295,7 +295,7 @@ def test_current_state_penalises_superseded_support_episode() -> None:
     active_semantic = _semantic(
         semantic_id="sem-postgres",
         memory_key="backing-postgres",
-        statement="PostgreSQL is the current backing store.",
+        statement="PostgreSQL is the current backing store for charges.",
         status=SemanticMemoryStatus.ACTIVE,
         entity_ids=("postgresql",),
         derivations=(

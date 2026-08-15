@@ -154,7 +154,7 @@ Pass the same `as_of=` used for encoding when consolidating a simulated timeline
 
 ## Declarative activation (recall)
 
-After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level accessibility, spreading activation, precision-aware partial matching, soft semantic slot admission, temporal/current-state policy, and global candidate ordering. String queries seed spreading sources from cue tokens that overlap candidate entity ids; explicit `RetrievalCue.entity_ids` can soft-admit matching ACTIVE slot semantics and SUPPORT episodes without rank priority. Near-duplicate statements are collapsed before the rank limit is applied. Active semantic slot values are preferred over superseded ones on live current-state cues; episodes that support a superseded slot are excluded or penalized only when current-state policy is active.
+After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level accessibility, spreading activation, query-coverage partial matching, soft semantic slot admission, temporal/current-state policy, and global candidate ordering. Precision-aware text matching refines order among eligible candidates; it does not control the retrieval threshold. String queries seed spreading sources from cue tokens that overlap candidate entity ids; explicit `RetrievalCue.entity_ids` can soft-admit matching slot semantics and SUPPORT episodes without rank priority. Near-duplicate statements are collapsed before the rank limit is applied. Current-state bonuses apply to cue-matched semantic slots; superseded-only SUPPORT is excluded on live current-state retrieval. Historical `valid_at` admission uses the visible revision rather than present-day ACTIVE status.
 
 `recall()` is presentation. `record_access()` records use.
 
@@ -335,11 +335,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.14.0`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, precision-aware text matching, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
+Cogkura is in early development. Through `0.14.1`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
 
-## Scope of 0.14.0
+## Scope of 0.14.1
 
-Implemented through `0.14.0`:
+Implemented through `0.14.1`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -358,10 +358,11 @@ Implemented through `0.14.0`:
 - string-cue entity seeding, semantic slot admission, superseded-support penalties, numeric duplicate collapse, and `record_access(..., min_score=...)` (`0.12`);
 - gated slot admission, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and WM same-slot collapse (`0.13`);
 - global eligible ranking, soft entity admission, temporal current-state policy, and precision-aware text matching (`0.14`);
+- coverage vs cue-fit ranking, historically aware admission, and slot-scoped current-state bonuses (`0.14.1`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.14.0`:
+Not implemented in `0.14.1`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -410,6 +411,7 @@ Learning / reinforcement
 - `0.10`: metamemory / memory monitoring (done).
 - `0.11`: ranking, simulated time, and current-state recall (done).
 - `0.14`: retrieval eligibility, global ranking, temporal relevance, and cue discrimination (done).
+- `0.14.1`: retrieval corrections and ranking separation (done).
 - `0.13`: gated slot admission, association, and metamemory (done).
 - `0.12`: string cues, slot admission, and access recording (done).
 - later: additional connectors, and integrations.

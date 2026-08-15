@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-08-15
+
+### Changed
+
+- Lexical current-state detection inspects query text independently of structured predicate/object fields.
+- Historical semantic slot admission uses `valid_at` visibility; present `SUPERSEDED` status does not block historical admission.
+- Query-coverage partial matching drives accessibility and the retrieval threshold; precision-aware F1 orders eligible candidates only (`enable_text_precision_matching`).
+- Current-state activation bonuses apply to cue-matched semantic slots and their SUPPORT episodes, not every ACTIVE memory.
+- [`docs/design-retrieval-corrections-0.14.1.md`](docs/design-retrieval-corrections-0.14.1.md).
+
+### Preserved
+
+- `0.14` soft entity admission and global ranking (admission is threshold bypass, not rank priority).
+- `0.13` superseded SUPPORT exclusion for live current-state retrieval.
+- Working-memory selection, metamemory thresholds, forgetting, and `conjunction_weight`.
+
+### Notes
+
+- No migration required.
+- `RecallResult.activation` remains accessibility; internal ranking is diagnostic in `reason` only.
+- Package `__version__` aligned with `pyproject.toml` (`0.14.1`).
+
 ## [0.14.0] - 2026-08-14
 
 ### Added

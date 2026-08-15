@@ -87,6 +87,15 @@ See [`design-retrieval-eligibility-ranking.md`](design-retrieval-eligibility-ran
 - Current-state policy (live cue, predicate, or object) drives lifecycle bias and superseded SUPPORT exclusion.
 - `enable_text_precision_matching` uses weighted F1 for declarative partial match and WM goal text relevance.
 
+## 0.14.1 retrieval corrections
+
+See [`design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14.1.md).
+
+- Lexical current-state tokens are detected even when `predicate` or `object_value` is set.
+- Historical admission does not require present-day `ACTIVE` status.
+- Query coverage controls accessibility / threshold; F1 controls eligible ranking only.
+- Current-state bonuses are scoped to matched semantic slots and their SUPPORT episodes.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

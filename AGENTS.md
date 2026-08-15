@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.14` retrieval eligibility, global ranking, temporal relevance, and cue discrimination
+- Current release focus: `0.14.1` retrieval corrections (coverage vs cue-fit, historical admission, slot-scoped current state)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

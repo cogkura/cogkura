@@ -6,7 +6,7 @@ import math
 import re
 import unicodedata
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Protocol
 
@@ -229,25 +229,35 @@ class ACTRDeclarativeActivator:
             valid_at=valid_at,
             current_state_cue=current_state_cue,
         )
+        matched_slot_identities, matched_support_episode_ids = _matching_semantic_slot_identities(
+            candidates,
+            cue,
+            seeded_entity_ids=seeded_entity_ids,
+            current_state_cue=current_state_cue,
+            config=config,
+        )
 
         scored: list[RecallResult] = []
+        rank_by_identity: dict[MemoryIdentity, float] = {}
         for candidate in candidates:
-            scored.append(
-                _score_candidate(
-                    candidate,
-                    cue=cue,
-                    references=references,
-                    as_of=as_of,
-                    config=config,
-                    spreading=spreading_by_identity.get(candidate.identity, 0.0),
-                    spreading_metadata=spreading_metadata.get(candidate.identity),
-                    idf_weights=idf_weights,
-                    current_state_cue=current_state_cue,
-                    effective_entity_ids=effective_entity_ids,
-                    episode_support_index=support_index,
-                    current_state_policy_active=current_state_policy_active,
-                )
+            result, rank_activation = _score_candidate(
+                candidate,
+                cue=cue,
+                references=references,
+                as_of=as_of,
+                config=config,
+                spreading=spreading_by_identity.get(candidate.identity, 0.0),
+                spreading_metadata=spreading_metadata.get(candidate.identity),
+                idf_weights=idf_weights,
+                current_state_cue=current_state_cue,
+                effective_entity_ids=effective_entity_ids,
+                episode_support_index=support_index,
+                current_state_policy_active=current_state_policy_active,
+                matched_slot_identities=matched_slot_identities,
+                matched_support_episode_ids=matched_support_episode_ids,
             )
+            scored.append(result)
+            rank_by_identity[_result_identity(result)] = rank_activation
 
         admitted_identities = _semantic_slot_admission_identities(
             candidates,
@@ -255,6 +265,7 @@ class ACTRDeclarativeActivator:
             config=config,
             seeded_entity_ids=seeded_entity_ids,
             current_state_cue=current_state_cue,
+            valid_at=valid_at,
         )
 
         eligible = [
@@ -268,7 +279,7 @@ class ACTRDeclarativeActivator:
         ordered = sorted(
             eligible,
             key=lambda item: (
-                -item.activation,
+                -rank_by_identity[_result_identity(item)],
                 item.memory_kind.value,
                 _memory_key(item),
             ),
@@ -369,7 +380,9 @@ def _score_candidate(
     effective_entity_ids: Sequence[str],
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
     current_state_policy_active: bool,
-) -> RecallResult:
+    matched_slot_identities: set[MemoryIdentity],
+    matched_support_episode_ids: set[str],
+) -> tuple[RecallResult, float]:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
     creation_trace = ActivationReferenceTrace(
@@ -385,23 +398,36 @@ def _score_candidate(
         time_unit_seconds=config.time_unit_seconds,
         minimum_elapsed_seconds=config.minimum_elapsed_seconds,
     )
-    partial_match = (
+    accessibility_partial = (
         _calculate_partial_match(
             candidate,
             cue,
             config,
-            idf_weights=idf_weights,
             effective_entity_ids=effective_entity_ids,
+            text_similarity=lambda query, text: _text_query_coverage(
+                query, text, idf_weights=idf_weights
+            ),
         )
         if config.enable_partial_matching
         else 0.0
     )
+    ranking_partial = accessibility_partial
+    if config.enable_partial_matching and config.enable_text_precision_matching:
+        ranking_partial = _calculate_partial_match(
+            candidate,
+            cue,
+            config,
+            effective_entity_ids=effective_entity_ids,
+            text_similarity=lambda query, text: _text_cue_fit(query, text, idf_weights=idf_weights),
+        )
     current_state = _current_state_activation(
         candidate,
         current_state_cue=current_state_cue,
         config=config,
         episode_support_index=episode_support_index,
         current_state_policy_active=current_state_policy_active,
+        matched_slot_identities=matched_slot_identities,
+        matched_support_episode_ids=matched_support_episode_ids,
     )
     conjunction = _multi_entity_conjunction_bonus(
         candidate,
@@ -409,38 +435,56 @@ def _score_candidate(
         config=config,
     )
     noise = 0.0
-    activation = base_level + spreading + partial_match + current_state + conjunction + noise
+    activation = (
+        base_level + spreading + accessibility_partial + current_state + conjunction + noise
+    )
+    rank_activation = activation - accessibility_partial + ranking_partial
     latency_seconds = config.latency_factor * math.exp(-config.latency_exponent * activation)
     score = _presentation_score(activation, config.retrieval_threshold)
     components = ActivationComponents(
         base_level=base_level,
         spreading=spreading,
-        partial_match=partial_match + conjunction,
+        partial_match=accessibility_partial + conjunction,
         noise=noise,
         total=activation,
         current_state=current_state,
     )
     matched_entities = len(set(effective_entity_ids).intersection(candidate.entity_ids))
+    text_coverage = 0.0
+    text_cue_fit = 0.0
+    if cue.text and cue.text.strip():
+        text_coverage = _text_query_coverage(cue.text, candidate.text, idf_weights=idf_weights)
+        text_cue_fit = (
+            _text_cue_fit(cue.text, candidate.text, idf_weights=idf_weights)
+            if config.enable_text_precision_matching
+            else text_coverage
+        )
     reason = _build_reason(
         activation=activation,
         base_level=base_level,
         spreading=spreading,
-        partial_match=partial_match,
+        partial_match=accessibility_partial,
         reference_count=len(reference_traces),
         matched_entities=matched_entities,
         cue_entity_count=len(effective_entity_ids),
         spreading_metadata=spreading_metadata,
         current_state=current_state,
         conjunction=conjunction,
+        rank_activation=rank_activation,
+        text_coverage=text_coverage,
+        text_cue_fit=text_cue_fit,
     )
-    return RecallResult(
-        memory_kind=candidate.memory_kind,
-        memory=candidate.memory,
-        activation=activation,
-        score=score,
-        latency_seconds=latency_seconds,
-        components=components,
-        reason=reason,
+    return (
+        RecallResult(
+            memory_kind=candidate.memory_kind,
+            memory=candidate.memory,
+            activation=activation,
+            score=score,
+            latency_seconds=latency_seconds,
+            components=components,
+            reason=reason,
+        ),
+        rank_activation,
     )
 
 
@@ -502,6 +546,9 @@ def _build_reason(
     spreading_metadata: SpreadingMetadata | None,
     current_state: float = 0.0,
     conjunction: float = 0.0,
+    rank_activation: float | None = None,
+    text_coverage: float | None = None,
+    text_cue_fit: float | None = None,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -509,6 +556,12 @@ def _build_reason(
         f"references={reference_count}; "
         f"matched_entities={matched_entities}/{cue_entity_count}"
     )
+    if rank_activation is not None and rank_activation != activation:
+        reason += f"; rank_activation={rank_activation:.3f}"
+    if text_coverage is not None and text_coverage > 0.0:
+        reason += f"; text_coverage={text_coverage:.3f}"
+    if text_cue_fit is not None and text_coverage is not None and text_cue_fit != text_coverage:
+        reason += f"; text_cue_fit={text_cue_fit:.3f}"
     if current_state != 0.0:
         reason += f"; current_state={current_state:.3f}"
     if conjunction != 0.0:
@@ -603,6 +656,7 @@ def _semantic_slot_admission_identities(
     config: ActivationConfig,
     seeded_entity_ids: tuple[str, ...],
     current_state_cue: bool,
+    valid_at: datetime | None,
 ) -> set[MemoryIdentity]:
     if not _slot_admission_active(
         cue,
@@ -625,30 +679,25 @@ def _semantic_slot_admission_identities(
 
     admitted: set[MemoryIdentity] = set()
     for candidate in candidates:
-        if candidate.semantic_status is not SemanticMemoryStatus.ACTIVE:
+        if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
-        if cue.predicate is not None:
-            if _normalised_equality(cue.predicate, candidate.predicate) < 1.0:
-                continue
-        elif effective_sources:
-            if not set(effective_sources).intersection(candidate.entity_ids):
-                continue
-        elif current_state_cue and distinctive_tokens:
-            statement_tokens = _tokenize(candidate.text)
-            object_tokens = _tokenize(candidate.object_value or "")
-            if not distinctive_tokens.intersection(statement_tokens.union(object_tokens)):
-                continue
-        else:
+        if valid_at is None and candidate.semantic_status is not SemanticMemoryStatus.ACTIVE:
+            continue
+        if not _semantic_slot_matches_cue(
+            candidate,
+            cue,
+            effective_sources=effective_sources,
+            current_state_cue=current_state_cue,
+            distinctive_tokens=distinctive_tokens,
+        ):
             continue
         admitted.add(candidate.identity)
 
     for candidate in candidates:
-        if candidate.semantic_status is not SemanticMemoryStatus.ACTIVE:
+        if candidate.identity not in admitted:
             continue
         memory = candidate.memory
         if not isinstance(memory, StoredSemanticMemory):
-            continue
-        if candidate.identity not in admitted:
             continue
         for derivation in memory.derivations:
             if derivation.relation is not SemanticDerivationRelation.SUPPORTS:
@@ -660,24 +709,72 @@ def _semantic_slot_admission_identities(
     return admitted
 
 
+def _matching_semantic_slot_identities(
+    candidates: Sequence[ActivationCandidate],
+    cue: RetrievalCue,
+    *,
+    seeded_entity_ids: tuple[str, ...],
+    current_state_cue: bool,
+    config: ActivationConfig,
+) -> tuple[set[MemoryIdentity], set[str]]:
+    effective_sources = cue.entity_ids if cue.entity_ids else seeded_entity_ids
+    cue_tokens = _tokenize(cue.text) if cue.text else set()
+    distinctive_tokens = cue_tokens - config.current_state_cue_tokens
+    matched: set[MemoryIdentity] = set()
+    matched_support_episode_ids: set[str] = set()
+    for candidate in candidates:
+        if candidate.memory_kind is not MemoryKind.SEMANTIC:
+            continue
+        if not _semantic_slot_matches_cue(
+            candidate,
+            cue,
+            effective_sources=effective_sources,
+            current_state_cue=current_state_cue,
+            distinctive_tokens=distinctive_tokens,
+        ):
+            continue
+        matched.add(candidate.identity)
+        memory = candidate.memory
+        if not isinstance(memory, StoredSemanticMemory):
+            continue
+        for derivation in memory.derivations:
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS:
+                matched_support_episode_ids.add(derivation.episode_id)
+    return matched, matched_support_episode_ids
+
+
+def _semantic_slot_matches_cue(
+    candidate: ActivationCandidate,
+    cue: RetrievalCue,
+    *,
+    effective_sources: Sequence[str],
+    current_state_cue: bool,
+    distinctive_tokens: set[str],
+) -> bool:
+    if cue.predicate is not None:
+        return _normalised_equality(cue.predicate, candidate.predicate) >= 1.0
+    if effective_sources:
+        return bool(set(effective_sources).intersection(candidate.entity_ids))
+    if current_state_cue and distinctive_tokens:
+        statement_tokens = _tokenize(candidate.text)
+        object_tokens = _tokenize(candidate.object_value or "")
+        return bool(distinctive_tokens.intersection(statement_tokens.union(object_tokens)))
+    return False
+
+
 def _calculate_partial_match(
     candidate: ActivationCandidate,
     cue: RetrievalCue,
     config: ActivationConfig,
     *,
-    idf_weights: Mapping[str, float] | None = None,
     effective_entity_ids: Sequence[str] = (),
+    text_similarity: Callable[[str, str], float],
 ) -> float:
     mismatches: list[float] = []
     weights: list[float] = []
 
     if cue.text and cue.text.strip():
-        similarity = _text_similarity(
-            cue.text,
-            candidate.text,
-            config=config,
-            idf_weights=idf_weights,
-        )
+        similarity = text_similarity(cue.text, candidate.text)
         mismatches.append(similarity - 1.0)
         weights.append(_PARTIAL_MATCH_WEIGHTS["text"])
 
@@ -717,31 +814,33 @@ def _calculate_partial_match(
     return config.mismatch_penalty * average_mismatch
 
 
-def _text_similarity(
+def _text_query_coverage(
     query: str,
     candidate_text: str,
     *,
-    config: ActivationConfig,
     idf_weights: Mapping[str, float] | None = None,
 ) -> float:
-    query_tokens = _tokenize(query)
-    if not query_tokens:
+    query_tokens, candidate_tokens, matched = _token_overlap(query, candidate_text)
+    if not query_tokens or not candidate_tokens or not matched:
         return 0.0
-    candidate_tokens = _tokenize(candidate_text)
-    if not candidate_tokens:
+    if idf_weights is None:
+        return len(matched) / len(query_tokens)
+    weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
+    weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
+    if weighted_total <= 0.0:
         return 0.0
-    matched = query_tokens.intersection(candidate_tokens)
-    if not matched:
-        return 0.0
-    if not config.enable_text_precision_matching:
-        if idf_weights is None:
-            return len(matched) / len(query_tokens)
-        weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
-        weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
-        if weighted_total <= 0.0:
-            return 0.0
-        return weighted_match / weighted_total
+    return weighted_match / weighted_total
 
+
+def _text_cue_fit(
+    query: str,
+    candidate_text: str,
+    *,
+    idf_weights: Mapping[str, float] | None = None,
+) -> float:
+    query_tokens, candidate_tokens, matched = _token_overlap(query, candidate_text)
+    if not query_tokens or not candidate_tokens or not matched:
+        return 0.0
     if idf_weights is None:
         query_weight = float(len(query_tokens))
         candidate_weight = float(len(candidate_tokens))
@@ -758,6 +857,19 @@ def _text_similarity(
     if denominator <= 0.0:
         return 0.0
     return 2.0 * precision * recall / denominator
+
+
+def _token_overlap(
+    query: str,
+    candidate_text: str,
+) -> tuple[set[str], set[str], set[str]]:
+    query_tokens = _tokenize(query)
+    if not query_tokens:
+        return set(), set(), set()
+    candidate_tokens = _tokenize(candidate_text)
+    if not candidate_tokens:
+        return query_tokens, set(), set()
+    return query_tokens, candidate_tokens, query_tokens.intersection(candidate_tokens)
 
 
 def _candidate_idf_weights(
@@ -777,8 +889,6 @@ def _candidate_idf_weights(
 
 
 def _cue_requests_current_state(cue: RetrievalCue, config: ActivationConfig) -> bool:
-    if cue.predicate is not None or cue.object_value is not None:
-        return False
     if not cue.text or not cue.text.strip():
         return False
     cue_tokens = _tokenize(cue.text)
@@ -792,8 +902,20 @@ def _current_state_activation(
     config: ActivationConfig,
     episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
     current_state_policy_active: bool,
+    matched_slot_identities: set[MemoryIdentity],
+    matched_support_episode_ids: set[str],
 ) -> float:
     if not current_state_policy_active:
+        return 0.0
+    if candidate.memory_kind is MemoryKind.SEMANTIC:
+        if candidate.identity not in matched_slot_identities:
+            return 0.0
+    elif candidate.memory_kind is MemoryKind.EPISODE and isinstance(
+        candidate.memory, StoredEpisode
+    ):
+        if candidate.memory.id not in matched_support_episode_ids:
+            return 0.0
+    else:
         return 0.0
     if candidate.semantic_status is SemanticMemoryStatus.SUPERSEDED:
         return -config.current_state_weight
