@@ -6,12 +6,18 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Protocol
 
 from cogkura.algorithms.activation import (
+    TemporalRetrievalMode,
     _cue_requests_current_state,
-    _normalised_equality,
+    _seed_entity_ids_from_text,
+    _stored_semantic_matches_cue,
+    _temporal_retrieval_mode,
     _tokenize,
+    activation_candidate_from_episode,
+    activation_candidate_from_semantic,
 )
 from cogkura.algorithms.forgetting import retention_score_from_base_level
 from cogkura.algorithms.learning import learning_context_key, learning_counts_by_identity
@@ -45,6 +51,14 @@ _FLAG_ORDER: tuple[MemoryAssessmentFlag, ...] = (
     MemoryAssessmentFlag.LOW_LEARNED_UTILITY,
     MemoryAssessmentFlag.STALE_EVIDENCE,
 )
+
+
+class MemoryAnswerability(StrEnum):
+    """Whether recalled memory contains a resolving semantic assertion."""
+
+    RESOLVED = "resolved"
+    UNRESOLVED = "unresolved"
+    NOT_APPLICABLE = "not_applicable"
 
 
 class MemoryMonitor(Protocol):
@@ -205,6 +219,7 @@ class DeterministicMemoryMonitor:
             candidates=candidates,
             query=query,
             activation_config=activation_config,
+            valid_at=valid_at,
         )
 
         report_limit = min(config.max_report_items, len(candidates))
@@ -359,21 +374,33 @@ def _build_flags(
     candidates: Sequence[RecallResult] = (),
     query: RetrievalCue | None = None,
     activation_config: ActivationConfig | None = None,
+    valid_at: datetime | None = None,
 ) -> tuple[MemoryAssessmentFlag, ...]:
     if not has_candidates:
         return (MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,)
 
     active: set[MemoryAssessmentFlag] = set()
-    if (
-        query is not None
-        and activation_config is not None
-        and not _has_active_semantic_slot_match(candidates, query, activation_config)
-        and (
-            signals.cue_coverage < config.missing_knowledge_coverage_threshold
-            or signals.top_retrieval_strength < config.missing_knowledge_strength_threshold
+    if query is not None and activation_config is not None:
+        answerability = _assess_answerability(
+            candidates,
+            query,
+            valid_at=valid_at,
+            activation_config=activation_config,
         )
-    ):
-        active.add(MemoryAssessmentFlag.MISSING_KNOWLEDGE)
+        if answerability is MemoryAnswerability.UNRESOLVED:
+            active.add(MemoryAssessmentFlag.MISSING_KNOWLEDGE)
+        elif answerability is MemoryAnswerability.NOT_APPLICABLE and (
+            not _has_active_semantic_slot_match(
+                candidates,
+                query,
+                activation_config,
+            )
+            and (
+                signals.cue_coverage < config.missing_knowledge_coverage_threshold
+                or signals.top_retrieval_strength < config.missing_knowledge_strength_threshold
+            )
+        ):
+            active.add(MemoryAssessmentFlag.MISSING_KNOWLEDGE)
     if signals.cue_coverage < config.low_cue_coverage_threshold:
         active.add(MemoryAssessmentFlag.LOW_CUE_COVERAGE)
     if signals.top_retrieval_strength < config.low_retrieval_strength_threshold:
@@ -400,15 +427,80 @@ def _build_flags(
     return tuple(flag for flag in _FLAG_ORDER if flag in active)
 
 
+def _assess_answerability(
+    candidates: Sequence[RecallResult],
+    query: RetrievalCue,
+    *,
+    valid_at: datetime | None,
+    activation_config: ActivationConfig,
+) -> MemoryAnswerability:
+    temporal_mode = _temporal_retrieval_mode(
+        query,
+        valid_at=valid_at,
+        config=activation_config,
+    )
+    slot_like = (
+        query.predicate is not None
+        or query.object_value is not None
+        or temporal_mode is TemporalRetrievalMode.CURRENT
+        or temporal_mode is TemporalRetrievalMode.HISTORICAL
+    )
+    if not slot_like:
+        return MemoryAnswerability.NOT_APPLICABLE
+    if _has_resolving_semantic_assertion(
+        candidates,
+        query,
+        activation_config=activation_config,
+        temporal_mode=temporal_mode,
+    ):
+        return MemoryAnswerability.RESOLVED
+    return MemoryAnswerability.UNRESOLVED
+
+
+def _has_resolving_semantic_assertion(
+    candidates: Sequence[RecallResult],
+    query: RetrievalCue,
+    *,
+    activation_config: ActivationConfig,
+    temporal_mode: TemporalRetrievalMode,
+) -> bool:
+    effective_sources, current_state_cue, distinctive_tokens = _metamemory_match_context(
+        candidates,
+        query,
+        activation_config=activation_config,
+    )
+    for recall in candidates:
+        if recall.memory_kind is not MemoryKind.SEMANTIC:
+            continue
+        memory = recall.memory
+        if not isinstance(memory, StoredSemanticMemory):
+            continue
+        if not (memory.object_value and memory.object_value.strip()):
+            continue
+        if temporal_mode is TemporalRetrievalMode.CURRENT:
+            if memory.status is not SemanticMemoryStatus.ACTIVE:
+                continue
+        if _stored_semantic_matches_cue(
+            memory,
+            query,
+            effective_sources=effective_sources,
+            current_state_cue=current_state_cue,
+            distinctive_tokens=distinctive_tokens,
+        ):
+            return True
+    return False
+
+
 def _has_active_semantic_slot_match(
     candidates: Sequence[RecallResult],
     query: RetrievalCue,
     activation_config: ActivationConfig,
 ) -> bool:
-    current_state_cue = _cue_requests_current_state(query, activation_config)
-    cue_tokens = _tokenize(query.text) if query.text else set()
-    distinctive_tokens = cue_tokens - activation_config.current_state_cue_tokens
-
+    effective_sources, current_state_cue, distinctive_tokens = _metamemory_match_context(
+        candidates,
+        query,
+        activation_config=activation_config,
+    )
     for recall in candidates:
         if recall.memory_kind is not MemoryKind.SEMANTIC:
             continue
@@ -417,29 +509,36 @@ def _has_active_semantic_slot_match(
             continue
         if memory.status is not SemanticMemoryStatus.ACTIVE:
             continue
-
-        if query.predicate is not None:
-            if _normalised_equality(query.predicate, memory.predicate) >= 1.0:
-                return True
-            continue
-
-        semantic_entities = {entity.entity_id for entity in memory.entities}
-        if memory.subject_entity_id:
-            semantic_entities.add(memory.subject_entity_id)
-        if memory.object_entity_id:
-            semantic_entities.add(memory.object_entity_id)
-        if query.entity_ids:
-            if set(query.entity_ids).intersection(semantic_entities):
-                return True
-            continue
-
-        if current_state_cue and distinctive_tokens:
-            statement_tokens = _tokenize(memory.statement)
-            object_tokens = _tokenize(memory.object_value or "")
-            if distinctive_tokens.intersection(statement_tokens.union(object_tokens)):
-                return True
-
+        if _stored_semantic_matches_cue(
+            memory,
+            query,
+            effective_sources=effective_sources,
+            current_state_cue=current_state_cue,
+            distinctive_tokens=distinctive_tokens,
+        ):
+            return True
     return False
+
+
+def _metamemory_match_context(
+    candidates: Sequence[RecallResult],
+    query: RetrievalCue,
+    *,
+    activation_config: ActivationConfig,
+) -> tuple[tuple[str, ...], bool, set[str]]:
+    activation_candidates = []
+    for recall in candidates:
+        memory = recall.memory
+        if isinstance(memory, StoredEpisode):
+            activation_candidates.append(activation_candidate_from_episode(memory))
+        elif isinstance(memory, StoredSemanticMemory):
+            activation_candidates.append(activation_candidate_from_semantic(memory))
+    seeded_entity_ids = _seed_entity_ids_from_text(query, activation_candidates, activation_config)
+    effective_sources = query.entity_ids if query.entity_ids else seeded_entity_ids
+    current_state_cue = _cue_requests_current_state(query, activation_config)
+    cue_tokens = _tokenize(query.text) if query.text else set()
+    distinctive_tokens = cue_tokens - activation_config.current_state_cue_tokens
+    return effective_sources, current_state_cue, distinctive_tokens
 
 
 def _identity_from_recall(recall: RecallResult) -> MemoryIdentity:

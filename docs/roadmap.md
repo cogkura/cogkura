@@ -85,6 +85,13 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.14.2 - Temporal mode, structured slot fit, and metamemory answerability (done)
+
+- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` retrieval modes; historical mode can activate matching soft admission.
+- Structured semantic-slot fit refines eligible ranking only; SUPPORT episodes inherit fit from the slot they support.
+- Metamemory answerability distinguishes unresolved knowledge from weak retrieval.
+- [`docs/design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answerability-0.14.2.md).
+
 ## 0.14.1 - Retrieval corrections and ranking separation (done)
 
 - Lexical current-state intent independent of structured cue fields.

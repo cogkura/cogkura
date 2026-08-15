@@ -7,7 +7,9 @@ import re
 import unicodedata
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
+from enum import StrEnum
 from typing import Protocol
 
 from cogkura.algorithms.spreading import (
@@ -43,6 +45,14 @@ _PARTIAL_MATCH_WEIGHTS = {
     "qualifiers": 1.0,
     "text": 1.0,
 }
+
+
+class TemporalRetrievalMode(StrEnum):
+    """Internal temporal frame for retrieval policy, admission, and ranking."""
+
+    NEUTRAL = "neutral"
+    CURRENT = "current"
+    HISTORICAL = "historical"
 
 
 class DeclarativeActivator(Protocol):
@@ -222,19 +232,27 @@ class ACTRDeclarativeActivator:
         spreading_metadata = spreading_result.metadata if spreading_result is not None else {}
         idf_weights = _scaled_idf_weights(candidates, cue, config)
         current_state_cue = _cue_requests_current_state(cue, config)
-        support_index = episode_support_index or {}
-        slot_index = episode_slot_index or {}
-        current_state_policy_active = _current_state_policy_active(
+        temporal_mode = _temporal_retrieval_mode(
             cue,
             valid_at=valid_at,
+            config=config,
             current_state_cue=current_state_cue,
         )
+        support_index = episode_support_index or {}
+        slot_index = episode_slot_index or {}
+        current_state_policy_active = temporal_mode is TemporalRetrievalMode.CURRENT
         matched_slot_identities, matched_support_episode_ids = _matching_semantic_slot_identities(
             candidates,
             cue,
             seeded_entity_ids=seeded_entity_ids,
             current_state_cue=current_state_cue,
             config=config,
+        )
+        semantic_slot_fit_by_identity, episode_support_fits = _semantic_slot_fit_indexes(
+            candidates,
+            cue,
+            temporal_mode=temporal_mode,
+            effective_entities=effective_entity_ids,
         )
 
         scored: list[RecallResult] = []
@@ -255,6 +273,12 @@ class ACTRDeclarativeActivator:
                 current_state_policy_active=current_state_policy_active,
                 matched_slot_identities=matched_slot_identities,
                 matched_support_episode_ids=matched_support_episode_ids,
+                temporal_mode=temporal_mode,
+                slot_fit=_candidate_slot_fit(
+                    candidate,
+                    semantic_slot_fit_by_identity=semantic_slot_fit_by_identity,
+                    episode_support_fits=episode_support_fits,
+                ),
             )
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
@@ -266,7 +290,14 @@ class ACTRDeclarativeActivator:
             seeded_entity_ids=seeded_entity_ids,
             current_state_cue=current_state_cue,
             valid_at=valid_at,
+            temporal_mode=temporal_mode,
         )
+        scored = [
+            replace(result, reason=f"{result.reason}; soft_admitted=true")
+            if _result_identity(result) in admitted_identities
+            else result
+            for result in scored
+        ]
 
         eligible = [
             result
@@ -317,6 +348,7 @@ def _slot_admission_active(
     config: ActivationConfig,
     current_state_cue: bool,
     seeded_entity_ids: tuple[str, ...],
+    temporal_mode: TemporalRetrievalMode | None = None,
 ) -> bool:
     if not config.enable_semantic_slot_admission:
         return False
@@ -324,10 +356,30 @@ def _slot_admission_active(
         return True
     if not config.slot_admission_requires_current_state_or_predicate:
         return True
+    if temporal_mode is TemporalRetrievalMode.HISTORICAL:
+        return True
     effective_entity_ids = cue.entity_ids if cue.entity_ids else seeded_entity_ids
     if config.enable_entity_slot_admission and effective_entity_ids:
         return True
     return current_state_cue or cue.predicate is not None
+
+
+def _temporal_retrieval_mode(
+    cue: RetrievalCue,
+    *,
+    valid_at: datetime | None,
+    config: ActivationConfig | None = None,
+    current_state_cue: bool | None = None,
+) -> TemporalRetrievalMode:
+    if valid_at is not None:
+        return TemporalRetrievalMode.HISTORICAL
+    if current_state_cue is None:
+        if config is None:
+            raise ValidationError("config is required when current_state_cue is omitted.")
+        current_state_cue = _cue_requests_current_state(cue, config)
+    if current_state_cue or cue.predicate is not None or cue.object_value is not None:
+        return TemporalRetrievalMode.CURRENT
+    return TemporalRetrievalMode.NEUTRAL
 
 
 def _current_state_policy_active(
@@ -336,15 +388,14 @@ def _current_state_policy_active(
     valid_at: datetime | None,
     current_state_cue: bool,
 ) -> bool:
-    if valid_at is not None:
-        return False
-    if current_state_cue:
-        return True
-    if cue.predicate is not None:
-        return True
-    if cue.object_value is not None:
-        return True
-    return False
+    return (
+        _temporal_retrieval_mode(
+            cue,
+            valid_at=valid_at,
+            current_state_cue=current_state_cue,
+        )
+        is TemporalRetrievalMode.CURRENT
+    )
 
 
 def _scaled_idf_weights(
@@ -382,6 +433,8 @@ def _score_candidate(
     current_state_policy_active: bool,
     matched_slot_identities: set[MemoryIdentity],
     matched_support_episode_ids: set[str],
+    temporal_mode: TemporalRetrievalMode,
+    slot_fit: float | None,
 ) -> tuple[RecallResult, float]:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
@@ -438,7 +491,8 @@ def _score_candidate(
     activation = (
         base_level + spreading + accessibility_partial + current_state + conjunction + noise
     )
-    rank_activation = activation - accessibility_partial + ranking_partial
+    structured_adjustment = _structured_rank_adjustment(slot_fit, config.mismatch_penalty)
+    rank_activation = activation - accessibility_partial + ranking_partial + structured_adjustment
     latency_seconds = config.latency_factor * math.exp(-config.latency_exponent * activation)
     score = _presentation_score(activation, config.retrieval_threshold)
     components = ActivationComponents(
@@ -473,6 +527,9 @@ def _score_candidate(
         rank_activation=rank_activation,
         text_coverage=text_coverage,
         text_cue_fit=text_cue_fit,
+        temporal_mode=temporal_mode,
+        slot_fit=slot_fit,
+        structured_adjustment=structured_adjustment,
     )
     return (
         RecallResult(
@@ -549,6 +606,9 @@ def _build_reason(
     rank_activation: float | None = None,
     text_coverage: float | None = None,
     text_cue_fit: float | None = None,
+    temporal_mode: TemporalRetrievalMode | None = None,
+    slot_fit: float | None = None,
+    structured_adjustment: float = 0.0,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -556,12 +616,18 @@ def _build_reason(
         f"references={reference_count}; "
         f"matched_entities={matched_entities}/{cue_entity_count}"
     )
+    if temporal_mode is not None:
+        reason += f"; temporal_mode={temporal_mode.value}"
     if rank_activation is not None and rank_activation != activation:
         reason += f"; rank_activation={rank_activation:.3f}"
     if text_coverage is not None and text_coverage > 0.0:
         reason += f"; text_coverage={text_coverage:.3f}"
     if text_cue_fit is not None and text_coverage is not None and text_cue_fit != text_coverage:
         reason += f"; text_cue_fit={text_cue_fit:.3f}"
+    if slot_fit is not None:
+        reason += f"; slot_fit={slot_fit:.2f}"
+    if structured_adjustment != 0.0:
+        reason += f"; structured_adjustment={structured_adjustment:.3f}"
     if current_state != 0.0:
         reason += f"; current_state={current_state:.3f}"
     if conjunction != 0.0:
@@ -657,12 +723,14 @@ def _semantic_slot_admission_identities(
     seeded_entity_ids: tuple[str, ...],
     current_state_cue: bool,
     valid_at: datetime | None,
+    temporal_mode: TemporalRetrievalMode | None = None,
 ) -> set[MemoryIdentity]:
     if not _slot_admission_active(
         cue,
         config=config,
         current_state_cue=current_state_cue,
         seeded_entity_ids=seeded_entity_ids,
+        temporal_mode=temporal_mode,
     ):
         return set()
 
@@ -751,15 +819,167 @@ def _semantic_slot_matches_cue(
     current_state_cue: bool,
     distinctive_tokens: set[str],
 ) -> bool:
+    return _semantic_fields_match_cue(
+        predicate=candidate.predicate,
+        entity_ids=candidate.entity_ids,
+        text=candidate.text,
+        object_value=candidate.object_value,
+        cue=cue,
+        effective_sources=effective_sources,
+        current_state_cue=current_state_cue,
+        distinctive_tokens=distinctive_tokens,
+    )
+
+
+def _stored_semantic_matches_cue(
+    memory: StoredSemanticMemory,
+    cue: RetrievalCue,
+    *,
+    effective_sources: Sequence[str],
+    current_state_cue: bool,
+    distinctive_tokens: set[str],
+) -> bool:
+    entity_ids = {entity.entity_id for entity in memory.entities}
+    if memory.subject_entity_id:
+        entity_ids.add(memory.subject_entity_id)
+    if memory.object_entity_id:
+        entity_ids.add(memory.object_entity_id)
+    return _semantic_fields_match_cue(
+        predicate=memory.predicate,
+        entity_ids=tuple(sorted(entity_ids)),
+        text=memory.statement,
+        object_value=memory.object_value,
+        cue=cue,
+        effective_sources=effective_sources,
+        current_state_cue=current_state_cue,
+        distinctive_tokens=distinctive_tokens,
+    )
+
+
+def _semantic_fields_match_cue(
+    *,
+    predicate: str | None,
+    entity_ids: Sequence[str],
+    text: str,
+    object_value: str | None,
+    cue: RetrievalCue,
+    effective_sources: Sequence[str],
+    current_state_cue: bool,
+    distinctive_tokens: set[str],
+) -> bool:
     if cue.predicate is not None:
-        return _normalised_equality(cue.predicate, candidate.predicate) >= 1.0
+        return _normalised_equality(cue.predicate, predicate) >= 1.0
     if effective_sources:
-        return bool(set(effective_sources).intersection(candidate.entity_ids))
+        return bool(set(effective_sources).intersection(entity_ids))
     if current_state_cue and distinctive_tokens:
-        statement_tokens = _tokenize(candidate.text)
-        object_tokens = _tokenize(candidate.object_value or "")
+        statement_tokens = _tokenize(text)
+        object_tokens = _tokenize(object_value or "")
         return bool(distinctive_tokens.intersection(statement_tokens.union(object_tokens)))
     return False
+
+
+def _semantic_slot_fit_indexes(
+    candidates: Sequence[ActivationCandidate],
+    cue: RetrievalCue,
+    *,
+    temporal_mode: TemporalRetrievalMode,
+    effective_entities: Sequence[str],
+) -> tuple[dict[MemoryIdentity, float | None], dict[str, list[float | None]]]:
+    semantic_slot_fit_by_identity: dict[MemoryIdentity, float | None] = {}
+    episode_support_fits: dict[str, list[float | None]] = defaultdict(list)
+    for candidate in candidates:
+        if candidate.memory_kind is not MemoryKind.SEMANTIC:
+            continue
+        fit = _semantic_slot_fit(
+            candidate,
+            cue,
+            temporal_mode=temporal_mode,
+            effective_entities=effective_entities,
+        )
+        semantic_slot_fit_by_identity[candidate.identity] = fit
+        memory = candidate.memory
+        if not isinstance(memory, StoredSemanticMemory):
+            continue
+        for derivation in memory.derivations:
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS:
+                episode_support_fits[derivation.episode_id].append(fit)
+    return semantic_slot_fit_by_identity, episode_support_fits
+
+
+def _candidate_slot_fit(
+    candidate: ActivationCandidate,
+    *,
+    semantic_slot_fit_by_identity: Mapping[MemoryIdentity, float | None],
+    episode_support_fits: Mapping[str, Sequence[float | None]],
+) -> float | None:
+    if candidate.memory_kind is MemoryKind.SEMANTIC:
+        return semantic_slot_fit_by_identity.get(candidate.identity)
+    if candidate.memory_kind is MemoryKind.EPISODE and isinstance(candidate.memory, StoredEpisode):
+        return _support_slot_fit(episode_support_fits.get(candidate.memory.id, ()))
+    return None
+
+
+def _support_slot_fit(supported_fits: Sequence[float | None]) -> float | None:
+    fits = [fit for fit in supported_fits if fit is not None]
+    if not fits:
+        return None
+    return max(fits)
+
+
+def _semantic_slot_fit(
+    candidate: ActivationCandidate,
+    cue: RetrievalCue,
+    *,
+    temporal_mode: TemporalRetrievalMode,
+    effective_entities: Sequence[str],
+) -> float | None:
+    if candidate.memory_kind is not MemoryKind.SEMANTIC:
+        return None
+    if (
+        temporal_mode is TemporalRetrievalMode.NEUTRAL
+        and cue.predicate is None
+        and cue.object_value is None
+    ):
+        return None
+
+    matched = 0
+    considered = 0
+    if effective_entities:
+        considered += 1
+        if set(effective_entities).intersection(candidate.entity_ids):
+            matched += 1
+    if cue.predicate is not None:
+        considered += 1
+        if _normalised_equality(cue.predicate, candidate.predicate) >= 1.0:
+            matched += 1
+    if cue.object_value is not None:
+        considered += 1
+        if _normalised_equality(cue.object_value, candidate.object_value) >= 1.0:
+            matched += 1
+    if temporal_mode is not TemporalRetrievalMode.NEUTRAL:
+        considered += 1
+        if _temporal_slot_compatible(candidate, temporal_mode):
+            matched += 1
+    if considered == 0:
+        return None
+    return matched / considered
+
+
+def _temporal_slot_compatible(
+    candidate: ActivationCandidate,
+    temporal_mode: TemporalRetrievalMode,
+) -> bool:
+    if temporal_mode is TemporalRetrievalMode.CURRENT:
+        return candidate.semantic_status is SemanticMemoryStatus.ACTIVE
+    if temporal_mode is TemporalRetrievalMode.HISTORICAL:
+        return True
+    return False
+
+
+def _structured_rank_adjustment(slot_fit: float | None, mismatch_penalty: float) -> float:
+    if slot_fit is None:
+        return 0.0
+    return mismatch_penalty * (slot_fit - 1.0)
 
 
 def _calculate_partial_match(

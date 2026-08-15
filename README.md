@@ -335,11 +335,11 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.14.1`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
+Cogkura is in early development. Through `0.14.2`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, structured semantic-slot fit, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
 
-## Scope of 0.14.1
+## Scope of 0.14.2
 
-Implemented through `0.14.1`:
+Implemented through `0.14.2`:
 
 - observation models and ingestion pipeline (`0.1`);
 - `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
@@ -359,10 +359,11 @@ Implemented through `0.14.1`:
 - gated slot admission, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and WM same-slot collapse (`0.13`);
 - global eligible ranking, soft entity admission, temporal current-state policy, and precision-aware text matching (`0.14`);
 - coverage vs cue-fit ranking, historically aware admission, and slot-scoped current-state bonuses (`0.14.1`);
+- internal temporal retrieval modes, structured semantic-slot fit, and metamemory answerability (`0.14.2`);
 - Docker PostgreSQL example with seed and mutation scripts;
 - unit tests and optional PostgreSQL integration tests.
 
-Not implemented in `0.14.1`:
+Not implemented in `0.14.2`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -412,6 +413,7 @@ Learning / reinforcement
 - `0.11`: ranking, simulated time, and current-state recall (done).
 - `0.14`: retrieval eligibility, global ranking, temporal relevance, and cue discrimination (done).
 - `0.14.1`: retrieval corrections and ranking separation (done).
+- `0.14.2`: temporal retrieval mode, structured slot fit, and metamemory answerability (done).
 - `0.13`: gated slot admission, association, and metamemory (done).
 - `0.12`: string cues, slot admission, and access recording (done).
 - later: additional connectors, and integrations.

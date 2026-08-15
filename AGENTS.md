@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.14.1` retrieval corrections (coverage vs cue-fit, historical admission, slot-scoped current state)
+- Current release focus: `0.14.2` temporal retrieval mode, structured slot fit, and metamemory answerability
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -51,7 +51,7 @@ docs/
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
 | `recall(query, tenant_id=..., valid_at=..., as_of=...)` | ACT-R declarative activation over episodic + semantic memories |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
-| `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment; `MISSING_KNOWLEDGE` when recall is weak and no ACTIVE slot matches (`0.13`) |
+| `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment; `MISSING_KNOWLEDGE` for unresolved slot-like queries or weak non-slot retrieval (`0.14.2`) |
 | `record_access(results, tenant_id=..., min_score=...)` | Explicitly reinforce used memories (reactivates forgotten dynamics); optional score floor and burst limits |
 | `learn(feedback)` | Apply HELPFUL/UNHELPFUL/INCORRECT outcome feedback (idempotent by `feedback_id`) |
 | `list_learning_state(tenant_id=..., identities=..., goal=...)` | Inspect persisted learning counts |

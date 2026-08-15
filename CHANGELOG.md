@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.2] - 2026-08-15
+
+### Added
+
+- Explicit internal temporal retrieval modes (`neutral`, `current`, `historical`).
+- Deterministic structured semantic-slot fit for eligible-candidate ordering.
+- Deterministic metamemory answerability (`resolved`, `unresolved`, `not_applicable`).
+- [`docs/design-temporal-slot-answerability-0.14.2.md`](docs/design-temporal-slot-answerability-0.14.2.md).
+
+### Changed
+
+- Historical mode can activate text/entity-derived soft admission; present lifecycle status does not bias historical ranking.
+- Semantic slot fit refines eligible-candidate ordering without changing accessibility or the retrieval threshold.
+- `MISSING_KNOWLEDGE` distinguishes unresolved knowledge from weak retrieval.
+
+### Preserved
+
+- Accessibility/ranking separation from `0.14.1`.
+- Soft admission, global ranking, association, stale suppression, forgetting, learning, and working-memory selection.
+- Metamemory monitoring flags and existing confidence thresholds.
+
+### Notes
+
+- No migration required.
+- `RecallResult.activation` remains accessibility; structured slot fit is diagnostic in `reason` only.
+- Package `__version__` aligned with `pyproject.toml` (`0.14.2`).
+
 ## [0.14.1] - 2026-08-15
 
 ### Changed

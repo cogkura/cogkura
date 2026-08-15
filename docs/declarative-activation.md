@@ -96,6 +96,15 @@ See [`design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14
 - Query coverage controls accessibility / threshold; F1 controls eligible ranking only.
 - Current-state bonuses are scoped to matched semantic slots and their SUPPORT episodes.
 
+## 0.14.2 temporal mode, slot fit, and answerability
+
+See [`design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answerability-0.14.2.md).
+
+- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` modes; `valid_at` always selects HISTORICAL.
+- Historical mode can admit matching text/entity-derived semantic slots.
+- Structured slot fit orders eligible candidates only; SUPPORT episodes inherit the slot they support.
+- Metamemory answerability can emit `MISSING_KNOWLEDGE` when related retrieval is strong but the requested fact is unresolved.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.
