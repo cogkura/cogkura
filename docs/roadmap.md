@@ -85,6 +85,12 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.14.4 - Retrieval diagnostics and SUPPORT provenance (done)
+
+- `RecallResult.diagnostics` exposes accessibility vs rank activation, text coverage, cue fit, temporal mode, structured fit, and eligibility diagnostics.
+- SUPPORT ranking diagnostics preserve derivation-backed semantic revision provenance and selected inherited-fit source.
+- [`docs/design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retrieval-diagnostics-support-provenance-0.14.4.md).
+
 ## 0.14.3 - Conjunctive slot matching and positive structured ranking (done)
 
 - Explicit entity, predicate, and object constraints are conjunctive in shared semantic matching.

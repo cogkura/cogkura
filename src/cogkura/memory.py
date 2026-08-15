@@ -15,6 +15,7 @@ from cogkura.algorithms.activation import (
     activation_candidate_from_semantic,
     build_episode_slot_index,
     build_episode_support_index,
+    build_episode_support_provenance_index,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
@@ -373,6 +374,7 @@ class Memory:
         all_semantics = [*semantic_memories, *superseded_semantics]
         episode_support_index = build_episode_support_index(all_semantics)
         episode_slot_index = build_episode_slot_index(all_semantics)
+        episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         if valid_at is None:
@@ -388,9 +390,13 @@ class Memory:
                 for memory in semantic_memories
                 if semantic_statuses is None or memory.status in semantic_statuses
             ]
-        candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
-            activation_candidate_from_semantic(memory) for memory in eligible_semantics
-        ]
+        candidates = [
+            activation_candidate_from_episode(
+                episode,
+                support_provenance=episode_support_provenance_index.get(episode.id, ()),
+            )
+            for episode in episodes
+        ] + [activation_candidate_from_semantic(memory) for memory in eligible_semantics]
         candidates = await self._filter_recallable_candidates(
             candidates=candidates,
             tenant_id=tenant_id,

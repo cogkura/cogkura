@@ -113,6 +113,14 @@ See [`design-conjunctive-slot-ranking-0.14.3.md`](design-conjunctive-slot-rankin
 - Structured rank adjustment is centred at `slot_fit=None`; perfect fit is positive bounded evidence.
 - SUPPORT episodes inherit fit only from the semantic slot they support.
 
+## 0.14.4 retrieval diagnostics and support provenance
+
+See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retrieval-diagnostics-support-provenance-0.14.4.md).
+
+- `RecallResult.diagnostics` captures rank activation, accessibility/ranking partial terms, eligibility, and provenance without changing scoring semantics.
+- Accessibility activation and presentation score remain the public retrieval contract; rank-only terms remain diagnostic.
+- SUPPORT diagnostics expose derivation-backed semantic revision provenance and selected inherited-fit source.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

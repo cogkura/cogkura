@@ -928,6 +928,159 @@ class ActivationComponents:
                 raise ValidationError(f"{label} must be finite.")
 
 
+class RetrievalEligibility(StrEnum):
+    """How a candidate became eligible for returned recall results."""
+
+    THRESHOLD = "threshold"
+    SEMANTIC_SLOT_ADMISSION = "semantic_slot_admission"
+    ENTITY_SLOT_ADMISSION = "entity_slot_admission"
+    HISTORICAL_SLOT_ADMISSION = "historical_slot_admission"
+
+
+class SlotFitSource(StrEnum):
+    """Source of structured slot-fit evidence for ranking diagnostics."""
+
+    SEMANTIC = "semantic"
+    SUPPORT = "support"
+
+
+@dataclass(frozen=True, slots=True)
+class SupportProvenance:
+    """Derivation-backed semantic provenance for a SUPPORT episode."""
+
+    semantic_memory_key: str
+    semantic_revision_key: str
+    semantic_slot_key: str
+    semantic_status: SemanticMemoryStatus
+    contribution_score: float
+    slot_fit: float | None = None
+    semantic_valid_from: datetime | None = None
+    semantic_valid_until: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.semantic_memory_key.strip():
+            raise ValidationError("semantic_memory_key must not be empty.")
+        if not self.semantic_revision_key.strip():
+            raise ValidationError("semantic_revision_key must not be empty.")
+        if not self.semantic_slot_key.strip():
+            raise ValidationError("semantic_slot_key must not be empty.")
+        if not math.isfinite(self.contribution_score):
+            raise ValidationError("contribution_score must be finite.")
+        if not 0.0 <= self.contribution_score <= 1.0:
+            raise ValidationError("contribution_score must be between 0.0 and 1.0.")
+        if self.slot_fit is not None:
+            if not math.isfinite(self.slot_fit):
+                raise ValidationError("slot_fit must be finite when provided.")
+            if not 0.0 <= self.slot_fit <= 1.0:
+                raise ValidationError("slot_fit must be between 0.0 and 1.0 when provided.")
+        if self.semantic_valid_from is not None:
+            if self.semantic_valid_from.tzinfo is None:
+                raise ValidationError("semantic_valid_from must be timezone-aware.")
+            object.__setattr__(
+                self,
+                "semantic_valid_from",
+                self.semantic_valid_from.astimezone(UTC),
+            )
+        if self.semantic_valid_until is not None:
+            if self.semantic_valid_until.tzinfo is None:
+                raise ValidationError("semantic_valid_until must be timezone-aware.")
+            object.__setattr__(
+                self,
+                "semantic_valid_until",
+                self.semantic_valid_until.astimezone(UTC),
+            )
+        if (
+            self.semantic_valid_from is not None
+            and self.semantic_valid_until is not None
+            and self.semantic_valid_until <= self.semantic_valid_from
+        ):
+            raise ValidationError("semantic_valid_until must be after semantic_valid_from.")
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalDiagnostics:
+    """Structured recall diagnostics for ranking and provenance analysis."""
+
+    rank_activation: float
+    accessibility_partial: float
+    ranking_partial: float
+    conjunction: float
+    text_coverage: float
+    text_cue_fit: float
+    temporal_mode: str
+    eligibility: RetrievalEligibility = RetrievalEligibility.THRESHOLD
+    base_level: float = 0.0
+    spreading: float = 0.0
+    current_state: float = 0.0
+    reference_count: int = 0
+    matched_entities: int = 0
+    cue_entity_count: int = 0
+    spread_hop: int | None = None
+    spread_sources: tuple[str, ...] = ()
+    learned_edges: int = 0
+    slot_fit: float | None = None
+    structured_adjustment: float = 0.0
+    slot_fit_source: SlotFitSource | None = None
+    admission_reason: str | None = None
+    soft_admitted: bool = False
+    semantic_slot_key: str | None = None
+    semantic_status: SemanticMemoryStatus | None = None
+    observation_evidence_ids: tuple[str, ...] = ()
+    support_provenance: tuple[SupportProvenance, ...] = ()
+    selected_support_revision_key: str | None = None
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("rank_activation", self.rank_activation),
+            ("accessibility_partial", self.accessibility_partial),
+            ("ranking_partial", self.ranking_partial),
+            ("conjunction", self.conjunction),
+            ("text_coverage", self.text_coverage),
+            ("text_cue_fit", self.text_cue_fit),
+            ("base_level", self.base_level),
+            ("spreading", self.spreading),
+            ("current_state", self.current_state),
+            ("structured_adjustment", self.structured_adjustment),
+        ):
+            if not math.isfinite(value):
+                raise ValidationError(f"{label} must be finite.")
+        for label, value in (
+            ("text_coverage", self.text_coverage),
+            ("text_cue_fit", self.text_cue_fit),
+        ):
+            if not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be between 0.0 and 1.0.")
+        if self.reference_count < 0:
+            raise ValidationError("reference_count must not be negative.")
+        if self.matched_entities < 0:
+            raise ValidationError("matched_entities must not be negative.")
+        if self.cue_entity_count < 0:
+            raise ValidationError("cue_entity_count must not be negative.")
+        if self.matched_entities > self.cue_entity_count and self.cue_entity_count > 0:
+            raise ValidationError("matched_entities must not exceed cue_entity_count.")
+        if self.learned_edges < 0:
+            raise ValidationError("learned_edges must not be negative.")
+        if self.slot_fit is not None:
+            if not math.isfinite(self.slot_fit):
+                raise ValidationError("slot_fit must be finite when provided.")
+            if not 0.0 <= self.slot_fit <= 1.0:
+                raise ValidationError("slot_fit must be between 0.0 and 1.0 when provided.")
+        if self.slot_fit_source is not None and self.slot_fit is None:
+            raise ValidationError("slot_fit_source requires slot_fit.")
+        if self.admission_reason is not None and not self.admission_reason.strip():
+            raise ValidationError("admission_reason must not be empty when provided.")
+        if (
+            self.selected_support_revision_key is not None
+            and not self.selected_support_revision_key.strip()
+        ):
+            raise ValidationError("selected_support_revision_key must not be empty when provided.")
+        for observation_id in self.observation_evidence_ids:
+            if not observation_id.strip():
+                raise ValidationError("observation_evidence_ids must not contain empty values.")
+        if self.spread_hop is not None and self.spread_hop < 0:
+            raise ValidationError("spread_hop must not be negative when provided.")
+
+
 @dataclass(frozen=True, slots=True)
 class ActivationCandidate:
     """Common representation for episodic and semantic activation ranking."""
@@ -946,6 +1099,7 @@ class ActivationCandidate:
     slot_key: str | None = None
     semantic_status: SemanticMemoryStatus | None = None
     last_supported_at: datetime | None = None
+    support_provenance: tuple[SupportProvenance, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.memory_key.strip():
@@ -983,6 +1137,7 @@ class RecallResult:
     latency_seconds: float
     components: ActivationComponents
     reason: str
+    diagnostics: RetrievalDiagnostics | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.activation):

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.4] - 2026-08-15
+
+### Added
+
+- Structured retrieval diagnostics on `RecallResult.diagnostics` that separate accessibility activation from final rank activation.
+- Eligibility and admission diagnostics that expose threshold versus slot-admission pathways.
+- Semantic and SUPPORT provenance diagnostics, including selected supporting semantic revision and observation evidence ids.
+- [`docs/design-retrieval-diagnostics-support-provenance-0.14.4.md`](docs/design-retrieval-diagnostics-support-provenance-0.14.4.md).
+
+### Fixed
+
+- SUPPORT slot-fit inheritance now keeps derivation-backed semantic revision provenance through ranking diagnostics.
+
+### Preserved
+
+- Query-coverage accessibility and precision-aware lexical ranking.
+- Temporal retrieval modes, soft admission semantics, and global ranking.
+- Conjunctive structured matching, positive structured slot fit, and stale SUPPORT exclusion.
+- Metamemory, working memory, forgetting, and learning behavior.
+
+### Notes
+
+- No migration required.
+- `RecallResult.activation` remains accessibility; ranking-specific signals are diagnostic only.
+- Package `__version__` aligned with `pyproject.toml` (`0.14.4`).
+
 ## [0.14.3] - 2026-08-15
 
 ### Fixed

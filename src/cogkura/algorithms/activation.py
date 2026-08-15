@@ -7,7 +7,7 @@ import re
 import unicodedata
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
@@ -28,10 +28,14 @@ from cogkura.models import (
     MemoryKind,
     RecallResult,
     RetrievalCue,
+    RetrievalDiagnostics,
+    RetrievalEligibility,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
+    SlotFitSource,
     StoredEpisode,
     StoredSemanticMemory,
+    SupportProvenance,
 )
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
@@ -45,6 +49,19 @@ _PARTIAL_MATCH_WEIGHTS = {
     "qualifiers": 1.0,
     "text": 1.0,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class _TextMatchMetrics:
+    coverage: float
+    cue_fit: float
+
+
+@dataclass(frozen=True, slots=True)
+class _SlotFitSelection:
+    slot_fit: float | None
+    support_provenance: tuple[SupportProvenance, ...] = ()
+    selected_support_revision_key: str | None = None
 
 
 class TemporalRetrievalMode(StrEnum):
@@ -106,7 +123,11 @@ def calculate_base_level(
     return logsumexp(terms) + constant
 
 
-def activation_candidate_from_episode(episode: StoredEpisode) -> ActivationCandidate:
+def activation_candidate_from_episode(
+    episode: StoredEpisode,
+    *,
+    support_provenance: Sequence[SupportProvenance] = (),
+) -> ActivationCandidate:
     """Adapt a stored episode for declarative activation."""
     entity_ids = tuple(sorted({entity.entity_id for entity in episode.entities}))
     return ActivationCandidate(
@@ -121,6 +142,7 @@ def activation_candidate_from_episode(episode: StoredEpisode) -> ActivationCandi
         qualifiers={},
         memory=episode,
         importance=episode.importance,
+        support_provenance=tuple(support_provenance),
     )
 
 
@@ -171,6 +193,41 @@ def build_episode_slot_index(
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
                 index[derivation.episode_id] = memory.slot_key
     return index
+
+
+def build_episode_support_provenance_index(
+    semantics: Sequence[StoredSemanticMemory],
+) -> dict[str, tuple[SupportProvenance, ...]]:
+    """Map episode ids to derivation-backed semantic SUPPORT provenance."""
+    by_episode: dict[str, list[SupportProvenance]] = defaultdict(list)
+    for memory in semantics:
+        for derivation in memory.derivations:
+            if derivation.relation is not SemanticDerivationRelation.SUPPORTS:
+                continue
+            by_episode[derivation.episode_id].append(
+                SupportProvenance(
+                    semantic_memory_key=memory.memory_key,
+                    semantic_revision_key=memory.revision_key,
+                    semantic_slot_key=memory.slot_key,
+                    semantic_status=memory.status,
+                    contribution_score=derivation.contribution_score,
+                    semantic_valid_from=memory.valid_from,
+                    semantic_valid_until=memory.valid_until,
+                )
+            )
+    return {
+        episode_id: tuple(
+            sorted(
+                provenance,
+                key=lambda item: (
+                    item.semantic_slot_key,
+                    item.semantic_memory_key,
+                    item.semantic_revision_key,
+                ),
+            )
+        )
+        for episode_id, provenance in by_episode.items()
+    }
 
 
 def build_episode_slot_index_from_results(
@@ -258,6 +315,11 @@ class ACTRDeclarativeActivator:
         scored: list[RecallResult] = []
         rank_by_identity: dict[MemoryIdentity, float] = {}
         for candidate in candidates:
+            slot_fit_selection = _candidate_slot_fit(
+                candidate,
+                semantic_slot_fit_by_identity=semantic_slot_fit_by_identity,
+                episode_support_fits=episode_support_fits,
+            )
             result, rank_activation = _score_candidate(
                 candidate,
                 cue=cue,
@@ -274,11 +336,9 @@ class ACTRDeclarativeActivator:
                 matched_slot_identities=matched_slot_identities,
                 matched_support_episode_ids=matched_support_episode_ids,
                 temporal_mode=temporal_mode,
-                slot_fit=_candidate_slot_fit(
-                    candidate,
-                    semantic_slot_fit_by_identity=semantic_slot_fit_by_identity,
-                    episode_support_fits=episode_support_fits,
-                ),
+                slot_fit=slot_fit_selection.slot_fit,
+                support_provenance=slot_fit_selection.support_provenance,
+                selected_support_revision_key=slot_fit_selection.selected_support_revision_key,
             )
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
@@ -292,10 +352,19 @@ class ACTRDeclarativeActivator:
             valid_at=valid_at,
             temporal_mode=temporal_mode,
         )
+        admission_eligibility = _admission_eligibility_by_identity(
+            cue=cue,
+            seeded_entity_ids=seeded_entity_ids,
+            temporal_mode=temporal_mode,
+            config=config,
+            admitted_identities=admitted_identities,
+        )
         scored = [
-            replace(result, reason=f"{result.reason}; soft_admitted=true")
-            if _result_identity(result) in admitted_identities
-            else result
+            _annotate_candidate_eligibility(
+                result,
+                admitted_identities=admitted_identities,
+                admission_eligibility=admission_eligibility,
+            )
             for result in scored
         ]
 
@@ -435,6 +504,8 @@ def _score_candidate(
     matched_support_episode_ids: set[str],
     temporal_mode: TemporalRetrievalMode,
     slot_fit: float | None,
+    support_provenance: Sequence[SupportProvenance],
+    selected_support_revision_key: str | None,
 ) -> tuple[RecallResult, float]:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
@@ -451,15 +522,19 @@ def _score_candidate(
         time_unit_seconds=config.time_unit_seconds,
         minimum_elapsed_seconds=config.minimum_elapsed_seconds,
     )
+    text_match = _text_match_metrics(
+        cue.text,
+        candidate.text,
+        idf_weights=idf_weights,
+        precision_enabled=config.enable_text_precision_matching,
+    )
     accessibility_partial = (
         _calculate_partial_match(
             candidate,
             cue,
             config,
             effective_entity_ids=effective_entity_ids,
-            text_similarity=lambda query, text: _text_query_coverage(
-                query, text, idf_weights=idf_weights
-            ),
+            text_similarity=lambda _query, _text: text_match.coverage,
         )
         if config.enable_partial_matching
         else 0.0
@@ -471,7 +546,7 @@ def _score_candidate(
             cue,
             config,
             effective_entity_ids=effective_entity_ids,
-            text_similarity=lambda query, text: _text_cue_fit(query, text, idf_weights=idf_weights),
+            text_similarity=lambda _query, _text: text_match.cue_fit,
         )
     current_state = _current_state_activation(
         candidate,
@@ -506,15 +581,49 @@ def _score_candidate(
         current_state=current_state,
     )
     matched_entities = len(set(effective_entity_ids).intersection(candidate.entity_ids))
-    text_coverage = 0.0
-    text_cue_fit = 0.0
-    if cue.text and cue.text.strip():
-        text_coverage = _text_query_coverage(cue.text, candidate.text, idf_weights=idf_weights)
-        text_cue_fit = (
-            _text_cue_fit(cue.text, candidate.text, idf_weights=idf_weights)
-            if config.enable_text_precision_matching
-            else text_coverage
-        )
+    text_coverage = text_match.coverage
+    text_cue_fit = text_match.cue_fit
+    slot_fit_source = _slot_fit_source(candidate, slot_fit)
+    observation_evidence_ids = _observation_evidence_ids(candidate)
+    spread_hop = (
+        spreading_metadata.hop if spreading_metadata is not None and spreading > 0.0 else None
+    )
+    spread_sources = (
+        tuple(spreading_metadata.sources)
+        if spreading_metadata is not None and spreading > 0.0
+        else ()
+    )
+    learned_edges = (
+        spreading_metadata.learned_association_count
+        if spreading_metadata is not None and spreading > 0.0
+        else 0
+    )
+    diagnostics = RetrievalDiagnostics(
+        rank_activation=rank_activation,
+        accessibility_partial=accessibility_partial,
+        ranking_partial=ranking_partial,
+        conjunction=conjunction,
+        text_coverage=text_coverage,
+        text_cue_fit=text_cue_fit,
+        temporal_mode=temporal_mode.value,
+        base_level=base_level,
+        spreading=spreading,
+        current_state=current_state,
+        reference_count=len(reference_traces),
+        matched_entities=matched_entities,
+        cue_entity_count=len(effective_entity_ids),
+        spread_hop=spread_hop,
+        spread_sources=spread_sources,
+        learned_edges=learned_edges,
+        slot_fit=slot_fit,
+        structured_adjustment=structured_adjustment,
+        slot_fit_source=slot_fit_source,
+        semantic_slot_key=candidate.slot_key,
+        semantic_status=candidate.semantic_status,
+        observation_evidence_ids=observation_evidence_ids,
+        support_provenance=tuple(support_provenance),
+        selected_support_revision_key=selected_support_revision_key,
+    )
     reason = _build_reason(
         activation=activation,
         base_level=base_level,
@@ -532,11 +641,15 @@ def _score_candidate(
         temporal_mode=temporal_mode,
         slot_fit=slot_fit,
         structured_adjustment=structured_adjustment,
-        slot_fit_source=(
-            "support"
-            if slot_fit is not None and candidate.memory_kind is MemoryKind.EPISODE
-            else None
-        ),
+        slot_fit_source=slot_fit_source.value if slot_fit_source is not None else None,
+        eligibility=diagnostics.eligibility.value,
+        admission_reason=diagnostics.admission_reason,
+        semantic_slot_key=diagnostics.semantic_slot_key,
+        semantic_status=diagnostics.semantic_status,
+        selected_support_revision_key=diagnostics.selected_support_revision_key,
+        spread_hop=diagnostics.spread_hop,
+        spread_sources=diagnostics.spread_sources,
+        learned_edges=diagnostics.learned_edges,
     )
     return (
         RecallResult(
@@ -547,6 +660,7 @@ def _score_candidate(
             latency_seconds=latency_seconds,
             components=components,
             reason=reason,
+            diagnostics=diagnostics,
         ),
         rank_activation,
     )
@@ -617,6 +731,14 @@ def _build_reason(
     slot_fit: float | None = None,
     structured_adjustment: float = 0.0,
     slot_fit_source: str | None = None,
+    eligibility: str | None = None,
+    admission_reason: str | None = None,
+    semantic_slot_key: str | None = None,
+    semantic_status: SemanticMemoryStatus | None = None,
+    selected_support_revision_key: str | None = None,
+    spread_hop: int | None = None,
+    spread_sources: Sequence[str] = (),
+    learned_edges: int = 0,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -626,6 +748,10 @@ def _build_reason(
     )
     if temporal_mode is not None:
         reason += f"; temporal_mode={temporal_mode.value}"
+    if eligibility is not None:
+        reason += f"; eligibility={eligibility}"
+    if admission_reason is not None:
+        reason += f"; admission_reason={admission_reason}"
     if rank_activation is not None and rank_activation != activation:
         reason += f"; rank_activation={rank_activation:.3f}"
     if text_coverage is not None and text_coverage > 0.0:
@@ -636,20 +762,148 @@ def _build_reason(
         reason += f"; slot_fit={slot_fit:.2f}"
         if slot_fit_source is not None:
             reason += f"; slot_fit_source={slot_fit_source}"
+    if semantic_slot_key is not None:
+        reason += f"; semantic_slot={semantic_slot_key}"
+    if semantic_status is not None:
+        reason += f"; semantic_status={semantic_status.value}"
+    if selected_support_revision_key is not None:
+        reason += f"; supports_revision={selected_support_revision_key}"
     if structured_adjustment != 0.0:
         reason += f"; structured_adjustment={structured_adjustment:+.2f}"
     if current_state != 0.0:
         reason += f"; current_state={current_state:.3f}"
     if conjunction != 0.0:
         reason += f"; conjunction={conjunction:.3f}"
-    if spreading > 0.0 and spreading_metadata is not None:
-        reason += (
-            f"; spread_hop={spreading_metadata.hop}; "
-            f"spread_sources={','.join(spreading_metadata.sources)}"
-        )
-        if spreading_metadata.learned_association_count > 0:
-            reason += f"; learned_edges={spreading_metadata.learned_association_count}"
+    if spreading > 0.0:
+        if spread_hop is None and spreading_metadata is not None:
+            spread_hop = spreading_metadata.hop
+        if not spread_sources and spreading_metadata is not None:
+            spread_sources = spreading_metadata.sources
+        if learned_edges == 0 and spreading_metadata is not None:
+            learned_edges = spreading_metadata.learned_association_count
+        if spread_hop is not None:
+            reason += f"; spread_hop={spread_hop}"
+        if spread_sources:
+            reason += f"; spread_sources={','.join(spread_sources)}"
+        if learned_edges > 0:
+            reason += f"; learned_edges={learned_edges}"
     return reason
+
+
+def _text_match_metrics(
+    cue_text: str | None,
+    candidate_text: str,
+    *,
+    idf_weights: Mapping[str, float] | None,
+    precision_enabled: bool,
+) -> _TextMatchMetrics:
+    if cue_text is None or not cue_text.strip():
+        return _TextMatchMetrics(coverage=0.0, cue_fit=0.0)
+    coverage = _text_query_coverage(cue_text, candidate_text, idf_weights=idf_weights)
+    cue_fit = (
+        _text_cue_fit(cue_text, candidate_text, idf_weights=idf_weights)
+        if precision_enabled
+        else coverage
+    )
+    return _TextMatchMetrics(coverage=coverage, cue_fit=cue_fit)
+
+
+def _slot_fit_source(
+    candidate: ActivationCandidate, slot_fit: float | None
+) -> SlotFitSource | None:
+    if slot_fit is None:
+        return None
+    if candidate.memory_kind is MemoryKind.EPISODE:
+        return SlotFitSource.SUPPORT
+    if candidate.memory_kind is MemoryKind.SEMANTIC:
+        return SlotFitSource.SEMANTIC
+    return None
+
+
+def _observation_evidence_ids(candidate: ActivationCandidate) -> tuple[str, ...]:
+    memory = candidate.memory
+    if isinstance(memory, StoredEpisode):
+        return tuple(sorted({evidence.observation_id for evidence in memory.evidence}))
+    if isinstance(memory, StoredSemanticMemory):
+        return tuple(sorted({evidence.observation_id for evidence in memory.observation_evidence}))
+    return ()
+
+
+def _admission_eligibility_by_identity(
+    *,
+    cue: RetrievalCue,
+    seeded_entity_ids: Sequence[str],
+    temporal_mode: TemporalRetrievalMode,
+    config: ActivationConfig,
+    admitted_identities: set[MemoryIdentity],
+) -> dict[MemoryIdentity, RetrievalEligibility]:
+    if not admitted_identities:
+        return {}
+    if temporal_mode is TemporalRetrievalMode.HISTORICAL:
+        eligibility = RetrievalEligibility.HISTORICAL_SLOT_ADMISSION
+    elif cue.entity_ids or (config.enable_entity_slot_admission and seeded_entity_ids):
+        eligibility = RetrievalEligibility.ENTITY_SLOT_ADMISSION
+    else:
+        eligibility = RetrievalEligibility.SEMANTIC_SLOT_ADMISSION
+    return {identity: eligibility for identity in admitted_identities}
+
+
+def _annotate_candidate_eligibility(
+    result: RecallResult,
+    *,
+    admitted_identities: set[MemoryIdentity],
+    admission_eligibility: Mapping[MemoryIdentity, RetrievalEligibility],
+) -> RecallResult:
+    identity = _result_identity(result)
+    diagnostics = result.diagnostics
+    if diagnostics is None:
+        return result
+    if identity not in admitted_identities:
+        return result
+    eligibility = admission_eligibility.get(identity, RetrievalEligibility.SEMANTIC_SLOT_ADMISSION)
+    updated_diagnostics = replace(
+        diagnostics,
+        eligibility=eligibility,
+        admission_reason=eligibility.value,
+        soft_admitted=True,
+    )
+    return replace(
+        result,
+        diagnostics=updated_diagnostics,
+        reason=f"{_build_reason_from_diagnostics(result, updated_diagnostics)}; soft_admitted=true",
+    )
+
+
+def _build_reason_from_diagnostics(
+    result: RecallResult,
+    diagnostics: RetrievalDiagnostics,
+) -> str:
+    return _build_reason(
+        activation=result.activation,
+        base_level=diagnostics.base_level,
+        spreading=diagnostics.spreading,
+        partial_match=diagnostics.accessibility_partial,
+        reference_count=diagnostics.reference_count,
+        matched_entities=diagnostics.matched_entities,
+        cue_entity_count=diagnostics.cue_entity_count,
+        spreading_metadata=None,
+        current_state=diagnostics.current_state,
+        conjunction=diagnostics.conjunction,
+        rank_activation=diagnostics.rank_activation,
+        text_coverage=diagnostics.text_coverage,
+        text_cue_fit=diagnostics.text_cue_fit,
+        temporal_mode=TemporalRetrievalMode(diagnostics.temporal_mode),
+        slot_fit=diagnostics.slot_fit,
+        structured_adjustment=diagnostics.structured_adjustment,
+        slot_fit_source=(
+            diagnostics.slot_fit_source.value if diagnostics.slot_fit_source is not None else None
+        ),
+        eligibility=diagnostics.eligibility.value,
+        admission_reason=diagnostics.admission_reason,
+        semantic_slot_key=diagnostics.semantic_slot_key,
+        semantic_status=diagnostics.semantic_status,
+        selected_support_revision_key=diagnostics.selected_support_revision_key,
+    )
 
 
 def _seed_entity_ids_from_text(
@@ -914,9 +1168,9 @@ def _semantic_slot_fit_indexes(
     *,
     temporal_mode: TemporalRetrievalMode,
     effective_entities: Sequence[str],
-) -> tuple[dict[MemoryIdentity, float | None], dict[str, list[float | None]]]:
+) -> tuple[dict[MemoryIdentity, float | None], dict[str, list[SupportProvenance]]]:
     semantic_slot_fit_by_identity: dict[MemoryIdentity, float | None] = {}
-    episode_support_fits: dict[str, list[float | None]] = defaultdict(list)
+    episode_support_fits: dict[str, list[SupportProvenance]] = defaultdict(list)
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
@@ -932,7 +1186,18 @@ def _semantic_slot_fit_indexes(
             continue
         for derivation in memory.derivations:
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
-                episode_support_fits[derivation.episode_id].append(fit)
+                episode_support_fits[derivation.episode_id].append(
+                    SupportProvenance(
+                        semantic_memory_key=memory.memory_key,
+                        semantic_revision_key=memory.revision_key,
+                        semantic_slot_key=memory.slot_key,
+                        semantic_status=memory.status,
+                        contribution_score=derivation.contribution_score,
+                        slot_fit=fit,
+                        semantic_valid_from=memory.valid_from,
+                        semantic_valid_until=memory.valid_until,
+                    )
+                )
     return semantic_slot_fit_by_identity, episode_support_fits
 
 
@@ -940,20 +1205,48 @@ def _candidate_slot_fit(
     candidate: ActivationCandidate,
     *,
     semantic_slot_fit_by_identity: Mapping[MemoryIdentity, float | None],
-    episode_support_fits: Mapping[str, Sequence[float | None]],
-) -> float | None:
+    episode_support_fits: Mapping[str, Sequence[SupportProvenance]],
+) -> _SlotFitSelection:
     if candidate.memory_kind is MemoryKind.SEMANTIC:
-        return semantic_slot_fit_by_identity.get(candidate.identity)
+        return _SlotFitSelection(slot_fit=semantic_slot_fit_by_identity.get(candidate.identity))
     if candidate.memory_kind is MemoryKind.EPISODE and isinstance(candidate.memory, StoredEpisode):
-        return _support_slot_fit(episode_support_fits.get(candidate.memory.id, ()))
-    return None
+        provenance_by_revision = {
+            item.semantic_revision_key: item for item in candidate.support_provenance
+        }
+        for fit_item in episode_support_fits.get(candidate.memory.id, ()):
+            provenance_by_revision[fit_item.semantic_revision_key] = fit_item
+        supported = tuple(provenance_by_revision.values())
+        return _support_slot_fit(supported)
+    return _SlotFitSelection(slot_fit=None)
 
 
-def _support_slot_fit(supported_fits: Sequence[float | None]) -> float | None:
-    fits = [fit for fit in supported_fits if fit is not None]
+def _support_slot_fit(supported_fits: Sequence[SupportProvenance]) -> _SlotFitSelection:
+    ordered_provenance = tuple(
+        sorted(
+            supported_fits,
+            key=lambda fit: (
+                fit.semantic_slot_key,
+                fit.semantic_memory_key,
+                fit.semantic_revision_key,
+            ),
+        )
+    )
+    fits = [fit for fit in supported_fits if fit.slot_fit is not None]
     if not fits:
-        return None
-    return max(fits)
+        return _SlotFitSelection(slot_fit=None, support_provenance=ordered_provenance)
+    selected = max(
+        fits,
+        key=lambda fit: (
+            fit.slot_fit if fit.slot_fit is not None else -1.0,
+            fit.contribution_score,
+            fit.semantic_revision_key,
+        ),
+    )
+    return _SlotFitSelection(
+        slot_fit=selected.slot_fit,
+        support_provenance=ordered_provenance,
+        selected_support_revision_key=selected.semantic_revision_key,
+    )
 
 
 def _semantic_slot_fit(

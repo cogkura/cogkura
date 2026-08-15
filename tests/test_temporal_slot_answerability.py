@@ -31,11 +31,13 @@ from cogkura.models import (
     MetamemoryConfig,
     RecallResult,
     RetrievalCue,
+    RetrievalEligibility,
     SemanticCardinality,
     SemanticDerivationInput,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SlotFitSource,
     StoredEpisode,
     StoredSemanticMemory,
 )
@@ -994,3 +996,144 @@ def test_current_active_slot_outranks_superseded_mismatch() -> None:
     dynamo_result = by_key.get("billing-database-dynamo")
     if dynamo_result is not None:
         assert "slot_fit=0.00" in dynamo_result.reason
+
+
+def test_current_support_diagnostics_require_matching_active_slot() -> None:
+    activator = ACTRDeclarativeActivator()
+    postgres_support = _episode(
+        episode_id="ep-postgres",
+        memory_key="postgres-support",
+        statement="Production confirms postgres hosts the live charge ledger.",
+        entity_ids=("service", "postgres"),
+        started_at=_T2,
+    )
+    region_support = _episode(
+        episode_id="ep-region",
+        memory_key="region-support",
+        statement="Production confirms service region is eu-west.",
+        entity_ids=("service", "eu-west"),
+        started_at=_T2,
+    )
+    postgres = _semantic(
+        semantic_id="sem-postgres",
+        memory_key="service-database-postgres",
+        statement="The service database is postgres.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("service",),
+        subject_entity_id="service",
+        predicate="database",
+        object_value="postgres",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id=postgres_support.id,
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    region = _semantic(
+        semantic_id="sem-region",
+        memory_key="service-region-eu-west",
+        statement="The service region is eu-west.",
+        status=SemanticMemoryStatus.ACTIVE,
+        entity_ids=("service",),
+        subject_entity_id="service",
+        predicate="region",
+        object_value="eu-west",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id=region_support.id,
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    cue = RetrievalCue(text="where does service data persist now", entity_ids=("service",))
+    results = activator.rank(
+        candidates=[
+            activation_candidate_from_semantic(postgres),
+            activation_candidate_from_semantic(region),
+            activation_candidate_from_episode(postgres_support),
+            activation_candidate_from_episode(region_support),
+        ],
+        cue=cue,
+        references={},
+        as_of=_T2,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_spreading_activation=False,
+            enable_duplicate_collapse=False,
+            enable_text_entity_seeding=False,
+        ),
+        limit=5,
+        episode_support_index=build_episode_support_index([postgres, region]),
+        episode_slot_index=build_episode_slot_index([postgres, region]),
+    )
+    by_key = {result.memory.memory_key: result for result in results}  # type: ignore[union-attr]
+    postgres_diag = by_key["postgres-support"].diagnostics
+    region_diag = by_key["region-support"].diagnostics
+    assert postgres_diag is not None
+    assert region_diag is not None
+    assert postgres_diag.slot_fit == 1.0
+    assert postgres_diag.slot_fit_source is SlotFitSource.SUPPORT
+    assert postgres_diag.selected_support_revision_key == postgres.revision_key
+    assert region_diag.slot_fit == 1.0
+    assert region_diag.slot_fit_source is SlotFitSource.SUPPORT
+    assert region_diag.selected_support_revision_key == region.revision_key
+
+
+def test_historical_support_diagnostics_follow_valid_revision() -> None:
+    activator = ACTRDeclarativeActivator()
+    historical_support = _episode(
+        episode_id="ep-dynamo",
+        memory_key="dynamo-support",
+        statement="Production used dynamo at that time.",
+        entity_ids=("service", "dynamo"),
+        started_at=_T1,
+    )
+    historical = _semantic(
+        semantic_id="sem-dynamo",
+        memory_key="service-database-dynamo",
+        statement="The service database was dynamo.",
+        status=SemanticMemoryStatus.SUPERSEDED,
+        entity_ids=("service",),
+        subject_entity_id="service",
+        predicate="database",
+        object_value="dynamo",
+        derivations=(
+            SemanticDerivationInput(
+                episode_id=historical_support.id,
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.8,
+            ),
+        ),
+    )
+    cue = RetrievalCue(
+        text="what database was in use", entity_ids=("service",), predicate="database"
+    )
+    results = activator.rank(
+        candidates=[
+            activation_candidate_from_semantic(historical),
+            activation_candidate_from_episode(historical_support),
+        ],
+        cue=cue,
+        references={},
+        as_of=_T2,
+        config=ActivationConfig(
+            retrieval_threshold=-10.0,
+            enable_spreading_activation=False,
+            enable_duplicate_collapse=False,
+            enable_text_entity_seeding=False,
+        ),
+        limit=5,
+        valid_at=_T1,
+        episode_support_index=build_episode_support_index([historical]),
+        episode_slot_index=build_episode_slot_index([historical]),
+    )
+    support_result = next(item for item in results if item.memory_kind is MemoryKind.EPISODE)
+    diagnostics = support_result.diagnostics
+    assert diagnostics is not None
+    assert diagnostics.temporal_mode == "historical"
+    assert diagnostics.eligibility is RetrievalEligibility.HISTORICAL_SLOT_ADMISSION
+    assert diagnostics.slot_fit == 1.0
+    assert diagnostics.selected_support_revision_key == historical.revision_key
