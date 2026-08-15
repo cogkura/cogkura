@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-08-15
+
+### Fixed
+
+- Structured retrieval cues now apply entity, predicate, and object constraints conjunctively.
+- Object constraints are no longer bypassed by higher-priority matching branches.
+- Exact semantic slot matches provide positive bounded ranking evidence relative to candidates without applicable slot evidence.
+- SUPPORT episodes inherit structured fit only from semantic slots they actually support.
+- [`docs/design-conjunctive-slot-ranking-0.14.3.md`](docs/design-conjunctive-slot-ranking-0.14.3.md).
+
+### Preserved
+
+- Query-coverage accessibility and precision-aware lexical ranking.
+- Temporal retrieval modes, soft admission, and global ranking.
+- Multi-entity conjunction, stale SUPPORT exclusion, metamemory answerability.
+- Working memory, forgetting, and learning.
+
+### Notes
+
+- No migration required.
+- `RecallResult.activation` remains accessibility; structured adjustment is diagnostic in `reason` only.
+- Package `__version__` aligned with `pyproject.toml` (`0.14.3`).
+
 ## [0.14.2] - 2026-08-15
 
 ### Added

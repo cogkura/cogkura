@@ -105,6 +105,14 @@ See [`design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answer
 - Structured slot fit orders eligible candidates only; SUPPORT episodes inherit the slot they support.
 - Metamemory answerability can emit `MISSING_KNOWLEDGE` when related retrieval is strong but the requested fact is unresolved.
 
+## 0.14.3 conjunctive matching and positive structured ranking
+
+See [`design-conjunctive-slot-ranking-0.14.3.md`](design-conjunctive-slot-ranking-0.14.3.md).
+
+- Entity, predicate, and object constraints are conjunctive; object is not bypassed by predicate-only branches.
+- Structured rank adjustment is centred at `slot_fit=None`; perfect fit is positive bounded evidence.
+- SUPPORT episodes inherit fit only from the semantic slot they support.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

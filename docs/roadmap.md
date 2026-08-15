@@ -85,6 +85,12 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.14.3 - Conjunctive slot matching and positive structured ranking (done)
+
+- Explicit entity, predicate, and object constraints are conjunctive in shared semantic matching.
+- Perfect structured slot fit provides positive bounded ranking evidence; mismatch is penalised relative to neutral.
+- [`docs/design-conjunctive-slot-ranking-0.14.3.md`](design-conjunctive-slot-ranking-0.14.3.md).
+
 ## 0.14.2 - Temporal mode, structured slot fit, and metamemory answerability (done)
 
 - Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` retrieval modes; historical mode can activate matching soft admission.

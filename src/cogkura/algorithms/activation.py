@@ -491,7 +491,9 @@ def _score_candidate(
     activation = (
         base_level + spreading + accessibility_partial + current_state + conjunction + noise
     )
-    structured_adjustment = _structured_rank_adjustment(slot_fit, config.mismatch_penalty)
+    structured_adjustment = _structured_rank_adjustment(
+        slot_fit, mismatch_penalty=config.mismatch_penalty
+    )
     rank_activation = activation - accessibility_partial + ranking_partial + structured_adjustment
     latency_seconds = config.latency_factor * math.exp(-config.latency_exponent * activation)
     score = _presentation_score(activation, config.retrieval_threshold)
@@ -530,6 +532,11 @@ def _score_candidate(
         temporal_mode=temporal_mode,
         slot_fit=slot_fit,
         structured_adjustment=structured_adjustment,
+        slot_fit_source=(
+            "support"
+            if slot_fit is not None and candidate.memory_kind is MemoryKind.EPISODE
+            else None
+        ),
     )
     return (
         RecallResult(
@@ -609,6 +616,7 @@ def _build_reason(
     temporal_mode: TemporalRetrievalMode | None = None,
     slot_fit: float | None = None,
     structured_adjustment: float = 0.0,
+    slot_fit_source: str | None = None,
 ) -> str:
     reason = (
         f"activation={activation:.3f}; base={base_level:.3f}; "
@@ -626,8 +634,10 @@ def _build_reason(
         reason += f"; text_cue_fit={text_cue_fit:.3f}"
     if slot_fit is not None:
         reason += f"; slot_fit={slot_fit:.2f}"
+        if slot_fit_source is not None:
+            reason += f"; slot_fit_source={slot_fit_source}"
     if structured_adjustment != 0.0:
-        reason += f"; structured_adjustment={structured_adjustment:.3f}"
+        reason += f"; structured_adjustment={structured_adjustment:+.2f}"
     if current_state != 0.0:
         reason += f"; current_state={current_state:.3f}"
     if conjunction != 0.0:
@@ -867,8 +877,28 @@ def _semantic_fields_match_cue(
     current_state_cue: bool,
     distinctive_tokens: set[str],
 ) -> bool:
+    has_explicit_constraint = False
     if cue.predicate is not None:
-        return _normalised_equality(cue.predicate, predicate) >= 1.0
+        has_explicit_constraint = True
+        if _normalised_equality(cue.predicate, predicate) < 1.0:
+            return False
+    if cue.object_value is not None:
+        has_explicit_constraint = True
+        if _normalised_equality(cue.object_value, object_value) < 1.0:
+            return False
+    if cue.entity_ids:
+        has_explicit_constraint = True
+        if not set(cue.entity_ids).intersection(entity_ids):
+            return False
+    if (
+        not cue.entity_ids
+        and effective_sources
+        and (cue.predicate is not None or cue.object_value is not None)
+        and not set(effective_sources).intersection(entity_ids)
+    ):
+        return False
+    if has_explicit_constraint:
+        return True
     if effective_sources:
         return bool(set(effective_sources).intersection(entity_ids))
     if current_state_cue and distinctive_tokens:
@@ -935,34 +965,59 @@ def _semantic_slot_fit(
 ) -> float | None:
     if candidate.memory_kind is not MemoryKind.SEMANTIC:
         return None
-    if (
-        temporal_mode is TemporalRetrievalMode.NEUTRAL
-        and cue.predicate is None
-        and cue.object_value is None
+    if not _slot_fit_applicable(cue, temporal_mode, effective_entities):
+        return None
+    if not _structured_constraints_match(
+        candidate,
+        cue,
+        temporal_mode=temporal_mode,
+        effective_entities=effective_entities,
     ):
-        return None
+        return 0.0
+    if temporal_mode is TemporalRetrievalMode.NEUTRAL:
+        return 1.0
+    if _temporal_slot_compatible(candidate, temporal_mode):
+        return 1.0
+    return 0.0
 
-    matched = 0
-    considered = 0
-    if effective_entities:
-        considered += 1
-        if set(effective_entities).intersection(candidate.entity_ids):
-            matched += 1
+
+def _slot_fit_applicable(
+    cue: RetrievalCue,
+    temporal_mode: TemporalRetrievalMode,
+    effective_entities: Sequence[str],
+) -> bool:
+    if cue.predicate is not None or cue.object_value is not None:
+        return True
+    if temporal_mode is TemporalRetrievalMode.NEUTRAL:
+        return False
+    return bool(cue.entity_ids or effective_entities)
+
+
+def _structured_constraints_match(
+    candidate: ActivationCandidate,
+    cue: RetrievalCue,
+    *,
+    temporal_mode: TemporalRetrievalMode,
+    effective_entities: Sequence[str],
+) -> bool:
     if cue.predicate is not None:
-        considered += 1
-        if _normalised_equality(cue.predicate, candidate.predicate) >= 1.0:
-            matched += 1
+        if _normalised_equality(cue.predicate, candidate.predicate) < 1.0:
+            return False
     if cue.object_value is not None:
-        considered += 1
-        if _normalised_equality(cue.object_value, candidate.object_value) >= 1.0:
-            matched += 1
-    if temporal_mode is not TemporalRetrievalMode.NEUTRAL:
-        considered += 1
-        if _temporal_slot_compatible(candidate, temporal_mode):
-            matched += 1
-    if considered == 0:
-        return None
-    return matched / considered
+        if _normalised_equality(cue.object_value, candidate.object_value) < 1.0:
+            return False
+    required_entities: Sequence[str]
+    if cue.entity_ids:
+        required_entities = cue.entity_ids
+    elif effective_entities and (cue.predicate is not None or cue.object_value is not None):
+        required_entities = effective_entities
+    elif temporal_mode is not TemporalRetrievalMode.NEUTRAL:
+        required_entities = effective_entities
+    else:
+        required_entities = ()
+    if required_entities and not set(required_entities).intersection(candidate.entity_ids):
+        return False
+    return True
 
 
 def _temporal_slot_compatible(
@@ -976,10 +1031,14 @@ def _temporal_slot_compatible(
     return False
 
 
-def _structured_rank_adjustment(slot_fit: float | None, mismatch_penalty: float) -> float:
+def _structured_rank_adjustment(
+    slot_fit: float | None,
+    *,
+    mismatch_penalty: float,
+) -> float:
     if slot_fit is None:
         return 0.0
-    return mismatch_penalty * (slot_fit - 1.0)
+    return mismatch_penalty * (slot_fit - 0.5)
 
 
 def _calculate_partial_match(
