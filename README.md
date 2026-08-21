@@ -475,13 +475,13 @@ flowchart TD
 - `0.9`: learning and reinforcement (done).
 - `0.10`: metamemory / memory monitoring (done).
 - `0.11`: ranking, simulated time, and current-state recall (done).
+- `0.12`: string cues, slot admission, and access recording (done).
+- `0.13`: gated slot admission, association, and metamemory (done).
 - `0.14`: retrieval eligibility, global ranking, temporal relevance, and cue discrimination (done).
 - `0.14.1`: retrieval corrections and ranking separation (done).
 - `0.14.2`: temporal retrieval mode, structured slot fit, and metamemory answerability (done).
 - `0.14.3`: conjunctive slot matching and positive structured ranking (done).
 - `0.14.4`: retrieval diagnostics and SUPPORT provenance (done).
-- `0.13`: gated slot admission, association, and metamemory (done).
-- `0.12`: string cues, slot admission, and access recording (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
