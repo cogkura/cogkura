@@ -30,6 +30,56 @@ You bring your own storage, ingestion, embeddings, and LLM provider. Cogkura sup
 
 Cogkura owns observations and derived memories, not customer application records. Source connectors read customer data; Cogkura writes only to Cogkura-owned storage.
 
+## Architecture
+
+Cogkura is a memory layer, not a database or an agent runtime. Your schemas stay yours. Cogkura stores observations and the memories derived from them, then ranks those memories for the model you already use.
+
+```mermaid
+flowchart LR
+  subgraph yours [Your stack]
+    Src[Customer schemas]
+    Agent[LLM / agent]
+  end
+
+  subgraph ck [Cogkura]
+    Facade["Memory facade"]
+    Owned["Observations, episodes, semantics, activation"]
+  end
+
+  Src -->|"observe / ingest, read-only"| Facade
+  Facade --> Owned
+  Owned -->|"recall, working memory, assess"| Agent
+  Agent -->|"record_access / learn"| Facade
+```
+
+Encoding is explicit. Stored observations are not recall candidates until you call `encode_episodes()`, and facts are not slot memories until `consolidate_semantics()`. `recall()` ranks what is already encoded. `record_access()` is use, not presentation.
+
+```mermaid
+flowchart TD
+  subgraph writePath [Write]
+    observe["observe / ingest"] --> observations[(Observations)]
+    observations --> encode["encode_episodes"]
+    encode --> episodes[(Episodes)]
+    episodes --> consolidate["consolidate_semantics"]
+    consolidate --> semantics[(Semantic memories)]
+  end
+
+  subgraph readPath [Read]
+    cue[Retrieval cue] --> recall["recall"]
+    recall --> ranked[Ranked candidates]
+    ranked --> wm["select_working_memory"]
+    ranked --> assess["assess_memory"]
+    ranked --> access["record_access"]
+  end
+
+  episodes --> recall
+  semantics --> recall
+  outcome[Outcome feedback] --> learn["learn"]
+  maintenance[Maintenance] --> forget["apply_forgetting"]
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for storage protocols, deployment models, and package layout.
+
 ## Installation
 
 ```bash
@@ -157,6 +207,18 @@ Pass the same `as_of=` used for encoding when consolidating a simulated timeline
 After encoding (and optionally consolidating), recall ranks episodic and semantic memories with ACT-R base-level accessibility, spreading activation, query-coverage partial matching, soft semantic slot admission, temporal/current-state policy, and global candidate ordering. Precision-aware text matching refines order among eligible candidates; it does not control the retrieval threshold. String queries seed spreading sources from cue tokens that overlap candidate entity ids; explicit `RetrievalCue.entity_ids` can soft-admit matching slot semantics and SUPPORT episodes without rank priority. Near-duplicate statements are collapsed before the rank limit is applied. Current-state bonuses apply to cue-matched semantic slots; superseded-only SUPPORT is excluded on live current-state retrieval. Historical `valid_at` admission uses the visible revision rather than present-day ACTIVE status.
 
 `recall()` is presentation. `record_access()` records use.
+
+```mermaid
+flowchart TD
+  cue[Retrieval cue] --> load[Load episodes and semantics]
+  load --> filter["Filter forgotten and valid_at"]
+  filter --> activate[Base-level, spreading, partial match]
+  activate --> admit[Eligibility and slot admission]
+  admit --> rank[Global ranking]
+  rank --> collapse[Near-duplicate collapse]
+  collapse --> results[RecallResult list]
+  results -.-> access["record_access is a separate call"]
+```
 
 ```python
 from datetime import UTC, datetime
@@ -290,6 +352,17 @@ status = await memory.observe(
 )
 ```
 
+Checkpoints advance only after a successful batch. Cogkura does not write to customer source tables.
+
+```mermaid
+flowchart LR
+  Tables[(Customer tables)] --> Connector[PostgresTableSource]
+  Connector --> Mapper[ObservationMapper]
+  Mapper --> Pipeline[Policy and retention]
+  Pipeline --> ObsStore[(ObservationStore)]
+  Connector -->|"cursor after successful batch"| Checkpoint[CheckpointStore]
+```
+
 See [`examples/postgres_datasource/README.md`](examples/postgres_datasource/README.md) for the full Docker-based demo.
 
 ### Postgres example environment
@@ -374,30 +447,19 @@ Not implemented in `0.14.4`:
 
 Target conceptual flow:
 
-```text
-Data and experiences
-        ↓
-Event encoding
-        ↓
-Episodic memory
-        ↓
-Semantic consolidation
-        ↓
-Associative world model
-        ↓
-Spreading activation
-        ↓
-Goal relevance + inhibition
-        ↓
-Bounded working memory
-        ↓
-Memory assessment
-        ↓
-LLM reasoning and planning
-        ↓
-Outcome feedback
-        ↓
-Learning / reinforcement
+```mermaid
+flowchart TD
+  data[Data and experiences] --> encode[Event encoding]
+  encode --> episodic[Episodic memory]
+  episodic --> semantic[Semantic consolidation]
+  semantic --> world[Associative world model]
+  world --> spreading[Spreading activation]
+  spreading --> goal[Goal relevance and inhibition]
+  goal --> wm[Bounded working memory]
+  wm --> assess[Memory assessment]
+  assess --> llm[LLM reasoning and planning]
+  llm --> outcome[Outcome feedback]
+  outcome --> learn[Learning / reinforcement]
 ```
 
 ## Roadmap
