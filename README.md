@@ -484,35 +484,7 @@ Implemented in `0.15.0`:
 - [`docs/application-integration.md`](docs/application-integration.md) and [`examples/application_context.py`](examples/application_context.py).
 - [`docs/design-application-integration-memory-context-0.15.0.md`](docs/design-application-integration-memory-context-0.15.0.md).
 
-## Scope of 0.14.4
-
-Implemented through `0.14.4`:
-
-- observation models and ingestion pipeline (`0.1`);
-- `ObservationStore` and `CheckpointStore` protocols with in-memory and PostgreSQL backends (`0.1`);
-- `PostgresTableSource` with compound cursor pagination (`0.1`);
-- `Memory.observe()`, `Memory.ingest()`, revision history, and tenant-scoped storage (`0.1`);
-- deterministic episodic encoding, `Memory.encode_episodes()`, and `Memory.list_episodes()` (`0.2`);
-- semantic consolidation, `Memory.consolidate_semantics()`, and `Memory.list_semantic_memories()` (`0.3`);
-- ACT-R declarative activation, `Memory.recall()` over episodic + semantic memories, and `Memory.record_access()` (`0.4`);
-- spreading activation with structured `RetrievalCue.entity_ids` (`0.5`);
-- forgetting lifecycle, `Memory.apply_forgetting()`, weighted reference compaction, and `include_forgotten` on recall (`0.6`);
-- bounded working-memory selection, `Memory.select_working_memory()`, goal relevance, inhibition, and prompt budgeting (`0.7`);
-- temporal semantic reconsolidation, revision history, `Memory.list_semantic_revisions()`, and `valid_at` historical retrieval (`0.8`);
-- outcome-driven learning, `Memory.learn()`, contextual utility, HELPFUL ACT-R traces, and learned associations (`0.9`);
-- read-only metamemory, `Memory.assess_memory()`, independent monitoring signals, and diagnostic flags (`0.10`);
-- simulated `as_of` on encode/consolidate, episode `valid_at` visibility, candidate-set IDF, near-duplicate collapse, current-state ranking, and importance-aware forgetting (`0.11`);
-- string-cue entity seeding, semantic slot admission, superseded-support penalties, numeric duplicate collapse, and `record_access(..., min_score=...)` (`0.12`);
-- gated slot admission, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and WM same-slot collapse (`0.13`);
-- global eligible ranking, soft entity admission, temporal current-state policy, and precision-aware text matching (`0.14`);
-- coverage vs cue-fit ranking, historically aware admission, and slot-scoped current-state bonuses (`0.14.1`);
-- internal temporal retrieval modes, structured semantic-slot fit, and metamemory answerability (`0.14.2`);
-- conjunctive structured slot matching and positive bounded structured ranking (`0.14.3`);
-- retrieval diagnostics separating accessibility from rank activation, with SUPPORT provenance diagnostics (`0.14.4`);
-- Docker PostgreSQL example with seed and mutation scripts;
-- unit tests and optional PostgreSQL integration tests.
-
-Not implemented in `0.14.4`:
+Not implemented in `0.15.0`:
 
 - full REDACTED / REFERENCE_ONLY retention modes;
 - non-PostgreSQL source connectors.
@@ -555,8 +527,8 @@ flowchart TD
 - `0.14.1`: retrieval corrections and ranking separation (done).
 - `0.14.2`: temporal retrieval mode, structured slot fit, and metamemory answerability (done).
 - `0.14.3`: conjunctive slot matching and positive structured ranking (done).
-- `0.15.0`: application integration and memory context (done).
 - `0.14.4`: retrieval diagnostics and SUPPORT provenance (done).
+- `0.15.0`: application integration and memory context (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
