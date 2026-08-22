@@ -48,35 +48,35 @@ flowchart LR
 
   Src -->|"observe / ingest, read-only"| Facade
   Facade --> Owned
-  Owned -->|"recall, working memory, assess"| Agent
-  Agent -->|"record_access / learn"| Facade
+  Owned -->|"recall, prepare_context"| Agent
+  Agent -->|"record_context_use / learn"| Facade
 ```
 
-Encoding is explicit. Stored observations are not recall candidates until you call `encode_episodes()`, and facts are not slot memories until `consolidate_semantics()`. `recall()` ranks what is already encoded. `record_access()` is use, not presentation.
+Encoding is explicit. Stored observations are not recall candidates until you call `encode_episodes()` or `process()`, and facts are not slot memories until semantic consolidation runs. `prepare_context()` is presentation; `record_context_use()` is use.
 
 ```mermaid
 flowchart TD
-  subgraph writePath [Write]
-    observe["observe / ingest"] --> observations[(Observations)]
-    observations --> encode["encode_episodes"]
-    encode --> episodes[(Episodes)]
-    episodes --> consolidate["consolidate_semantics"]
-    consolidate --> semantics[(Semantic memories)]
+  subgraph appPath [Application path]
+    observe["observe / ingest"] --> process["process"]
+    process --> prepare["prepare_context"]
+    prepare --> ctx[MemoryContext]
+    ctx --> agent[External LLM / agent]
+    agent --> record["record_context_use"]
+    outcome[Outcome feedback] --> learn["learn"]
   end
 
-  subgraph readPath [Read]
-    cue[Retrieval cue] --> recall["recall"]
-    recall --> ranked[Ranked candidates]
-    ranked --> wm["select_working_memory"]
-    ranked --> assess["assess_memory"]
-    ranked --> access["record_access"]
+  subgraph maintenancePath [Maintenance]
+    maintenance[Scheduled maintenance] --> forget["apply_forgetting"]
   end
 
-  episodes --> recall
-  semantics --> recall
-  outcome[Outcome feedback] --> learn["learn"]
-  maintenance[Maintenance] --> forget["apply_forgetting"]
+  observations[(Observations)] --> process
+  process --> episodes[(Episodes)]
+  process --> semantics[(Semantic memories)]
+  episodes --> prepare
+  semantics --> prepare
 ```
+
+Lower-level APIs (`encode_episodes()`, `consolidate_semantics()`, `recall()`, `select_working_memory()`, `assess_memory()`, `record_access()`) remain available for research and advanced integrations. See [`docs/application-integration.md`](docs/application-integration.md).
 
 See [`docs/architecture.md`](docs/architecture.md) for storage protocols, deployment models, and package layout.
 
@@ -132,6 +132,68 @@ async def main() -> None:
 
 asyncio.run(main())
 ```
+
+## Application integration
+
+For routine application use, orchestrate memory formation and context preparation without sequencing every cognitive primitive yourself. Cogkura prepares memory context; it does not call the LLM.
+
+```python
+import asyncio
+from datetime import UTC, datetime
+
+from cogkura import Memory, ObservationInput
+
+
+async def main() -> None:
+    memory = Memory()
+    tenant_id = "shop"
+    subject_id = "customer_42"
+
+    await memory.observe(
+        ObservationInput(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            source_namespace="orders",
+            source_record_id="order_123",
+            event_type="purchase",
+            content="Customer purchased Nike Pegasus 41 in UK size 11.",
+            observed_at=datetime.now(UTC),
+            metadata={
+                "semantic_facts": [
+                    {
+                        "predicate": "shoe_size",
+                        "object_value": "UK 11",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                    }
+                ],
+            },
+        )
+    )
+
+    await memory.process(tenant_id=tenant_id, subject_id=subject_id)
+
+    context = await memory.prepare_context(
+        "I'd like another pair, but something lighter.",
+        tenant_id=tenant_id,
+        subject_id=subject_id,
+        goal="Help the customer choose suitable running shoes.",
+        prompt_budget_tokens=1500,
+    )
+
+    print(context.render())
+    print("Estimated tokens:", context.estimated_tokens)
+    print("Assessment flags:", list(context.assessment.flags))
+
+    # Application-owned model call uses context.render() or structured fields.
+
+    await memory.record_context_use(context)
+
+
+asyncio.run(main())
+```
+
+See [`docs/application-integration.md`](docs/application-integration.md) for the full integration contract.
 
 ## Episodic memory encoding
 
@@ -408,7 +470,19 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in early development. Through `0.14.4`, the library provides observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
+Cogkura is in development. Through `0.15.0`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
+
+## Scope of 0.15.0
+
+Implemented in `0.15.0`:
+
+- `Memory.process()` orchestrates episodic encoding and semantic consolidation with one evaluation timestamp;
+- `Memory.prepare_context()` returns bounded working memory and metamemory assessment in one read operation;
+- `MemoryContext` structured boundary with deterministic `render()`;
+- `Memory.record_context_use()` records use of selected context memories;
+- shared declarative retrieval inside `prepare_context()` (one rank pass per call);
+- [`docs/application-integration.md`](docs/application-integration.md) and [`examples/application_context.py`](examples/application_context.py).
+- [`docs/design-application-integration-memory-context-0.15.0.md`](docs/design-application-integration-memory-context-0.15.0.md).
 
 ## Scope of 0.14.4
 
@@ -481,6 +555,7 @@ flowchart TD
 - `0.14.1`: retrieval corrections and ranking separation (done).
 - `0.14.2`: temporal retrieval mode, structured slot fit, and metamemory answerability (done).
 - `0.14.3`: conjunctive slot matching and positive structured ranking (done).
+- `0.15.0`: application integration and memory context (done).
 - `0.14.4`: retrieval diagnostics and SUPPORT provenance (done).
 - later: additional connectors, and integrations.
 

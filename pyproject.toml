@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cogkura"
-version = "0.14.4"
+version = "0.15.0"
 description = "Research-driven cognitive memory framework for AI systems."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["ai", "memory", "cognitive", "llm", "research"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",

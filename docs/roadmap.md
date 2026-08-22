@@ -85,6 +85,16 @@
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
 
+## 0.15.0 - Application integration and memory context (done)
+
+- `Memory.process()` orchestrates episodic encoding and semantic consolidation with one evaluation timestamp;
+- `Memory.prepare_context()` returns bounded working memory and metamemory assessment in one read;
+- `MemoryContext` provider-neutral structured boundary with deterministic `render()`;
+- `Memory.record_context_use()` records use of selected context memories;
+- shared declarative retrieval inside `prepare_context()` (one rank pass per call);
+- [`docs/application-integration.md`](application-integration.md) and [`examples/application_context.py`](../../examples/application_context.py).
+- [`docs/design-application-integration-memory-context-0.15.0.md`](design-application-integration-memory-context-0.15.0.md).
+
 ## 0.14.4 - Retrieval diagnostics and SUPPORT provenance (done)
 
 - `RecallResult.diagnostics` exposes accessibility vs rank activation, text coverage, cue fit, temporal mode, structured fit, and eligibility diagnostics.

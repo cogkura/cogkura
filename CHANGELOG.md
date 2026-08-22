@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-08-22
+
+### Added
+
+- `Memory.process()` orchestrates episodic encoding and semantic consolidation with one shared `as_of` timestamp.
+- `Memory.prepare_context()` returns bounded working memory and metamemory assessment in one read operation.
+- `MemoryContext` immutable provider-neutral boundary with structured fields and deterministic `render()`.
+- `Memory.record_context_use()` records use of selected context memories via existing access semantics.
+- Shared declarative retrieval inside `prepare_context()` (one rank pass per call).
+- [`docs/application-integration.md`](docs/application-integration.md) and [`examples/application_context.py`](examples/application_context.py).
+- [`docs/design-application-integration-memory-context-0.15.0.md`](docs/design-application-integration-memory-context-0.15.0.md).
+
+### Changed
+
+- `select_working_memory()` and `assess_memory()` reuse internal shared retrieval helpers without behaviour change.
+- PyPI `Development Status` classifier updated from `2 - Pre-Alpha` to `4 - Beta`.
+
+### Fixed
+
+- Restored naive `valid_at` rejection at the shared declarative ranking boundary so `select_working_memory()`, `assess_memory()`, and `prepare_context()` match `recall()` compatibility.
+
+### Preserved
+
+- All existing lower-level cognitive APIs and presentation-vs-use semantics.
+- Working-memory and metamemory candidate-pool compatibility with standalone methods.
+
+### Notes
+
+- No migration required.
+- `prepare_context()` raises when metamemory is disabled, matching `assess_memory()`.
+- Package `__version__` aligned with `pyproject.toml` (`0.15.0`).
+
 ## [0.14.4] - 2026-08-15
 
 ### Added

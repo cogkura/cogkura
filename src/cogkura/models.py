@@ -1938,3 +1938,90 @@ class MemoryAssessment:
         ):
             if count < 0:
                 raise ValidationError(f"{label} must not be negative.")
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryProcessingResult:
+    """Outcome of explicit observation-to-memory processing."""
+
+    tenant_id: str
+    subject_id: str | None
+    processed_at: datetime
+    episodes: EpisodeEncodingResult
+    semantics: SemanticConsolidationResult
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.processed_at.tzinfo is None:
+            raise ValidationError("processed_at must be timezone-aware.")
+        object.__setattr__(self, "processed_at", self.processed_at.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryContext:
+    """Provider-neutral memory context prepared for external reasoning."""
+
+    tenant_id: str
+    subject_id: str | None
+    query: RetrievalCue
+    goal: RetrievalCue
+    prepared_at: datetime
+    valid_at: datetime | None
+    working_memory: WorkingMemorySnapshot
+    assessment: MemoryAssessment
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.prepared_at.tzinfo is None:
+            raise ValidationError("prepared_at must be timezone-aware.")
+        object.__setattr__(self, "prepared_at", self.prepared_at.astimezone(UTC))
+        if self.valid_at is not None and self.valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+        if self.working_memory.tenant_id != self.tenant_id:
+            raise ValidationError("working_memory.tenant_id must match tenant_id.")
+        if self.assessment.tenant_id != self.tenant_id:
+            raise ValidationError("assessment.tenant_id must match tenant_id.")
+        if self.working_memory.subject_id != self.subject_id:
+            raise ValidationError("working_memory.subject_id must match subject_id.")
+        if self.assessment.subject_id != self.subject_id:
+            raise ValidationError("assessment.subject_id must match subject_id.")
+        if self.assessment.valid_at != self.valid_at:
+            raise ValidationError("assessment.valid_at must match valid_at.")
+        if self.working_memory.goal != self.goal:
+            raise ValidationError("working_memory.goal must match goal.")
+        if self.assessment.query != self.query:
+            raise ValidationError("assessment.query must match query.")
+        if self.assessment.goal != self.goal:
+            raise ValidationError("assessment.goal must match goal.")
+        if self.working_memory.created_at != self.prepared_at:
+            raise ValidationError("working_memory.created_at must match prepared_at.")
+        if self.assessment.assessed_at != self.prepared_at:
+            raise ValidationError("assessment.assessed_at must match prepared_at.")
+
+    @property
+    def items(self) -> tuple[WorkingMemoryItem, ...]:
+        return self.working_memory.items
+
+    @property
+    def recall_results(self) -> tuple[RecallResult, ...]:
+        return self.working_memory.recall_results
+
+    @property
+    def estimated_tokens(self) -> int:
+        return self.working_memory.estimated_prompt_tokens
+
+    @property
+    def prompt_budget_tokens(self) -> int:
+        return self.working_memory.prompt_budget_tokens
+
+    def render(self) -> str:
+        """Return a deterministic plain-text rendering of selected working-memory items."""
+        if not self.items:
+            return ""
+        lines = ["Relevant memory:", ""]
+        for item in self.items:
+            statement = item.memory.statement.replace("\n", "\n  ")
+            lines.append(f"- {statement}")
+        return "\n".join(lines)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -59,8 +59,10 @@ from cogkura.models import (
     LearningOutcome,
     LearningResult,
     MemoryAssessment,
+    MemoryContext,
     MemoryIdentity,
     MemoryKind,
+    MemoryProcessingResult,
     MemoryReference,
     MemoryRetentionState,
     MetamemoryConfig,
@@ -98,6 +100,19 @@ from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMem
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 
 _DEFAULT_BATCH_SIZE = 500
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedRetrieval:
+    """Shared retrieval state for working-memory and metamemory orchestration."""
+
+    query_cue: RetrievalCue
+    goal_cue: RetrievalCue
+    evaluation_time: datetime
+    valid_at: datetime | None
+    results: tuple[RecallResult, ...]
+    learning_states: tuple[StoredMemoryLearningState, ...]
+    learning_utilities: Mapping[MemoryIdentity, float] | None
 
 
 class Memory:
@@ -349,7 +364,31 @@ class Memory:
 
         cue = _normalise_cue(query, subject_id=subject_id)
         evaluation_time = _evaluation_time(as_of)
+        return await self._rank_declarative_results(
+            cue=cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            limit=limit,
+            evaluation_time=evaluation_time,
+            valid_at=valid_at,
+            semantic_statuses=semantic_statuses,
+            include_forgotten=include_forgotten,
+        )
 
+    async def _rank_declarative_results(
+        self,
+        *,
+        cue: RetrievalCue,
+        tenant_id: str,
+        subject_id: str | None,
+        limit: int,
+        evaluation_time: datetime,
+        valid_at: datetime | None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None,
+        include_forgotten: bool,
+    ) -> list[RecallResult]:
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
         episodes, semantic_memories = await asyncio.gather(
             self._episode_store.list(
                 tenant_id=tenant_id,
@@ -453,56 +492,25 @@ class Memory:
         if prompt_budget_tokens is not None and prompt_budget_tokens <= 0:
             raise ValidationError("prompt_budget_tokens must be greater than zero.")
 
-        query_cue = _normalise_cue(query, subject_id=subject_id)
-        if goal is None:
-            goal_cue = query_cue
-        elif isinstance(goal, RetrievalCue):
-            goal_cue = goal
-        else:
-            goal_cue = RetrievalCue(text=goal)
-
-        evaluation_time = _evaluation_time(as_of)
         config = self._working_memory_config
-
-        results = await self.recall(
-            query,
+        prepared = await self._prepare_retrieval_state(
+            query=query,
             tenant_id=tenant_id,
             subject_id=subject_id,
-            limit=config.candidate_pool_size,
-            as_of=evaluation_time,
+            goal=goal,
+            as_of=as_of,
             valid_at=valid_at,
             semantic_statuses=semantic_statuses,
             include_forgotten=include_forgotten,
+            pool_limit=config.candidate_pool_size,
         )
-
-        learning_utilities = None
-        if self._learning_config.enabled and results:
-            context_key = learning_context_key(goal_cue)
-            identities = [_identity_from_recall(result) for result in results]
-            states = await self._learning_store.list_states(
-                tenant_id=tenant_id,
-                identities=identities,
-                context_keys=("global", context_key),
-            )
-            learning_utilities = build_learning_utilities(
-                identities=identities,
-                states=states,
-                context_key=context_key,
-                config=self._learning_config,
-            )
-
-        return self._working_memory_selector.select(
-            candidates=results,
-            goal=goal_cue,
+        return self._select_working_memory_from_results(
+            prepared=prepared,
+            candidates=prepared.results,
             tenant_id=tenant_id,
             subject_id=subject_id,
             previous=previous,
-            as_of=evaluation_time,
-            config=config,
-            token_estimator=self._token_estimator,
             prompt_budget_tokens=prompt_budget_tokens,
-            learning_utilities=learning_utilities,
-            activation_config=self._activation_config,
         )
 
     async def assess_memory(
@@ -525,58 +533,105 @@ class Memory:
         if valid_at is not None and valid_at.tzinfo is None:
             raise ValidationError("valid_at must be timezone-aware.")
 
-        query_cue = _normalise_cue(query, subject_id=subject_id)
-        if goal is None:
-            goal_cue = query_cue
-        elif isinstance(goal, RetrievalCue):
-            goal_cue = goal
-        else:
-            goal_cue = RetrievalCue(text=goal)
-
-        evaluation_time = _evaluation_time(as_of)
         config = self._metamemory_config
-
-        results = await self.recall(
-            query,
+        prepared = await self._prepare_retrieval_state(
+            query=query,
             tenant_id=tenant_id,
             subject_id=subject_id,
-            limit=config.candidate_pool_size,
-            as_of=evaluation_time,
+            goal=goal,
+            as_of=as_of,
             valid_at=valid_at,
             semantic_statuses=semantic_statuses,
             include_forgotten=include_forgotten,
+            pool_limit=config.candidate_pool_size,
         )
-
-        learning_states: tuple[StoredMemoryLearningState, ...] = ()
-        learning_utilities = None
-        if self._learning_config.enabled and results:
-            context_key = learning_context_key(goal_cue)
-            identities = [_identity_from_recall(result) for result in results]
-            learning_states_list = await self._learning_store.list_states(
-                tenant_id=tenant_id,
-                identities=identities,
-                context_keys=("global", context_key),
-            )
-            learning_states = tuple(learning_states_list)
-            learning_utilities = build_learning_utilities(
-                identities=identities,
-                states=learning_states,
-                context_key=context_key,
-                config=self._learning_config,
-            )
-
-        return self._memory_monitor.assess(
-            candidates=results,
-            query=query_cue,
-            goal=goal_cue,
+        return self._assess_memory_from_results(
+            prepared=prepared,
+            candidates=prepared.results,
             tenant_id=tenant_id,
             subject_id=subject_id,
-            as_of=evaluation_time,
+        )
+
+    async def prepare_context(
+        self,
+        query: str | RetrievalCue,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        goal: str | RetrievalCue | None = None,
+        previous: WorkingMemorySnapshot | None = None,
+        prompt_budget_tokens: int | None = None,
+        as_of: datetime | None = None,
+        valid_at: datetime | None = None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
+        include_forgotten: bool = False,
+    ) -> MemoryContext:
+        """Prepare bounded working memory and metamemory assessment in one read operation."""
+        if not self._metamemory_config.enabled:
+            raise ValidationError("Metamemory assessment is disabled.")
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if prompt_budget_tokens is not None and prompt_budget_tokens <= 0:
+            raise ValidationError("prompt_budget_tokens must be greater than zero.")
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+
+        wm_config = self._working_memory_config
+        mm_config = self._metamemory_config
+        pool_limit = max(wm_config.candidate_pool_size, mm_config.candidate_pool_size)
+        prepared = await self._prepare_retrieval_state(
+            query=query,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            goal=goal,
+            as_of=as_of,
             valid_at=valid_at,
-            config=config,
-            activation_config=self._activation_config,
-            learning_utilities=learning_utilities,
-            learning_states=learning_states,
+            semantic_statuses=semantic_statuses,
+            include_forgotten=include_forgotten,
+            pool_limit=pool_limit,
+        )
+        wm_candidates = prepared.results[: wm_config.candidate_pool_size]
+        mm_candidates = prepared.results[: mm_config.candidate_pool_size]
+        working_memory = self._select_working_memory_from_results(
+            prepared=prepared,
+            candidates=wm_candidates,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            previous=previous,
+            prompt_budget_tokens=prompt_budget_tokens,
+        )
+        assessment = self._assess_memory_from_results(
+            prepared=prepared,
+            candidates=mm_candidates,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+        return MemoryContext(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            query=prepared.query_cue,
+            goal=prepared.goal_cue,
+            prepared_at=prepared.evaluation_time,
+            valid_at=prepared.valid_at,
+            working_memory=working_memory,
+            assessment=assessment,
+        )
+
+    async def record_context_use(
+        self,
+        context: MemoryContext,
+        *,
+        referenced_at: datetime | None = None,
+        request_id: str | None = None,
+        min_score: float | None = None,
+    ) -> None:
+        """Record that prepared context memories were actually consumed."""
+        await self.record_access(
+            context.recall_results,
+            tenant_id=context.tenant_id,
+            referenced_at=referenced_at,
+            request_id=request_id,
+            min_score=min_score,
         )
 
     async def record_access(
@@ -783,6 +838,36 @@ class Memory:
 
     def sleep(self) -> None:
         """Run deferred memory maintenance (no-op in this release)."""
+
+    async def process(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        as_of: datetime | None = None,
+    ) -> MemoryProcessingResult:
+        """Encode episodes and consolidate semantics with one evaluation timestamp."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+
+        evaluation_time = _evaluation_time(as_of)
+        episodes = await self.encode_episodes(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            as_of=evaluation_time,
+        )
+        semantics = await self.consolidate_semantics(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            as_of=evaluation_time,
+        )
+        return MemoryProcessingResult(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            processed_at=evaluation_time,
+            episodes=episodes,
+            semantics=semantics,
+        )
 
     async def encode_episodes(
         self,
@@ -1075,6 +1160,105 @@ class Memory:
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
 
+    async def _prepare_retrieval_state(
+        self,
+        *,
+        query: str | RetrievalCue,
+        tenant_id: str,
+        subject_id: str | None,
+        goal: str | RetrievalCue | None,
+        as_of: datetime | None,
+        valid_at: datetime | None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None,
+        include_forgotten: bool,
+        pool_limit: int,
+    ) -> _PreparedRetrieval:
+        query_cue = _normalise_cue(query, subject_id=subject_id)
+        goal_cue = _normalize_goal_cue(goal, query_cue)
+        evaluation_time = _evaluation_time(as_of)
+        results = await self._rank_declarative_results(
+            cue=query_cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            limit=pool_limit,
+            evaluation_time=evaluation_time,
+            valid_at=valid_at,
+            semantic_statuses=semantic_statuses,
+            include_forgotten=include_forgotten,
+        )
+        learning_states: tuple[StoredMemoryLearningState, ...] = ()
+        learning_utilities: Mapping[MemoryIdentity, float] | None = None
+        if self._learning_config.enabled and results:
+            context_key = learning_context_key(goal_cue)
+            identities = [_identity_from_recall(result) for result in results]
+            learning_states_list = await self._learning_store.list_states(
+                tenant_id=tenant_id,
+                identities=identities,
+                context_keys=("global", context_key),
+            )
+            learning_states = tuple(learning_states_list)
+            learning_utilities = build_learning_utilities(
+                identities=identities,
+                states=learning_states,
+                context_key=context_key,
+                config=self._learning_config,
+            )
+        return _PreparedRetrieval(
+            query_cue=query_cue,
+            goal_cue=goal_cue,
+            evaluation_time=evaluation_time,
+            valid_at=valid_at,
+            results=tuple(results),
+            learning_states=learning_states,
+            learning_utilities=learning_utilities,
+        )
+
+    def _select_working_memory_from_results(
+        self,
+        *,
+        prepared: _PreparedRetrieval,
+        candidates: Sequence[RecallResult],
+        tenant_id: str,
+        subject_id: str | None,
+        previous: WorkingMemorySnapshot | None,
+        prompt_budget_tokens: int | None,
+    ) -> WorkingMemorySnapshot:
+        return self._working_memory_selector.select(
+            candidates=candidates,
+            goal=prepared.goal_cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            previous=previous,
+            as_of=prepared.evaluation_time,
+            config=self._working_memory_config,
+            token_estimator=self._token_estimator,
+            prompt_budget_tokens=prompt_budget_tokens,
+            learning_utilities=prepared.learning_utilities,
+            activation_config=self._activation_config,
+        )
+
+    def _assess_memory_from_results(
+        self,
+        *,
+        prepared: _PreparedRetrieval,
+        candidates: Sequence[RecallResult],
+        tenant_id: str,
+        subject_id: str | None,
+    ) -> MemoryAssessment:
+        return self._memory_monitor.assess(
+            candidates=candidates,
+            query=prepared.query_cue,
+            goal=prepared.goal_cue,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            as_of=prepared.evaluation_time,
+            valid_at=prepared.valid_at,
+            config=self._metamemory_config,
+            activation_config=self._activation_config,
+            learning_utilities=prepared.learning_utilities,
+            learning_states=prepared.learning_states,
+        )
+
     async def _filter_recallable_candidates(
         self,
         *,
@@ -1228,6 +1412,17 @@ def _identity_from_recall(result: RecallResult) -> MemoryIdentity:
     if isinstance(memory, StoredEpisode):
         return MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key=memory.memory_key)
     return MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key=memory.memory_key)
+
+
+def _normalize_goal_cue(
+    goal: str | RetrievalCue | None,
+    query_cue: RetrievalCue,
+) -> RetrievalCue:
+    if goal is None:
+        return query_cue
+    if isinstance(goal, RetrievalCue):
+        return goal
+    return RetrievalCue(text=goal)
 
 
 def _normalise_cue(query: str | RetrievalCue, *, subject_id: str | None) -> RetrievalCue:

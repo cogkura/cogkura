@@ -12,11 +12,14 @@ The public API should remain stable even as internals evolve.
 
 ### Public API
 
-- `Memory`: facade for observation ingestion and recall
+- `Memory`: facade for observation ingestion, processing, context preparation, and recall
 - `observe(ObservationInput)` / `ingest(...)`: write path
-- `recall(query, tenant_id=...)`: tenant-scoped read path
+- `process(...)`: explicit observation-to-memory formation
+- `prepare_context(...)`: application-facing read path returning `MemoryContext`
+- `record_context_use(context)`: record consumption of prepared context
+- `recall(query, tenant_id=...)`: tenant-scoped low-level read path
 - `ObservationInput`, `StoredObservation`, `IngestionResult`, `IngestStatus`
-- `RecallResult` (scored `StoredObservation` matches)
+- `MemoryContext`, `MemoryProcessingResult`, `RecallResult`
 
 These models are typed and validated so behavior stays explicit.
 
@@ -92,6 +95,7 @@ src/cogkura/
 Implemented now:
 
 - public observation API (`observe`, `ingest`);
+- application integration API (`process`, `prepare_context`, `record_context_use`, `MemoryContext`);
 - declarative activation API (`recall`, `record_access`, `apply_forgetting`);
 - episodic encoding API (`encode_episodes`, `list_episodes`);
 - semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
@@ -104,5 +108,4 @@ Implemented now:
 
 Planned later:
 
-- goal-aware working-memory selection and inhibition (`0.7`);
 - additional source connectors and provider interfaces.

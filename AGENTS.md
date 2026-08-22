@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.14.4` retrieval diagnostics and SUPPORT provenance
+- Current release focus: `0.15.0` application integration and memory context
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -39,8 +39,8 @@ examples/
   reconsolidation.py
   learning.py
   metamemory.py
+  application_context.py
   postgres_datasource/
-docs/
 ```
 
 ## Public API (single path)
@@ -49,6 +49,9 @@ docs/
 |-----|---------|
 | `observe(ObservationInput)` | Ingest one normalized observation |
 | `ingest(source, mapper, tenant_id=...)` | Batch ingest from a source connector |
+| `process(tenant_id=..., subject_id=..., as_of=...)` | Orchestrate episodic encoding and semantic consolidation |
+| `prepare_context(query, tenant_id=..., goal=..., prompt_budget_tokens=...)` | Bounded working memory + metamemory assessment in one read |
+| `record_context_use(context, ...)` | Record use of selected context memories (delegates to `record_access`) |
 | `recall(query, tenant_id=..., valid_at=..., as_of=...)` | ACT-R declarative activation over episodic + semantic memories |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
 | `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment; `MISSING_KNOWLEDGE` for unresolved slot-like queries or weak non-slot retrieval (`0.14.2+`) |
