@@ -39,7 +39,9 @@ await memory.process(tenant_id="shop", subject_id="customer_42")
 
 Processing cadence does not rehearse memory. Calling `process()` repeatedly without new observations leaves cognitive activation references unchanged. Historical observations keep their source chronology: processing them today does not make the represented evidence recent.
 
-When recall returns fewer memories than expected, use `inspect_recall()` to see which candidates were below threshold, filtered, collapsed, or displaced by the result limit.
+Plain-language queries can retrieve relevant current semantic facts via lexical slot matching and bounded soft admission even when base-level activation has decayed. Structured `RetrievalCue` fields remain the precise path when you have predicate or entity metadata.
+
+When recall returns fewer memories than expected, use `inspect_recall()` to see which candidates were below threshold, below the soft floor, lexically irrelevant, filtered, or displaced by the result limit.
 
 ### Deactivation semantics
 

@@ -72,6 +72,14 @@ class _SlotFitSelection:
     selected_support_revision_key: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _SemanticAdmissionOutcome:
+    admitted: frozenset[MemoryIdentity]
+    matched_semantics: frozenset[MemoryIdentity]
+    below_soft_floor: frozenset[MemoryIdentity]
+    capped_out: frozenset[MemoryIdentity]
+
+
 class TemporalRetrievalMode(StrEnum):
     """Internal temporal frame for retrieval policy, admission, and ranking."""
 
@@ -378,7 +386,7 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
-        admitted_identities = _semantic_slot_admission_identities(
+        admitted_outcome = _semantic_slot_admission_identities(
             candidates,
             cue,
             config=config,
@@ -386,7 +394,11 @@ class ACTRDeclarativeActivator:
             current_state_cue=current_state_cue,
             valid_at=valid_at,
             temporal_mode=temporal_mode,
+            scored=scored,
+            rank_by_identity=rank_by_identity,
+            as_of=as_of,
         )
+        admitted_identities = set(admitted_outcome.admitted)
         admission_eligibility = _admission_eligibility_by_identity(
             cue=cue,
             seeded_entity_ids=seeded_entity_ids,
@@ -534,7 +546,7 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
-        admitted_identities = _semantic_slot_admission_identities(
+        admitted_outcome = _semantic_slot_admission_identities(
             candidates,
             cue,
             config=config,
@@ -542,7 +554,11 @@ class ACTRDeclarativeActivator:
             current_state_cue=current_state_cue,
             valid_at=valid_at,
             temporal_mode=temporal_mode,
+            scored=scored,
+            rank_by_identity=rank_by_identity,
+            as_of=as_of,
         )
+        admitted_identities = set(admitted_outcome.admitted)
         admission_eligibility = _admission_eligibility_by_identity(
             cue=cue,
             seeded_entity_ids=seeded_entity_ids,
@@ -570,8 +586,12 @@ class ACTRDeclarativeActivator:
         }
         for result in scored:
             identity = _result_identity(result)
-            if identity not in eligible_identities:
-                disposition_by_identity[identity] = RecallInspectionDisposition.BELOW_THRESHOLD
+            if identity in eligible_identities:
+                continue
+            disposition_by_identity[identity] = _inspection_disposition_for_rejected(
+                result,
+                admission_outcome=admitted_outcome,
+            )
         ordered = sorted(
             [result for result in scored if _result_identity(result) in eligible_identities],
             key=lambda item: (
@@ -706,6 +726,8 @@ def _slot_admission_active(
     if not config.slot_admission_requires_current_state_or_predicate:
         return True
     if temporal_mode is TemporalRetrievalMode.HISTORICAL:
+        return True
+    if temporal_mode is TemporalRetrievalMode.NEUTRAL and cue.text and cue.text.strip():
         return True
     effective_entity_ids = cue.entity_ids if cue.entity_ids else seeded_entity_ids
     if config.enable_entity_slot_admission and effective_entity_ids:
@@ -1266,7 +1288,16 @@ def _semantic_slot_admission_identities(
     current_state_cue: bool,
     valid_at: datetime | None,
     temporal_mode: TemporalRetrievalMode | None = None,
-) -> set[MemoryIdentity]:
+    scored: Sequence[RecallResult] | None = None,
+    rank_by_identity: Mapping[MemoryIdentity, float] | None = None,
+    as_of: datetime | None = None,
+) -> _SemanticAdmissionOutcome:
+    empty = _SemanticAdmissionOutcome(
+        admitted=frozenset(),
+        matched_semantics=frozenset(),
+        below_soft_floor=frozenset(),
+        capped_out=frozenset(),
+    )
     if not _slot_admission_active(
         cue,
         config=config,
@@ -1274,11 +1305,61 @@ def _semantic_slot_admission_identities(
         seeded_entity_ids=seeded_entity_ids,
         temporal_mode=temporal_mode,
     ):
-        return set()
+        return empty
+    if scored is None or rank_by_identity is None or as_of is None:
+        raise ValidationError(
+            "Bounded semantic admission requires scored results, rank activations, and as_of."
+        )
 
     effective_sources = cue.entity_ids if cue.entity_ids else seeded_entity_ids
     cue_tokens = _tokenize(cue.text) if cue.text else set()
     distinctive_tokens = cue_tokens - config.current_state_cue_tokens
+
+    activation_by_identity = {_result_identity(result): result.activation for result in scored}
+    matched_semantics: list[tuple[MemoryIdentity, float]] = []
+    structured_cue = (
+        cue.predicate is not None or cue.object_value is not None or bool(cue.entity_ids)
+    )
+    for candidate in candidates:
+        if candidate.memory_kind is not MemoryKind.SEMANTIC:
+            continue
+        if not _semantic_eligible_for_soft_admission(
+            candidate,
+            valid_at=valid_at,
+            as_of=as_of,
+        ):
+            continue
+        if not _semantic_slot_matches_cue(
+            candidate,
+            cue,
+            effective_sources=effective_sources,
+            current_state_cue=current_state_cue,
+            distinctive_tokens=distinctive_tokens,
+            config=config,
+        ):
+            continue
+        activation = activation_by_identity.get(candidate.identity)
+        if activation is None:
+            continue
+        matched_semantics.append((candidate.identity, activation))
+
+    matched_identity_set = frozenset(identity for identity, _ in matched_semantics)
+    below_soft_floor: set[MemoryIdentity] = set()
+    above_floor: list[tuple[MemoryIdentity, float]] = []
+    for identity, activation in matched_semantics:
+        if not structured_cue and activation < config.semantic_soft_admission_floor:
+            below_soft_floor.add(identity)
+        else:
+            above_floor.append((identity, rank_by_identity.get(identity, activation)))
+
+    above_floor.sort(key=lambda item: -item[1])
+    admitted_semantics: set[MemoryIdentity] = set()
+    capped_out: set[MemoryIdentity] = set()
+    for index, (identity, _) in enumerate(above_floor):
+        if index >= config.max_soft_admitted_semantics:
+            capped_out.add(identity)
+        else:
+            admitted_semantics.add(identity)
 
     episode_by_id: dict[str, ActivationCandidate] = {}
     for candidate in candidates:
@@ -1287,24 +1368,9 @@ def _semantic_slot_admission_identities(
         ):
             episode_by_id[candidate.memory.id] = candidate
 
-    admitted: set[MemoryIdentity] = set()
+    admitted: set[MemoryIdentity] = set(admitted_semantics)
     for candidate in candidates:
-        if candidate.memory_kind is not MemoryKind.SEMANTIC:
-            continue
-        if valid_at is None and candidate.semantic_status is not SemanticMemoryStatus.ACTIVE:
-            continue
-        if not _semantic_slot_matches_cue(
-            candidate,
-            cue,
-            effective_sources=effective_sources,
-            current_state_cue=current_state_cue,
-            distinctive_tokens=distinctive_tokens,
-        ):
-            continue
-        admitted.add(candidate.identity)
-
-    for candidate in candidates:
-        if candidate.identity not in admitted:
+        if candidate.identity not in admitted_semantics:
             continue
         memory = candidate.memory
         if not isinstance(memory, StoredSemanticMemory):
@@ -1316,7 +1382,12 @@ def _semantic_slot_admission_identities(
             if episode_candidate is not None:
                 admitted.add(episode_candidate.identity)
 
-    return admitted
+    return _SemanticAdmissionOutcome(
+        admitted=frozenset(admitted),
+        matched_semantics=matched_identity_set,
+        below_soft_floor=frozenset(below_soft_floor),
+        capped_out=frozenset(capped_out),
+    )
 
 
 def _matching_semantic_slot_identities(
@@ -1341,6 +1412,7 @@ def _matching_semantic_slot_identities(
             effective_sources=effective_sources,
             current_state_cue=current_state_cue,
             distinctive_tokens=distinctive_tokens,
+            config=config,
         ):
             continue
         matched.add(candidate.identity)
@@ -1360,6 +1432,7 @@ def _semantic_slot_matches_cue(
     effective_sources: Sequence[str],
     current_state_cue: bool,
     distinctive_tokens: set[str],
+    config: ActivationConfig,
 ) -> bool:
     return _semantic_fields_match_cue(
         predicate=candidate.predicate,
@@ -1370,6 +1443,7 @@ def _semantic_slot_matches_cue(
         effective_sources=effective_sources,
         current_state_cue=current_state_cue,
         distinctive_tokens=distinctive_tokens,
+        config=config,
     )
 
 
@@ -1380,6 +1454,7 @@ def _stored_semantic_matches_cue(
     effective_sources: Sequence[str],
     current_state_cue: bool,
     distinctive_tokens: set[str],
+    config: ActivationConfig,
 ) -> bool:
     entity_ids = {entity.entity_id for entity in memory.entities}
     if memory.subject_entity_id:
@@ -1395,6 +1470,7 @@ def _stored_semantic_matches_cue(
         effective_sources=effective_sources,
         current_state_cue=current_state_cue,
         distinctive_tokens=distinctive_tokens,
+        config=config,
     )
 
 
@@ -1408,6 +1484,7 @@ def _semantic_fields_match_cue(
     effective_sources: Sequence[str],
     current_state_cue: bool,
     distinctive_tokens: set[str],
+    config: ActivationConfig,
 ) -> bool:
     has_explicit_constraint = False
     if cue.predicate is not None:
@@ -1436,7 +1513,13 @@ def _semantic_fields_match_cue(
     if current_state_cue and distinctive_tokens:
         statement_tokens = _tokenize(text)
         object_tokens = _tokenize(object_value or "")
-        return bool(distinctive_tokens.intersection(statement_tokens.union(object_tokens)))
+        if distinctive_tokens.intersection(statement_tokens.union(object_tokens)):
+            return True
+    if config.enable_lexical_slot_matching and distinctive_tokens:
+        semantic_tokens = _semantic_lexical_tokens(predicate, object_value, text)
+        overlap = distinctive_tokens.intersection(semantic_tokens)
+        if len(overlap) >= config.lexical_slot_min_overlap:
+            return True
     return False
 
 
@@ -1959,6 +2042,70 @@ def _result_text(result: RecallResult) -> str:
 
 def _tokenize(text: str) -> set[str]:
     return {token.lower() for token in _TOKEN_PATTERN.findall(text)}
+
+
+def _predicate_tokens(predicate: str | None) -> set[str]:
+    if predicate is None:
+        return set()
+    normalised = _normalise_text(predicate).replace("_", " ")
+    return _tokenize(normalised)
+
+
+def _semantic_lexical_tokens(
+    predicate: str | None,
+    object_value: str | None,
+    text: str,
+) -> set[str]:
+    tokens: set[str] = set()
+    tokens.update(_predicate_tokens(predicate))
+    tokens.update(_tokenize(object_value or ""))
+    tokens.update(_tokenize(text))
+    return tokens
+
+
+def _semantic_memory_valid_at(memory: StoredSemanticMemory, at: datetime) -> bool:
+    if memory.valid_from is not None and at < memory.valid_from:
+        return False
+    if memory.valid_until is not None and at >= memory.valid_until:
+        return False
+    return True
+
+
+def _semantic_eligible_for_soft_admission(
+    candidate: ActivationCandidate,
+    *,
+    valid_at: datetime | None,
+    as_of: datetime,
+) -> bool:
+    if candidate.memory_kind is not MemoryKind.SEMANTIC:
+        return False
+    memory = candidate.memory
+    if not isinstance(memory, StoredSemanticMemory):
+        return False
+    evaluation = valid_at if valid_at is not None else as_of
+    if valid_at is None:
+        return candidate.semantic_status is SemanticMemoryStatus.ACTIVE
+    if candidate.semantic_status is SemanticMemoryStatus.CONTESTED:
+        return False
+    return _semantic_memory_valid_at(memory, evaluation)
+
+
+def _inspection_disposition_for_rejected(
+    result: RecallResult,
+    *,
+    admission_outcome: _SemanticAdmissionOutcome,
+) -> RecallInspectionDisposition:
+    identity = _result_identity(result)
+    if identity in admission_outcome.below_soft_floor:
+        return RecallInspectionDisposition.FILTERED_BELOW_SOFT_FLOOR
+    if identity in admission_outcome.capped_out:
+        return RecallInspectionDisposition.BELOW_THRESHOLD
+    if (
+        result.memory_kind is MemoryKind.SEMANTIC
+        and identity not in admission_outcome.matched_semantics
+    ):
+        return RecallInspectionDisposition.FILTERED_INSUFFICIENT_RELEVANCE
+    return RecallInspectionDisposition.BELOW_THRESHOLD
 
 
 def _jaccard_similarity(left: Sequence[str], right: Sequence[str]) -> float:

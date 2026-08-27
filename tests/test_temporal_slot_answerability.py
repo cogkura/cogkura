@@ -642,6 +642,7 @@ def _slot_match(
         effective_sources=seeded,
         current_state_cue=current_state_cue,
         distinctive_tokens=distinctive_tokens or set(),
+        config=_CONFIG,
     )
 
 

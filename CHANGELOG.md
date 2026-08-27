@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.2] - 2026-08-27
+
+### Added
+
+- Lexical semantic slot matching for plain-language string cues via predicate tokenisation and statement/object overlap.
+- Bounded semantic soft admission with `semantic_soft_admission_floor`, `max_soft_admitted_semantics`, and `lexical_slot_min_overlap` on `ActivationConfig`.
+- `RecallInspectionDisposition.FILTERED_BELOW_SOFT_FLOOR` and `FILTERED_INSUFFICIENT_RELEVANCE` for clearer inspection outcomes.
+- Package regression tests for long-horizon semantic recall in `tests/test_long_horizon_semantic_recall.py`.
+
+### Changed
+
+- NEUTRAL and HISTORICAL string cues can open semantic slot admission when lexical relevance matches; structured predicate/entity cues are unchanged.
+- Soft admission applies an activation floor for lexical text-only cues; structured cues bypass the floor.
+- Historical soft admission allows visible superseded revisions at `valid_at`; live recall still requires `ACTIVE` semantics.
+
+### Fixed
+
+- Long-lived `ACTIVE` semantic facts (for example current jacket size) can be soft-admitted for relevant plain-language queries without lowering the global retrieval threshold.
+- `inspect_recall()` distinguishes below-threshold, below soft floor, and insufficient lexical relevance rejections.
+
+### Preserved
+
+- Global `retrieval_threshold`, `decay`, and `time_unit_seconds` defaults unchanged.
+- 0.15.1 evidence chronology and processing-cadence invariance.
+- Historical structured admission and superseded SUPPORT exclusion on live current-state recall.
+
+### Notes
+
+- No migration required.
+
 ## [0.15.1] - 2026-08-27
 
 ### Added

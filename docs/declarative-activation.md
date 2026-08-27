@@ -45,6 +45,10 @@ enable_candidate_idf:        true
 enable_duplicate_collapse:   true
 duplicate_jaccard_threshold: 0.75
 current_state_weight:        0.5
+enable_lexical_slot_matching: true
+lexical_slot_min_overlap:    1
+semantic_soft_admission_floor: -4.0
+max_soft_admitted_semantics: 8
 ```
 
 Spreading defaults and behaviour: [`spreading-activation.md`](spreading-activation.md).
@@ -128,6 +132,13 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `process()` does not rehearse or reinforce memory when called without new observations.
 - `Memory.inspect_recall()` explains accepted and rejected candidates with terminal dispositions and trace detail.
 - Persisted access (`RETRIEVED`, `REHEARSED`) and learning reinforcement traces are unchanged.
+
+## 0.15.2 long-horizon semantic accessibility
+
+- Plain-language cues can match semantic slots via lexical predicate/statement overlap.
+- Relevant `ACTIVE` semantics below threshold may be soft-admitted within `semantic_soft_admission_floor` and `max_soft_admitted_semantics`.
+- Structured `predicate` / `entity_ids` admission behaviour is preserved; the floor applies to text-only lexical admission.
+- Current valid semantic facts can remain accessible when relevant without artificial rehearsal.
 
 ## Storage
 

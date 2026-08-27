@@ -486,6 +486,7 @@ def _has_resolving_semantic_assertion(
             effective_sources=effective_sources,
             current_state_cue=current_state_cue,
             distinctive_tokens=distinctive_tokens,
+            config=activation_config,
         ):
             return True
     return False
@@ -515,6 +516,7 @@ def _has_active_semantic_slot_match(
             effective_sources=effective_sources,
             current_state_cue=current_state_cue,
             distinctive_tokens=distinctive_tokens,
+            config=activation_config,
         ):
             return True
     return False

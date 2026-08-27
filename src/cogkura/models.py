@@ -891,6 +891,10 @@ class ActivationConfig:
     enable_text_precision_matching: bool = True
     exclude_superseded_support_on_current_state: bool = True
     collapse_same_slot_support: bool = True
+    enable_lexical_slot_matching: bool = True
+    lexical_slot_min_overlap: int = 1
+    semantic_soft_admission_floor: float = -4.0
+    max_soft_admitted_semantics: int = 8
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -937,6 +941,12 @@ class ActivationConfig:
             raise ValidationError("conjunction_weight must not be negative.")
         if self.distinctive_token_idf_scale <= 0:
             raise ValidationError("distinctive_token_idf_scale must be greater than zero.")
+        if self.lexical_slot_min_overlap < 1:
+            raise ValidationError("lexical_slot_min_overlap must be at least 1.")
+        if not math.isfinite(self.semantic_soft_admission_floor):
+            raise ValidationError("semantic_soft_admission_floor must be finite.")
+        if self.max_soft_admitted_semantics < 1:
+            raise ValidationError("max_soft_admitted_semantics must be at least 1.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1198,6 +1208,8 @@ class RecallInspectionDisposition(StrEnum):
     FILTERED_VALID_TIME = "filtered_valid_time"
     FILTERED_SEMANTIC_STATUS = "filtered_semantic_status"
     FILTERED_SUPERSEDED_SUPPORT = "filtered_superseded_support"
+    FILTERED_BELOW_SOFT_FLOOR = "filtered_below_soft_floor"
+    FILTERED_INSUFFICIENT_RELEVANCE = "filtered_insufficient_relevance"
     COLLAPSED = "collapsed"
     LIMITED = "limited"
 
