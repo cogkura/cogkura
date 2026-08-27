@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-08-27
+
+### Added
+
+- `Memory.inspect_recall()` for bounded recall inspection with terminal dispositions, cognitive trace detail, and activation components.
+- Derived cognitive activation references (`ENCODED`, `SUPPORTED`) from episode and semantic evidence chronology.
+- `CognitiveReferenceTrace`, `CognitiveTraceOrigin`, `RecallInspectionResult`, and `RecallInspectionDisposition` public models.
+- `InspectableDeclarativeActivator` protocol for inspection-capable activators.
+- `RecallInspectionUnsupportedError` when a custom activator does not support inspection.
+- Package regression tests for processing-cadence recall stability in `tests/test_incremental_recall_stability.py`.
+
+### Changed
+
+- Declarative base-level activation no longer synthesizes an implicit trace from storage `created_at`.
+- Episode encoding references use `ended_at`; semantic support references use supporting episode evidence times.
+- Recall and forgetting share the same derived cognitive trace builder.
+- PostgreSQL semantic reconciliation passes `as_of` when creating new semantic memory rows.
+
+### Fixed
+
+- Incremental and deferred `process()` cadence no longer produces materially different recall activation for equivalent source evidence.
+- Historical import and backfill no longer receive artificial recency from batch materialisation timestamps.
+
+### Preserved
+
+- `recall()` result shape and semantics; inspection is additive.
+- Persisted `RETRIEVED` / `REHEARSED` access references and learning reinforcement traces.
+- Retrieval threshold, forgetting, supersession, and working-memory selection behaviour.
+
+### Notes
+
+- No migration required.
+- **CogKuraBench 0.3.1** (`customer_decision_context_v1`, cogkura backend): incremental standard replay raw recall improved from 0 to 1; evidence-group coverage remains 0/5; `evidence_coverage_at_budget` remains 0.0. All lifecycle cases now report raw recall 1 (cadence parity); query-only prepare no longer diverges from incremental.
+- **CogKura Demo 0.3.2** compare (waterproof-jacket, inspect-only): Full History 5/5, Search 4/5, CogKura **0/5** labelled coverage with 0 context tokens (0.15.0 baseline was 2/5). Further retrieval tuning is out of scope for this patch.
+
 ## [0.15.0] - 2026-08-22
 
 ### Added

@@ -1447,7 +1447,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                             )
                             """
                         ),
-                        self._memory_params(memory_id, memory),
+                        self._memory_params(memory_id, memory, as_of=now),
                     )
                     created += 1
                 else:

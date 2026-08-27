@@ -12,6 +12,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from cogkura.algorithms.cognitive_traces import (
+    activation_reference_traces_for_candidate,
+    derive_episode_cognitive_traces,
+    derive_semantic_cognitive_traces,
+)
 from cogkura.algorithms.spreading import (
     DeterministicSpreadingActivator,
     SpreadingActivator,
@@ -26,6 +31,9 @@ from cogkura.models import (
     LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
+    RecallInspectionCandidate,
+    RecallInspectionDisposition,
+    RecallInspectionResult,
     RecallResult,
     RetrievalCue,
     RetrievalDiagnostics,
@@ -92,6 +100,26 @@ class DeclarativeActivator(Protocol):
         """Rank candidates by activation and return those above threshold."""
 
 
+class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
+    """Declarative activator that can evaluate all candidates for inspection."""
+
+    def inspect(
+        self,
+        *,
+        candidates: Sequence[ActivationCandidate],
+        cue: RetrievalCue,
+        references: Mapping[MemoryIdentity, Sequence[ActivationReferenceTrace]],
+        as_of: datetime,
+        config: ActivationConfig,
+        limit: int,
+        learned_associations: Sequence[LearnedAssociation] = (),
+        episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
+        valid_at: datetime | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
+    ) -> RecallInspectionResult:
+        """Evaluate all candidates and return inspection dispositions."""
+
+
 def logsumexp(values: Sequence[float]) -> float:
     """Numerically stable log-sum-exp."""
     if not values:
@@ -143,16 +171,22 @@ def activation_candidate_from_episode(
         memory=episode,
         importance=episode.importance,
         support_provenance=tuple(support_provenance),
+        cognitive_traces=derive_episode_cognitive_traces(episode),
     )
 
 
-def activation_candidate_from_semantic(memory: StoredSemanticMemory) -> ActivationCandidate:
+def activation_candidate_from_semantic(
+    memory: StoredSemanticMemory,
+    *,
+    episode_by_id: Mapping[str, StoredEpisode] | None = None,
+) -> ActivationCandidate:
     """Adapt a stored semantic memory for declarative activation."""
     entity_ids = {entity.entity_id for entity in memory.entities}
     if memory.subject_entity_id:
         entity_ids.add(memory.subject_entity_id)
     if memory.object_entity_id:
         entity_ids.add(memory.object_entity_id)
+    episodes = episode_by_id or {}
     return ActivationCandidate(
         memory_kind=MemoryKind.SEMANTIC,
         memory_key=memory.memory_key,
@@ -168,6 +202,7 @@ def activation_candidate_from_semantic(memory: StoredSemanticMemory) -> Activati
         slot_key=memory.slot_key,
         semantic_status=memory.status,
         last_supported_at=memory.last_supported_at,
+        cognitive_traces=derive_semantic_cognitive_traces(memory, episodes),
     )
 
 
@@ -403,6 +438,251 @@ class ACTRDeclarativeActivator:
             )
         return ordered[:limit]
 
+    def inspect(
+        self,
+        *,
+        candidates: Sequence[ActivationCandidate],
+        cue: RetrievalCue,
+        references: Mapping[MemoryIdentity, Sequence[ActivationReferenceTrace]],
+        as_of: datetime,
+        config: ActivationConfig,
+        limit: int,
+        tenant_id: str,
+        subject_id: str | None,
+        learned_associations: Sequence[LearnedAssociation] = (),
+        episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
+        valid_at: datetime | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
+    ) -> RecallInspectionResult:
+        """Evaluate all candidates and return terminal recall dispositions."""
+        candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
+        seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
+        tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
+        effective_entity_ids = (
+            cue.entity_ids if cue.entity_ids else _merge_seed_ids(seeded_entity_ids, tag_seed_ids)
+        )
+        spread_sources: tuple[str, ...] | None = None
+        if not cue.entity_ids and effective_entity_ids:
+            spread_sources = effective_entity_ids
+
+        spreading_result = (
+            self._spreading_activator.calculate(
+                candidates=candidates,
+                cue=cue,
+                config=config,
+                learned_associations=learned_associations,
+                spread_sources=spread_sources,
+            )
+            if config.enable_spreading_activation
+            else None
+        )
+        spreading_by_identity = spreading_result.scores if spreading_result is not None else {}
+        spreading_metadata = spreading_result.metadata if spreading_result is not None else {}
+        idf_weights = _scaled_idf_weights(candidates, cue, config)
+        current_state_cue = _cue_requests_current_state(cue, config)
+        temporal_mode = _temporal_retrieval_mode(
+            cue,
+            valid_at=valid_at,
+            config=config,
+            current_state_cue=current_state_cue,
+        )
+        support_index = episode_support_index or {}
+        slot_index = episode_slot_index or {}
+        current_state_policy_active = temporal_mode is TemporalRetrievalMode.CURRENT
+        matched_slot_identities, matched_support_episode_ids = _matching_semantic_slot_identities(
+            candidates,
+            cue,
+            seeded_entity_ids=seeded_entity_ids,
+            current_state_cue=current_state_cue,
+            config=config,
+        )
+        semantic_slot_fit_by_identity, episode_support_fits = _semantic_slot_fit_indexes(
+            candidates,
+            cue,
+            temporal_mode=temporal_mode,
+            effective_entities=effective_entity_ids,
+        )
+
+        scored: list[RecallResult] = []
+        rank_by_identity: dict[MemoryIdentity, float] = {}
+        for candidate in candidates:
+            slot_fit_selection = _candidate_slot_fit(
+                candidate,
+                semantic_slot_fit_by_identity=semantic_slot_fit_by_identity,
+                episode_support_fits=episode_support_fits,
+            )
+            result, rank_activation = _score_candidate(
+                candidate,
+                cue=cue,
+                references=references,
+                as_of=as_of,
+                config=config,
+                spreading=spreading_by_identity.get(candidate.identity, 0.0),
+                spreading_metadata=spreading_metadata.get(candidate.identity),
+                idf_weights=idf_weights,
+                current_state_cue=current_state_cue,
+                effective_entity_ids=effective_entity_ids,
+                episode_support_index=support_index,
+                current_state_policy_active=current_state_policy_active,
+                matched_slot_identities=matched_slot_identities,
+                matched_support_episode_ids=matched_support_episode_ids,
+                temporal_mode=temporal_mode,
+                slot_fit=slot_fit_selection.slot_fit,
+                support_provenance=slot_fit_selection.support_provenance,
+                selected_support_revision_key=slot_fit_selection.selected_support_revision_key,
+            )
+            scored.append(result)
+            rank_by_identity[_result_identity(result)] = rank_activation
+
+        admitted_identities = _semantic_slot_admission_identities(
+            candidates,
+            cue,
+            config=config,
+            seeded_entity_ids=seeded_entity_ids,
+            current_state_cue=current_state_cue,
+            valid_at=valid_at,
+            temporal_mode=temporal_mode,
+        )
+        admission_eligibility = _admission_eligibility_by_identity(
+            cue=cue,
+            seeded_entity_ids=seeded_entity_ids,
+            temporal_mode=temporal_mode,
+            config=config,
+            admitted_identities=admitted_identities,
+        )
+        scored = [
+            _annotate_candidate_eligibility(
+                result,
+                admitted_identities=admitted_identities,
+                admission_eligibility=admission_eligibility,
+            )
+            for result in scored
+        ]
+
+        disposition_by_identity: dict[MemoryIdentity, RecallInspectionDisposition] = {}
+        eligible_identities = {
+            _result_identity(result)
+            for result in scored
+            if (
+                result.activation >= config.retrieval_threshold
+                or _result_identity(result) in admitted_identities
+            )
+        }
+        for result in scored:
+            identity = _result_identity(result)
+            if identity not in eligible_identities:
+                disposition_by_identity[identity] = RecallInspectionDisposition.BELOW_THRESHOLD
+        ordered = sorted(
+            [result for result in scored if _result_identity(result) in eligible_identities],
+            key=lambda item: (
+                -rank_by_identity[_result_identity(item)],
+                item.memory_kind.value,
+                _memory_key(item),
+            ),
+        )
+
+        if config.exclude_superseded_support_on_current_state and current_state_policy_active:
+            if valid_at is None:
+                filtered_ordered: list[RecallResult] = []
+                for result in ordered:
+                    identity = _result_identity(result)
+                    if _is_superseded_only_support_episode(result, support_index):
+                        disposition_by_identity[identity] = (
+                            RecallInspectionDisposition.FILTERED_SUPERSEDED_SUPPORT
+                        )
+                    else:
+                        filtered_ordered.append(result)
+                ordered = filtered_ordered
+
+        returned_results: list[RecallResult] = []
+        if config.enable_duplicate_collapse:
+            for result in ordered:
+                identity = _result_identity(result)
+                if len(returned_results) >= limit:
+                    disposition_by_identity[identity] = RecallInspectionDisposition.LIMITED
+                    continue
+                if any(
+                    _should_collapse(
+                        existing,
+                        result,
+                        config=config,
+                        support_index=support_index,
+                        slot_index=slot_index,
+                    )
+                    for existing in returned_results
+                ):
+                    disposition_by_identity[identity] = RecallInspectionDisposition.COLLAPSED
+                    continue
+                disposition_by_identity[identity] = RecallInspectionDisposition.RETURNED
+                returned_results.append(result)
+        else:
+            for index, result in enumerate(ordered):
+                identity = _result_identity(result)
+                if index < limit:
+                    disposition_by_identity[identity] = RecallInspectionDisposition.RETURNED
+                    returned_results.append(result)
+                else:
+                    disposition_by_identity[identity] = RecallInspectionDisposition.LIMITED
+
+        returned_candidates: list[RecallInspectionCandidate] = []
+        rejected_candidates: list[RecallInspectionCandidate] = []
+        rank = 0
+        for result in scored:
+            identity = _result_identity(result)
+            candidate = candidate_by_identity[identity]
+            disposition = disposition_by_identity[identity]
+            soft_admitted = identity in admitted_identities
+            passed_threshold = result.activation >= config.retrieval_threshold
+            stored = tuple(references.get(identity, ()))
+            inspection = RecallInspectionCandidate(
+                memory_kind=result.memory_kind,
+                memory=result.memory,
+                disposition=disposition,
+                activation=result.activation,
+                score=result.score,
+                retrieval_threshold=config.retrieval_threshold,
+                passed_threshold=passed_threshold,
+                soft_admitted=soft_admitted,
+                components=result.components,
+                cognitive_traces=candidate.cognitive_traces,
+                stored_traces=stored,
+                diagnostics=result.diagnostics,
+                reason=result.reason,
+            )
+            if disposition is RecallInspectionDisposition.RETURNED:
+                rank += 1
+                returned_candidates.append(
+                    RecallInspectionCandidate(
+                        memory_kind=inspection.memory_kind,
+                        memory=inspection.memory,
+                        disposition=inspection.disposition,
+                        activation=inspection.activation,
+                        score=inspection.score,
+                        retrieval_threshold=inspection.retrieval_threshold,
+                        passed_threshold=inspection.passed_threshold,
+                        soft_admitted=inspection.soft_admitted,
+                        components=inspection.components,
+                        cognitive_traces=inspection.cognitive_traces,
+                        stored_traces=inspection.stored_traces,
+                        rank=rank,
+                        diagnostics=inspection.diagnostics,
+                        reason=inspection.reason,
+                    )
+                )
+            else:
+                rejected_candidates.append(inspection)
+
+        return RecallInspectionResult(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            inspected_at=as_of,
+            retrieval_threshold=config.retrieval_threshold,
+            returned=tuple(returned_candidates),
+            rejected=tuple(rejected_candidates),
+            truncated=False,
+            considered_count=len(candidates),
+        )
+
 
 def _merge_seed_ids(*groups: Sequence[str]) -> tuple[str, ...]:
     merged: set[str] = set()
@@ -509,11 +789,9 @@ def _score_candidate(
 ) -> tuple[RecallResult, float]:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
-    creation_trace = ActivationReferenceTrace(
-        referenced_at=candidate.created_at,
-        weight=1,
-    )
-    reference_traces = (creation_trace, *stored_traces)
+    reference_traces = activation_reference_traces_for_candidate(candidate, stored_traces)
+    if not reference_traces:
+        raise ValidationError("Activation requires at least one reference trace.")
     base_level = calculate_base_level(
         reference_traces,
         as_of=as_of,

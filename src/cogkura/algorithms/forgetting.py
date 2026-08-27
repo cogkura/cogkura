@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Protocol
 
 from cogkura.algorithms.activation import calculate_base_level
+from cogkura.algorithms.cognitive_traces import activation_reference_traces_for_candidate
+from cogkura.exceptions import ValidationError
 from cogkura.models import (
     ActivationCandidate,
     ActivationConfig,
@@ -62,11 +64,9 @@ class EbbinghausForgettingEvaluator:
         tenant_id: str,
         protected_identities: frozenset[MemoryIdentity] = frozenset(),
     ) -> ForgettingDecision:
-        creation_trace = ActivationReferenceTrace(
-            referenced_at=candidate.created_at,
-            weight=1,
-        )
-        reference_history = (creation_trace, *references)
+        reference_history = activation_reference_traces_for_candidate(candidate, references)
+        if not reference_history:
+            raise ValidationError("Forgetting evaluation requires at least one reference trace.")
         base_level = calculate_base_level(
             reference_history,
             as_of=as_of,

@@ -76,7 +76,7 @@ flowchart TD
   semantics --> prepare
 ```
 
-Lower-level APIs (`encode_episodes()`, `consolidate_semantics()`, `recall()`, `select_working_memory()`, `assess_memory()`, `record_access()`) remain available for research and advanced integrations. See [`docs/application-integration.md`](docs/application-integration.md).
+Lower-level APIs (`encode_episodes()`, `consolidate_semantics()`, `recall()`, `inspect_recall()`, `select_working_memory()`, `assess_memory()`, `record_access()`) remain available for research and advanced integrations. See [`docs/application-integration.md`](docs/application-integration.md).
 
 See [`docs/architecture.md`](docs/architecture.md) for storage protocols, deployment models, and package layout.
 
@@ -472,6 +472,15 @@ uv run pytest -m postgres
 
 Cogkura is in development. Through `0.15.0`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, and working-memory same-slot collapse.
 
+## Scope of 0.15.1
+
+Implemented in `0.15.1`:
+
+- derived cognitive activation references from episode and semantic evidence chronology (no migration);
+- processing-cadence recall stability for equivalent source evidence;
+- `Memory.inspect_recall()` with terminal dispositions and activation diagnostics;
+- [`docs/declarative-activation.md`](docs/declarative-activation.md) cognitive chronology and inspection notes.
+
 ## Scope of 0.15.0
 
 Implemented in `0.15.0`:
@@ -529,6 +538,7 @@ flowchart TD
 - `0.14.3`: conjunctive slot matching and positive structured ranking (done).
 - `0.14.4`: retrieval diagnostics and SUPPORT provenance (done).
 - `0.15.0`: application integration and memory context (done).
+- `0.15.1`: recall stability from evidence chronology and `inspect_recall()` (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

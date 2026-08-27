@@ -739,6 +739,41 @@ class ActivationReferenceKind(StrEnum):
     REHEARSED = "rehearsed"
 
 
+class CognitiveTraceOrigin(StrEnum):
+    """How a cognitive activation trace was produced."""
+
+    ENCODED = "encoded"
+    SUPPORTED = "supported"
+    RECORDED_ACCESS = "recorded_access"
+    LEARNING_REINFORCEMENT = "learning_reinforcement"
+    AGGREGATE_SUPPORT_FALLBACK = "aggregate_support_fallback"
+
+
+@dataclass(frozen=True, slots=True)
+class CognitiveReferenceTrace:
+    """Derived or persisted cognitive evidence trace for activation."""
+
+    origin: CognitiveTraceOrigin
+    referenced_at: datetime
+    weight: int = 1
+    episode_id: str | None = None
+    revision_key: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.referenced_at.tzinfo is None:
+            raise ValidationError("referenced_at must be timezone-aware.")
+        object.__setattr__(self, "referenced_at", self.referenced_at.astimezone(UTC))
+        if self.weight <= 0:
+            raise ValidationError("weight must be greater than zero.")
+        if self.episode_id is not None and not self.episode_id.strip():
+            raise ValidationError("episode_id must not be empty when provided.")
+        if self.revision_key is not None and not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty when provided.")
+
+    def to_activation_trace(self) -> ActivationReferenceTrace:
+        return ActivationReferenceTrace(referenced_at=self.referenced_at, weight=self.weight)
+
+
 @dataclass(frozen=True, slots=True)
 class MemoryIdentity:
     """Stable identifier for activation history lookup."""
@@ -1100,6 +1135,7 @@ class ActivationCandidate:
     semantic_status: SemanticMemoryStatus | None = None
     last_supported_at: datetime | None = None
     support_provenance: tuple[SupportProvenance, ...] = ()
+    cognitive_traces: tuple[CognitiveReferenceTrace, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.memory_key.strip():
@@ -1120,6 +1156,9 @@ class ActivationCandidate:
                 "last_supported_at",
                 self.last_supported_at.astimezone(UTC),
             )
+        for trace in self.cognitive_traces:
+            if trace.referenced_at.tzinfo is None:
+                raise ValidationError("cognitive_traces must be timezone-aware.")
 
     @property
     def identity(self) -> MemoryIdentity:
@@ -1148,6 +1187,77 @@ class RecallResult:
             raise ValidationError("score must be between 0.0 and 1.0.")
         if not math.isfinite(self.latency_seconds) or self.latency_seconds < 0:
             raise ValidationError("latency_seconds must be finite and non-negative.")
+
+
+class RecallInspectionDisposition(StrEnum):
+    """Terminal disposition for a recall inspection candidate."""
+
+    RETURNED = "returned"
+    BELOW_THRESHOLD = "below_threshold"
+    FILTERED_FORGOTTEN = "filtered_forgotten"
+    FILTERED_VALID_TIME = "filtered_valid_time"
+    FILTERED_SEMANTIC_STATUS = "filtered_semantic_status"
+    FILTERED_SUPERSEDED_SUPPORT = "filtered_superseded_support"
+    COLLAPSED = "collapsed"
+    LIMITED = "limited"
+
+
+@dataclass(frozen=True, slots=True)
+class RecallInspectionCandidate:
+    """One evaluated recall candidate with activation diagnostics."""
+
+    memory_kind: MemoryKind
+    memory: StoredEpisode | StoredSemanticMemory
+    disposition: RecallInspectionDisposition
+    activation: float
+    score: float
+    retrieval_threshold: float
+    passed_threshold: bool
+    soft_admitted: bool
+    components: ActivationComponents
+    cognitive_traces: tuple[CognitiveReferenceTrace, ...]
+    stored_traces: tuple[ActivationReferenceTrace, ...]
+    retention_state: MemoryRetentionState | None = None
+    rank: int | None = None
+    diagnostics: RetrievalDiagnostics | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.activation):
+            raise ValidationError("activation must be finite.")
+        if not math.isfinite(self.score):
+            raise ValidationError("score must be finite.")
+        if not 0.0 <= self.score <= 1.0:
+            raise ValidationError("score must be between 0.0 and 1.0.")
+        if not math.isfinite(self.retrieval_threshold):
+            raise ValidationError("retrieval_threshold must be finite.")
+        if self.rank is not None and self.rank <= 0:
+            raise ValidationError("rank must be greater than zero when provided.")
+
+
+@dataclass(frozen=True, slots=True)
+class RecallInspectionResult:
+    """Bounded recall inspection with accepted and rejected candidates."""
+
+    tenant_id: str
+    subject_id: str | None
+    inspected_at: datetime
+    retrieval_threshold: float
+    returned: tuple[RecallInspectionCandidate, ...]
+    rejected: tuple[RecallInspectionCandidate, ...]
+    truncated: bool = False
+    considered_count: int = 0
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.inspected_at.tzinfo is None:
+            raise ValidationError("inspected_at must be timezone-aware.")
+        object.__setattr__(self, "inspected_at", self.inspected_at.astimezone(UTC))
+        if not math.isfinite(self.retrieval_threshold):
+            raise ValidationError("retrieval_threshold must be finite.")
+        if self.considered_count < 0:
+            raise ValidationError("considered_count must not be negative.")
 
 
 class MemoryRetentionState(StrEnum):

@@ -11,12 +11,11 @@ from typing import Any
 from cogkura.algorithms.activation import (
     ACTRDeclarativeActivator,
     DeclarativeActivator,
-    activation_candidate_from_episode,
-    activation_candidate_from_semantic,
     build_episode_slot_index,
     build_episode_support_index,
     build_episode_support_provenance_index,
 )
+from cogkura.algorithms.cognitive_traces import build_activation_candidates
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
 from cogkura.algorithms.learning import (
@@ -43,10 +42,15 @@ from cogkura.algorithms.working_memory import (
     TokenEstimator,
     WorkingMemorySelector,
 )
-from cogkura.exceptions import CandidateSetTooLargeError, ValidationError
+from cogkura.exceptions import (
+    CandidateSetTooLargeError,
+    RecallInspectionUnsupportedError,
+    ValidationError,
+)
 from cogkura.mappers.base import ObservationMapper
 from cogkura.models import (
     ActivationCandidate,
+    ActivationComponents,
     ActivationConfig,
     ActivationReferenceKind,
     ActivationReferenceTrace,
@@ -66,6 +70,9 @@ from cogkura.models import (
     MemoryReference,
     MemoryRetentionState,
     MetamemoryConfig,
+    RecallInspectionCandidate,
+    RecallInspectionDisposition,
+    RecallInspectionResult,
     RecallResult,
     RetrievalCue,
     SemanticConsolidationResult,
@@ -375,6 +382,174 @@ class Memory:
             include_forgotten=include_forgotten,
         )
 
+    async def inspect_recall(
+        self,
+        query: str | RetrievalCue,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        limit: int = 5,
+        as_of: datetime | None = None,
+        valid_at: datetime | None = None,
+        semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
+        include_forgotten: bool = False,
+        max_candidates: int | None = None,
+    ) -> RecallInspectionResult:
+        """Inspect recall candidates with activation diagnostics and dispositions."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if limit <= 0:
+            raise ValidationError("Limit must be greater than zero.")
+        if valid_at is not None and valid_at.tzinfo is None:
+            raise ValidationError("valid_at must be timezone-aware.")
+        if not isinstance(self._declarative_activator, ACTRDeclarativeActivator):
+            raise RecallInspectionUnsupportedError(
+                "Configured declarative activator does not support recall inspection."
+            )
+
+        candidate_cap = (
+            max_candidates if max_candidates is not None else self._activation_config.max_candidates
+        )
+        if candidate_cap <= 0:
+            raise ValidationError("max_candidates must be greater than zero.")
+
+        cue = _normalise_cue(query, subject_id=subject_id)
+        evaluation_time = _evaluation_time(as_of)
+        episodes, semantic_memories = await asyncio.gather(
+            self._episode_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+            ),
+            self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+                valid_at=valid_at,
+            ),
+        )
+        superseded_semantics: Sequence[StoredSemanticMemory] = ()
+        if valid_at is None:
+            superseded_semantics = await self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+                status=SemanticMemoryStatus.SUPERSEDED,
+            )
+        all_semantics = [*semantic_memories, *superseded_semantics]
+        episode_support_index = build_episode_support_index(all_semantics)
+        episode_slot_index = build_episode_slot_index(all_semantics)
+        episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        if valid_at is not None:
+            episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
+        if valid_at is None:
+            eligible_semantics = [
+                memory
+                for memory in semantic_memories
+                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+                and (semantic_statuses is None or memory.status in semantic_statuses)
+            ]
+        else:
+            eligible_semantics = [
+                memory
+                for memory in semantic_memories
+                if semantic_statuses is None or memory.status in semantic_statuses
+            ]
+        candidates = build_activation_candidates(
+            episodes,
+            eligible_semantics,
+            episode_support_provenance_index=episode_support_provenance_index,
+        )
+        pre_forgetting = list(candidates)
+        candidates = await self._filter_recallable_candidates(
+            candidates=candidates,
+            tenant_id=tenant_id,
+            include_forgotten=include_forgotten,
+        )
+        forgotten_identities = {
+            candidate.identity
+            for candidate in pre_forgetting
+            if candidate.identity not in {item.identity for item in candidates}
+        }
+        truncated = len(candidates) > candidate_cap
+        if truncated:
+            candidates = candidates[:candidate_cap]
+        if len(candidates) > self._activation_config.max_candidates:
+            raise CandidateSetTooLargeError(
+                f"Candidate set size {len(candidates)} exceeds max_candidates "
+                f"{self._activation_config.max_candidates}."
+            )
+
+        identities = [candidate.identity for candidate in candidates]
+        references, learned_associations, dynamics = await asyncio.gather(
+            self._list_activation_traces(
+                tenant_id=tenant_id,
+                identities=identities,
+                before_or_at=evaluation_time,
+            ),
+            self._load_learned_associations(
+                tenant_id=tenant_id,
+                identities=identities,
+            ),
+            self._dynamics_store.get_many(tenant_id=tenant_id, identities=identities),
+        )
+        inspection = self._declarative_activator.inspect(
+            candidates=candidates,
+            cue=cue,
+            references=references,
+            as_of=evaluation_time,
+            config=self._activation_config,
+            limit=limit,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            learned_associations=learned_associations,
+            episode_support_index=episode_support_index,
+            valid_at=valid_at,
+            episode_slot_index=episode_slot_index,
+        )
+        if not forgotten_identities:
+            return replace(
+                inspection,
+                truncated=truncated,
+                considered_count=len(pre_forgetting),
+            )
+
+        forgotten_candidates: list[RecallInspectionCandidate] = []
+        for candidate in pre_forgetting:
+            if candidate.identity not in forgotten_identities:
+                continue
+            dynamics_state = dynamics.get(candidate.identity)
+            forgotten_candidates.append(
+                RecallInspectionCandidate(
+                    memory_kind=candidate.memory_kind,
+                    memory=candidate.memory,
+                    disposition=RecallInspectionDisposition.FILTERED_FORGOTTEN,
+                    activation=0.0,
+                    score=0.0,
+                    retrieval_threshold=self._activation_config.retrieval_threshold,
+                    passed_threshold=False,
+                    soft_admitted=False,
+                    components=ActivationComponents(
+                        base_level=0.0,
+                        spreading=0.0,
+                        partial_match=0.0,
+                        noise=0.0,
+                        total=0.0,
+                    ),
+                    cognitive_traces=candidate.cognitive_traces,
+                    stored_traces=references.get(candidate.identity, ()),
+                    retention_state=(
+                        dynamics_state.retention_state if dynamics_state is not None else None
+                    ),
+                )
+            )
+        return replace(
+            inspection,
+            rejected=(*forgotten_candidates, *inspection.rejected),
+            truncated=truncated,
+            considered_count=len(pre_forgetting),
+        )
+
     async def _rank_declarative_results(
         self,
         *,
@@ -429,13 +604,11 @@ class Memory:
                 for memory in semantic_memories
                 if semantic_statuses is None or memory.status in semantic_statuses
             ]
-        candidates = [
-            activation_candidate_from_episode(
-                episode,
-                support_provenance=episode_support_provenance_index.get(episode.id, ()),
-            )
-            for episode in episodes
-        ] + [activation_candidate_from_semantic(memory) for memory in eligible_semantics]
+        candidates = build_activation_candidates(
+            episodes,
+            eligible_semantics,
+            episode_support_provenance_index=episode_support_provenance_index,
+        )
         candidates = await self._filter_recallable_candidates(
             candidates=candidates,
             tenant_id=tenant_id,
@@ -751,11 +924,14 @@ class Memory:
         episodes = [
             episode for episode in episodes if _episode_visible_at(episode, evaluation_time)
         ]
-        candidates = [activation_candidate_from_episode(episode) for episode in episodes] + [
-            activation_candidate_from_semantic(memory)
-            for memory in semantic_memories
-            if memory.status is not SemanticMemoryStatus.SUPERSEDED
-        ]
+        candidates = build_activation_candidates(
+            episodes,
+            [
+                memory
+                for memory in semantic_memories
+                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+            ],
+        )
         if not candidates:
             return ForgettingResult()
 

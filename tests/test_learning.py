@@ -47,8 +47,8 @@ def _episode(*, memory_key: str = "episode-a") -> StoredEpisode:
         subject_id="customer_42",
         memory_key=memory_key,
         statement=f"Episode {memory_key}.",
-        started_at=_T0,
-        ended_at=_T0,
+        started_at=_T1,
+        ended_at=_T1,
         confidence=0.9,
         importance=0.7,
         is_active=True,
@@ -61,8 +61,8 @@ def _episode(*, memory_key: str = "episode-a") -> StoredEpisode:
         ),
         entities=(),
         metadata=MappingProxyType({"episode": {"content_fingerprint": memory_key}}),
-        created_at=_T0,
-        updated_at=_T0,
+        created_at=_T1,
+        updated_at=_T1,
     )
 
 
@@ -189,7 +189,7 @@ async def test_unknown_target_fails() -> None:
 @pytest.mark.asyncio
 async def test_helpful_raises_activation_without_record_access() -> None:
     memory = await _memory_with_episode()
-    evaluation = _now()
+    evaluation = _T1 + timedelta(hours=1)
     before = await memory.recall("Episode", tenant_id="company_123", as_of=evaluation)
     await memory.learn(_feedback(occurred_at=evaluation + timedelta(seconds=1)))
     after = await memory.recall(
@@ -197,6 +197,8 @@ async def test_helpful_raises_activation_without_record_access() -> None:
         tenant_id="company_123",
         as_of=evaluation + timedelta(seconds=2),
     )
+    assert before, "expected recall results before learning reinforcement"
+    assert after, "expected recall results after learning reinforcement"
     assert after[0].activation > before[0].activation
 
 
@@ -296,7 +298,7 @@ async def test_contextual_utility_penalizes_goal_specific_unhelpful() -> None:
     await episode_store.upsert(_episode(memory_key="episode-b"))
     memory = Memory(episode_store=episode_store)
     goal = RetrievalCue(text="database migration")
-    evaluation = _now()
+    evaluation = _T1 + timedelta(hours=1)
     await memory.learn(
         LearningFeedback(
             tenant_id="company_123",

@@ -538,6 +538,9 @@ async def test_missing_knowledge_for_unresolved_slot_query() -> None:
 async def test_prepare_context_excludes_episodes_after_valid_at() -> None:
     memory = Memory()
     tenant_id = "company_123"
+    valid_at = _T1
+    late_time = _T1 + timedelta(days=7)
+    query_time = late_time
     await memory.observe(
         ObservationInput(
             tenant_id=tenant_id,
@@ -545,7 +548,7 @@ async def test_prepare_context_excludes_episodes_after_valid_at() -> None:
             source_namespace="chat.messages",
             source_record_id="early",
             content="Project Atlas selected Redis for job coordination.",
-            observed_at=_T1,
+            observed_at=valid_at,
         )
     )
     await memory.observe(
@@ -555,21 +558,21 @@ async def test_prepare_context_excludes_episodes_after_valid_at() -> None:
             source_namespace="chat.messages",
             source_record_id="late",
             content="Project Atlas team reviewed customer support escalations.",
-            observed_at=_T2,
+            observed_at=late_time,
         )
     )
-    await memory.process(tenant_id=tenant_id, as_of=_T2)
+    await memory.process(tenant_id=tenant_id, as_of=query_time)
     episodes = await memory.list_episodes(tenant_id=tenant_id, subject_id="team")
-    late_keys = {episode.memory_key for episode in episodes if episode.started_at > _T1}
-    early_keys = {episode.memory_key for episode in episodes if episode.started_at <= _T1}
+    late_keys = {episode.memory_key for episode in episodes if episode.started_at > valid_at}
+    early_keys = {episode.memory_key for episode in episodes if episode.started_at <= valid_at}
     assert late_keys
     assert early_keys
     context = await memory.prepare_context(
         "Project Atlas job coordination",
         tenant_id=tenant_id,
         subject_id="team",
-        valid_at=_T1,
-        as_of=_T2,
+        valid_at=valid_at,
+        as_of=query_time,
     )
     episode_keys = {
         item.memory.memory_key for item in context.items if item.memory_kind is MemoryKind.EPISODE
@@ -578,7 +581,7 @@ async def test_prepare_context_excludes_episodes_after_valid_at() -> None:
     assert episode_keys.isdisjoint(late_keys)
     for item in context.items:
         if isinstance(item.memory, StoredEpisode):
-            assert item.memory.started_at <= _T1
+            assert item.memory.started_at <= valid_at
 
 
 @pytest.mark.asyncio

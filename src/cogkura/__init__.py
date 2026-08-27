@@ -1,6 +1,10 @@
 """Cogkura public package API."""
 
-from cogkura.algorithms.activation import ACTRDeclarativeActivator, DeclarativeActivator
+from cogkura.algorithms.activation import (
+    ACTRDeclarativeActivator,
+    DeclarativeActivator,
+    InspectableDeclarativeActivator,
+)
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.learning import DeterministicLearningProcessor, LearningProcessor
 from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMonitor
@@ -20,12 +24,15 @@ from cogkura.algorithms.working_memory import (
     TokenEstimator,
     WorkingMemorySelector,
 )
+from cogkura.exceptions import RecallInspectionUnsupportedError
 from cogkura.memory import Memory
 from cogkura.models import (
     ActivationComponents,
     ActivationConfig,
     ActivationReferenceKind,
     ActivationReferenceTrace,
+    CognitiveReferenceTrace,
+    CognitiveTraceOrigin,
     EpisodeEncodingResult,
     EpisodeEntity,
     EpisodeEvidenceInput,
@@ -50,6 +57,9 @@ from cogkura.models import (
     MetamemoryConfig,
     MetamemoryItem,
     MetamemorySignals,
+    RecallInspectionCandidate,
+    RecallInspectionDisposition,
+    RecallInspectionResult,
     RecallResult,
     RetrievalCue,
     RetrievalDiagnostics,
@@ -97,9 +107,12 @@ __all__ = [
     "ActivationConfig",
     "ActivationReferenceKind",
     "ActivationReferenceTrace",
+    "CognitiveReferenceTrace",
+    "CognitiveTraceOrigin",
     "ApproximateTokenEstimator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
+    "InspectableDeclarativeActivator",
     "DefaultObservationPolicy",
     "DeterministicEpisodicEncoder",
     "DeterministicLearningProcessor",
@@ -140,6 +153,10 @@ __all__ = [
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",
+    "RecallInspectionCandidate",
+    "RecallInspectionDisposition",
+    "RecallInspectionResult",
+    "RecallInspectionUnsupportedError",
     "RecallResult",
     "RetrievalDiagnostics",
     "RetrievalEligibility",
@@ -177,4 +194,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.0"
+__version__ = "0.15.1"

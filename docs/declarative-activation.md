@@ -24,6 +24,7 @@ In `0.4` without spreading, \(S_i = 0\) and \(\epsilon_i = 0\) by default.
 | Method | Purpose |
 |--------|---------|
 | `recall(query, tenant_id=..., ...)` | Rank episodic + semantic memories by activation |
+| `inspect_recall(query, tenant_id=..., ...)` | Inspect accepted and rejected candidates with activation diagnostics |
 | `record_access(results, tenant_id=...)` | Explicitly reinforce selected memories |
 
 - `recall()` is pure — it does not mutate access history. `record_access()` records **use**; pass `min_score=` or set `access_minimum_score` to skip weak presented rows.
@@ -120,6 +121,13 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `RecallResult.diagnostics` captures rank activation, accessibility/ranking partial terms, eligibility, and provenance without changing scoring semantics.
 - Accessibility activation and presentation score remain the public retrieval contract; rank-only terms remain diagnostic.
 - SUPPORT diagnostics expose derivation-backed semantic revision provenance and selected inherited-fit source.
+
+## 0.15.1 cognitive evidence chronology
+
+- Base-level activation uses derived cognitive traces from episode `ended_at` and semantic support evidence, not storage `created_at`.
+- `process()` does not rehearse or reinforce memory when called without new observations.
+- `Memory.inspect_recall()` explains accepted and rejected candidates with terminal dispositions and trace detail.
+- Persisted access (`RETRIEVED`, `REHEARSED`) and learning reinforcement traces are unchanged.
 
 ## Storage
 

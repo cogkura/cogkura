@@ -37,6 +37,10 @@ await memory.process(tenant_id="shop", subject_id="customer_42")
 
 `observe()` and `ingest()` store observations only. `process()` runs episodic encoding and semantic consolidation with one shared `as_of` timestamp.
 
+Processing cadence does not rehearse memory. Calling `process()` repeatedly without new observations leaves cognitive activation references unchanged. Historical observations keep their source chronology: processing them today does not make the represented evidence recent.
+
+When recall returns fewer memories than expected, use `inspect_recall()` to see which candidates were below threshold, filtered, collapsed, or displaced by the result limit.
+
 ### Deactivation semantics
 
 `encode_episodes()` inside `process()` marks episodes inactive when they no longer have backing observations. Episodes are not deleted.
@@ -110,4 +114,4 @@ await memory.learn(feedback)
 
 ## Low-level APIs
 
-Research and advanced integrations can still call `encode_episodes()`, `consolidate_semantics()`, `recall()`, `select_working_memory()`, `assess_memory()`, and `record_access()` directly. Application integration APIs orchestrate those mechanisms without replacing them.
+Research and advanced integrations can still call `encode_episodes()`, `consolidate_semantics()`, `recall()`, `inspect_recall()`, `select_working_memory()`, `assess_memory()`, and `record_access()` directly. Application integration APIs orchestrate those mechanisms without replacing them.

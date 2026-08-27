@@ -15,3 +15,7 @@ class StorageError(CogkuraError):
 
 class CandidateSetTooLargeError(CogkuraError):
     """Raised when recall candidate set exceeds configured maximum."""
+
+
+class RecallInspectionUnsupportedError(CogkuraError):
+    """Raised when the configured declarative activator does not support inspection."""
