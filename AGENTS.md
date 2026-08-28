@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.15.3` semantic state and associative recall
+- Current release focus: `0.15.4` temporal semantic recall and associative reach
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

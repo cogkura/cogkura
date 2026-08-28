@@ -105,7 +105,7 @@ See [`design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14
 
 See [`design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answerability-0.14.2.md).
 
-- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` modes; `valid_at` always selects HISTORICAL.
+- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` modes; `valid_at` selects semantic validity time (0.15.4+). Historical mode requires explicit historical cue intent.
 - Historical mode can admit matching text/entity-derived semantic slots.
 - Structured slot fit orders eligible candidates only; SUPPORT episodes inherit the slot they support.
 - Metamemory answerability can emit `MISSING_KNOWLEDGE` when related retrieval is strong but the requested fact is unresolved.
@@ -146,7 +146,15 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - Cardinality-one competitors without explicit validity windows reconcile by supporting evidence chronology during consolidation.
 - Rank-time evidence-linked relevance uses statements from supporting episodes already in the candidate set (bounded by `max_evidence_link_derivations`).
 - `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
-- `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `semantic_relevance`, and the admission eligibility path.
+- `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `associative_fit`, `semantic_relevance`, and the admission eligibility path.
+
+## 0.15.4 temporal snapshot and associative reach
+
+- **`as_of`** is the retrieval/evaluation clock; **`valid_at`** is the semantic validity clock; **temporal intent** (current vs historical) comes from the query, not from `valid_at` alone.
+- `valid_at == as_of` with a normal recommendation query evaluates current semantic state at that snapshot (`CURRENT` mode), enabling `SEMANTIC_CURRENT_ADMISSION`.
+- Evidence-linked relevance uses saturating aggregation across multiple supporting episodes.
+- One-hop associative reach links cue-matched episode entities to semantics that share product/entity identifiers (including structured `object_value` prefixes).
+- Evidence-linked association determines which memories may matter; it does not decide how they should affect the answer.
 
 ## Storage
 

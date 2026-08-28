@@ -39,7 +39,9 @@ await memory.process(tenant_id="shop", subject_id="customer_42")
 
 Processing cadence does not rehearse memory. Calling `process()` repeatedly without new observations leaves cognitive activation references unchanged. Historical observations keep their source chronology: processing them today does not make the represented evidence recent.
 
-Plain-language queries can retrieve relevant current semantic facts via lexical slot matching, evidence-linked relevance from supporting episodes, bounded soft admission, and authoritative current admission even when base-level activation has decayed. Structured `RetrievalCue` fields remain the precise path when you have predicate or entity metadata.
+Plain-language queries can retrieve relevant current semantic facts via lexical slot matching, evidence-linked relevance from supporting episodes, bounded entity association, bounded soft admission, and authoritative current admission even when base-level activation has decayed. Structured `RetrievalCue` fields remain the precise path when you have predicate or entity metadata.
+
+`valid_at` selects which semantic facts are valid at a snapshot time; it does not by itself mean the query asks for historical state. Use explicit historical wording (`previously`, `before`, `what was`, …) when you intend past-state retrieval.
 
 When recall returns fewer memories than expected, use `inspect_recall()` to see which candidates were below threshold, below the soft floor, insufficiently relevant, filtered by semantic status, filtered, or displaced by the result limit.
 

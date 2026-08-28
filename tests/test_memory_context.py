@@ -627,7 +627,7 @@ async def test_prepare_context_historical_semantic_revision() -> None:
     )
     await memory.process(tenant_id="company_123", as_of=_T2)
     context = await memory.prepare_context(
-        RetrievalCue(predicate="preferred_vendor"),
+        RetrievalCue(text="What was the preferred vendor?", predicate="preferred_vendor"),
         tenant_id="company_123",
         subject_id="customer_42",
         valid_at=_T0,

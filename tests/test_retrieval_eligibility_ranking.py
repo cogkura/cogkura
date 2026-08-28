@@ -362,7 +362,7 @@ def test_historical_valid_at_avoids_present_lifecycle_penalty() -> None:
     )
     results = activator.rank(
         candidates=candidates,
-        cue=RetrievalCue(text="primary database"),
+        cue=RetrievalCue(text="what was the primary database"),
         references={},
         as_of=_T2,
         config=config,
@@ -700,7 +700,7 @@ def test_historical_superseded_revision_can_be_admitted() -> None:
     semantics = [dynamo_semantic]
     results = activator.rank(
         candidates=candidates,
-        cue=RetrievalCue(text="backing store", predicate="backing-store"),
+        cue=RetrievalCue(text="what was the backing store previously", predicate="backing-store"),
         references={},
         as_of=_T2,
         config=ActivationConfig(

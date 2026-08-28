@@ -783,13 +783,18 @@ def _temporal_retrieval_mode(
     config: ActivationConfig | None = None,
     current_state_cue: bool | None = None,
 ) -> TemporalRetrievalMode:
-    if valid_at is not None:
+    if _cue_requests_historical_state(cue):
         return TemporalRetrievalMode.HISTORICAL
     if current_state_cue is None:
         if config is None:
             raise ValidationError("config is required when current_state_cue is omitted.")
         current_state_cue = _cue_requests_current_state(cue, config)
-    if current_state_cue or cue.predicate is not None or cue.object_value is not None:
+    if (
+        current_state_cue
+        or cue.predicate is not None
+        or cue.object_value is not None
+        or valid_at is not None
+    ):
         return TemporalRetrievalMode.CURRENT
     return TemporalRetrievalMode.NEUTRAL
 
@@ -1202,7 +1207,7 @@ def _annotate_candidate_eligibility(
     *,
     admitted_identities: set[MemoryIdentity],
     admission_eligibility: Mapping[MemoryIdentity, RetrievalEligibility],
-    semantic_relevance: tuple[float, float, float] | None = None,
+    semantic_relevance: tuple[float, float, float, float] | None = None,
 ) -> RecallResult:
     identity = _result_identity(result)
     diagnostics = result.diagnostics
@@ -1210,20 +1215,21 @@ def _annotate_candidate_eligibility(
         return result
     if identity not in admitted_identities:
         if semantic_relevance is not None:
-            direct_fit, evidence_fit, combined = semantic_relevance
+            direct_fit, evidence_fit, associative_fit, combined = semantic_relevance
             return replace(
                 result,
                 diagnostics=replace(
                     diagnostics,
                     direct_cue_fit=direct_fit,
                     evidence_linked_fit=evidence_fit,
+                    associative_fit=associative_fit,
                     semantic_relevance=combined,
                 ),
             )
         return result
     eligibility = admission_eligibility.get(identity, RetrievalEligibility.SEMANTIC_SLOT_ADMISSION)
     if semantic_relevance is not None:
-        direct_fit, evidence_fit, combined = semantic_relevance
+        direct_fit, evidence_fit, associative_fit, combined = semantic_relevance
         updated_diagnostics = replace(
             diagnostics,
             eligibility=eligibility,
@@ -1231,6 +1237,7 @@ def _annotate_candidate_eligibility(
             soft_admitted=eligibility is not RetrievalEligibility.THRESHOLD,
             direct_cue_fit=direct_fit,
             evidence_linked_fit=evidence_fit,
+            associative_fit=associative_fit,
             semantic_relevance=combined,
         )
     else:
@@ -2192,14 +2199,23 @@ def _inspection_disposition_for_rejected(
     return RecallInspectionDisposition.BELOW_THRESHOLD
 
 
-_HISTORICAL_CUE_TOKENS = frozenset(
-    {"previously", "before", "last", "year", "happened", "when", "used", "to", "earlier"}
+_HISTORICAL_CUE_PHRASES = (
+    "used to",
+    "last year",
+    "what was",
+    "what happened",
+    "when did",
 )
+_HISTORICAL_CUE_TOKENS = frozenset({"previously", "before", "earlier", "historically", "happened"})
 
 
 def _cue_requests_historical_state(cue: RetrievalCue) -> bool:
     if not cue.text or not cue.text.strip():
         return False
+    normalised = _normalise_text(cue.text)
+    for phrase in _HISTORICAL_CUE_PHRASES:
+        if phrase in normalised:
+            return True
     return bool(_tokenize(cue.text).intersection(_HISTORICAL_CUE_TOKENS))
 
 
@@ -2215,12 +2231,27 @@ def _episode_by_id(
     return episode_by_id
 
 
-def _evidence_link_tokens(
+def _semantic_association_entity_ids(candidate: ActivationCandidate) -> set[str]:
+    entity_ids = set(candidate.entity_ids)
+    memory = candidate.memory
+    if not isinstance(memory, StoredSemanticMemory):
+        return entity_ids
+    if memory.object_entity_id:
+        entity_ids.add(memory.object_entity_id)
+    object_value = candidate.object_value
+    if object_value and ":" in object_value:
+        entity_ids.add(object_value.split(":", 1)[0])
+    return entity_ids
+
+
+def _aggregated_evidence_fit(
     memory: StoredSemanticMemory,
     episode_by_id: Mapping[str, ActivationCandidate],
     *,
+    distinctive_tokens: set[str],
+    direct_tokens: set[str],
     max_derivations: int,
-) -> set[str]:
+) -> float:
     supported = [
         derivation
         for derivation in memory.derivations
@@ -2234,15 +2265,67 @@ def _evidence_link_tokens(
         ),
         reverse=True,
     )
-    tokens: set[str] = set()
+    per_support_scores: list[float] = []
     for derivation in supported[:max_derivations]:
         episode = episode_by_id.get(derivation.episode_id)
         if episode is None:
             continue
-        tokens.update(_tokenize(episode.text))
+        episode_tokens = _tokenize(episode.text)
         for entity_id in episode.entity_ids:
-            tokens.update(_tokenize(entity_id))
-    return tokens
+            episode_tokens.update(_tokenize(entity_id))
+        evidence_only = episode_tokens - direct_tokens
+        overlap = distinctive_tokens.intersection(evidence_only)
+        if overlap:
+            per_support_scores.append(len(overlap) / len(distinctive_tokens))
+    if not per_support_scores:
+        return 0.0
+    remaining = 1.0
+    for score in per_support_scores:
+        remaining *= 1.0 - score
+    return min(1.0, 1.0 - remaining)
+
+
+def _cue_matched_episode_entities(
+    candidates: Sequence[ActivationCandidate],
+    distinctive_tokens: set[str],
+    *,
+    config: ActivationConfig,
+) -> set[str]:
+    episode_by_id = _episode_by_id(candidates)
+    matched: list[tuple[ActivationCandidate, int]] = []
+    for episode in episode_by_id.values():
+        episode_tokens = _tokenize(episode.text)
+        for entity_id in episode.entity_ids:
+            episode_tokens.update(_tokenize(entity_id))
+        overlap_count = len(distinctive_tokens.intersection(episode_tokens))
+        if overlap_count >= config.lexical_slot_min_overlap:
+            matched.append((episode, overlap_count))
+    matched.sort(key=lambda item: -item[1])
+    bridge_entities: set[str] = set()
+    for episode, _ in matched[: config.max_evidence_link_derivations]:
+        for entity_id in episode.entity_ids:
+            if entity_id != episode.subject_id:
+                bridge_entities.add(entity_id)
+    return bridge_entities
+
+
+def _associative_entity_fit(
+    bridge_entities: set[str],
+    semantic_entity_ids: set[str],
+    distinctive_tokens: set[str],
+) -> float:
+    if not bridge_entities or not semantic_entity_ids:
+        return 0.0
+    shared = bridge_entities.intersection(semantic_entity_ids)
+    if not shared:
+        return 0.0
+    label_tokens: set[str] = set()
+    for entity_id in shared:
+        label_tokens.update(_tokenize(entity_id))
+    overlap = distinctive_tokens.intersection(label_tokens)
+    if overlap:
+        return len(overlap) / len(distinctive_tokens)
+    return min(1.0, 1.0 / len(distinctive_tokens))
 
 
 def _semantic_cue_relevance_fits(
@@ -2251,18 +2334,57 @@ def _semantic_cue_relevance_fits(
     object_value: str | None,
     text: str,
     distinctive_tokens: set[str],
-    evidence_tokens: set[str],
-) -> tuple[float, float, float]:
+    memory: StoredSemanticMemory,
+    episode_by_id: Mapping[str, ActivationCandidate],
+    bridge_entities: set[str],
+    semantic_entity_ids: set[str],
+    config: ActivationConfig,
+) -> tuple[float, float, float, float]:
     if not distinctive_tokens:
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0
     direct_tokens = _semantic_lexical_tokens(predicate, object_value, text)
     direct_overlap = distinctive_tokens.intersection(direct_tokens)
     direct_fit = len(direct_overlap) / len(distinctive_tokens)
-    evidence_only = evidence_tokens - direct_tokens
-    evidence_overlap = distinctive_tokens.intersection(evidence_only)
-    evidence_fit = len(evidence_overlap) / len(distinctive_tokens)
-    combined = max(direct_fit, evidence_fit)
-    return direct_fit, evidence_fit, combined
+    evidence_fit = (
+        _aggregated_evidence_fit(
+            memory,
+            episode_by_id,
+            distinctive_tokens=distinctive_tokens,
+            direct_tokens=direct_tokens,
+            max_derivations=config.max_evidence_link_derivations,
+        )
+        if config.enable_semantic_evidence_linking
+        else 0.0
+    )
+    associative_fit = (
+        _associative_entity_fit(bridge_entities, semantic_entity_ids, distinctive_tokens)
+        if config.enable_semantic_evidence_linking
+        else 0.0
+    )
+    combined = max(direct_fit, evidence_fit, associative_fit)
+    return direct_fit, evidence_fit, associative_fit, combined
+
+
+def _semantic_meets_current_relevance(
+    *,
+    direct_fit: float,
+    evidence_fit: float,
+    associative_fit: float,
+    combined: float,
+    distinctive_tokens: set[str],
+    direct_tokens: set[str],
+    bridge_entities: set[str],
+    semantic_entity_ids: set[str],
+    config: ActivationConfig,
+) -> bool:
+    if combined >= config.semantic_current_min_relevance:
+        return True
+    direct_overlap = distinctive_tokens.intersection(direct_tokens)
+    if len(direct_overlap) >= config.lexical_slot_min_overlap:
+        return True
+    if bridge_entities.intersection(semantic_entity_ids):
+        return True
+    return False
 
 
 def _semantic_relevance_map(
@@ -2270,7 +2392,7 @@ def _semantic_relevance_map(
     cue: RetrievalCue,
     *,
     config: ActivationConfig,
-) -> dict[MemoryIdentity, tuple[float, float, float]]:
+) -> dict[MemoryIdentity, tuple[float, float, float, float]]:
     if not config.enable_semantic_evidence_linking and not config.enable_lexical_slot_matching:
         return {}
     cue_tokens = _tokenize(cue.text) if cue.text else set()
@@ -2278,28 +2400,29 @@ def _semantic_relevance_map(
     if not distinctive_tokens:
         return {}
     episode_by_id = _episode_by_id(candidates)
-    relevance: dict[MemoryIdentity, tuple[float, float, float]] = {}
+    bridge_entities = (
+        _cue_matched_episode_entities(candidates, distinctive_tokens, config=config)
+        if config.enable_semantic_evidence_linking
+        else set()
+    )
+    relevance: dict[MemoryIdentity, tuple[float, float, float, float]] = {}
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
         memory = candidate.memory
         if not isinstance(memory, StoredSemanticMemory):
             continue
-        evidence_tokens = (
-            _evidence_link_tokens(
-                memory,
-                episode_by_id,
-                max_derivations=config.max_evidence_link_derivations,
-            )
-            if config.enable_semantic_evidence_linking
-            else set()
-        )
+        semantic_entity_ids = _semantic_association_entity_ids(candidate)
         relevance[candidate.identity] = _semantic_cue_relevance_fits(
             predicate=candidate.predicate,
             object_value=candidate.object_value,
             text=candidate.text,
             distinctive_tokens=distinctive_tokens,
-            evidence_tokens=evidence_tokens,
+            memory=memory,
+            episode_by_id=episode_by_id,
+            bridge_entities=bridge_entities,
+            semantic_entity_ids=semantic_entity_ids,
+            config=config,
         )
     return relevance
 
@@ -2332,6 +2455,15 @@ def _authoritative_semantic_current_admission_identities(
         )
 
     relevance_map = _semantic_relevance_map(candidates, cue, config=config)
+    bridge_entities = (
+        _cue_matched_episode_entities(
+            candidates,
+            _tokenize(cue.text) - config.current_state_cue_tokens if cue.text else set(),
+            config=config,
+        )
+        if cue.text and config.enable_semantic_evidence_linking
+        else set()
+    )
     matched: list[tuple[MemoryIdentity, float]] = []
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
@@ -2350,8 +2482,26 @@ def _authoritative_semantic_current_admission_identities(
         fits = relevance_map.get(candidate.identity)
         if fits is None:
             continue
-        _, _, combined = fits
-        if combined < config.semantic_current_min_relevance:
+        direct_fit, evidence_fit, associative_fit, combined = fits
+        direct_tokens = _semantic_lexical_tokens(
+            candidate.predicate,
+            candidate.object_value,
+            candidate.text,
+        )
+        distinctive_tokens = (
+            _tokenize(cue.text) - config.current_state_cue_tokens if cue.text else set()
+        )
+        if not _semantic_meets_current_relevance(
+            direct_fit=direct_fit,
+            evidence_fit=evidence_fit,
+            associative_fit=associative_fit,
+            combined=combined,
+            distinctive_tokens=distinctive_tokens,
+            direct_tokens=direct_tokens,
+            bridge_entities=bridge_entities,
+            semantic_entity_ids=_semantic_association_entity_ids(candidate),
+            config=config,
+        ):
             continue
         activation = next(
             (

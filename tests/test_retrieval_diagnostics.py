@@ -235,7 +235,9 @@ def test_historical_slot_admission_sets_historical_eligibility() -> None:
     results = activator.rank(
         candidates=[activation_candidate_from_semantic(historical)],
         cue=RetrievalCue(
-            text="what database was in use", entity_ids=("service",), predicate="database"
+            text="what database was previously in use",
+            entity_ids=("service",),
+            predicate="database",
         ),
         references={},
         as_of=_T2,

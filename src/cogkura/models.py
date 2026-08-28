@@ -1063,6 +1063,7 @@ class RetrievalDiagnostics:
     temporal_mode: str
     direct_cue_fit: float = 0.0
     evidence_linked_fit: float = 0.0
+    associative_fit: float = 0.0
     semantic_relevance: float = 0.0
     eligibility: RetrievalEligibility = RetrievalEligibility.THRESHOLD
     base_level: float = 0.0
@@ -1105,6 +1106,7 @@ class RetrievalDiagnostics:
             ("text_cue_fit", self.text_cue_fit),
             ("direct_cue_fit", self.direct_cue_fit),
             ("evidence_linked_fit", self.evidence_linked_fit),
+            ("associative_fit", self.associative_fit),
             ("semantic_relevance", self.semantic_relevance),
         ):
             if not 0.0 <= value <= 1.0:

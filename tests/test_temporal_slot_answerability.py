@@ -154,13 +154,13 @@ def _recall(
     )
 
 
-def test_valid_at_overrides_lexical_current_to_historical() -> None:
+def test_valid_at_with_lexical_current_is_snapshot_mode() -> None:
     mode = _temporal_retrieval_mode(
         RetrievalCue(text="what is the current live backing store now?"),
         valid_at=_T1,
         config=_CONFIG,
     )
-    assert mode is TemporalRetrievalMode.HISTORICAL
+    assert mode is TemporalRetrievalMode.CURRENT
 
 
 def test_live_now_query_is_current_mode() -> None:
@@ -195,7 +195,7 @@ def test_historical_text_only_admits_visible_superseded_slot() -> None:
     candidates = [activation_candidate_from_semantic(historical)]
     results = activator.rank(
         candidates=candidates,
-        cue=RetrievalCue(text="What backing store held the charge ledger during the first week?"),
+        cue=RetrievalCue(text="What backing store held the charge ledger before the migration?"),
         references={},
         as_of=_T2,
         config=ActivationConfig(
@@ -242,7 +242,7 @@ def test_historical_mode_does_not_admit_unrelated_semantic() -> None:
     ]
     results = activator.rank(
         candidates=candidates,
-        cue=RetrievalCue(text="What backing store held the charge ledger during the first week?"),
+        cue=RetrievalCue(text="What backing store held the charge ledger before the migration?"),
         references={},
         as_of=_T2,
         config=ActivationConfig(
@@ -603,7 +603,7 @@ def test_exploratory_episodic_query_is_not_applicable() -> None:
         statement="The deployment incident caused a brief outage.",
         entity_ids=("deployment",),
     )
-    query = RetrievalCue(text="What happened during the deployment incident?")
+    query = RetrievalCue(text="Describe the deployment incident.")
     candidates = [_recall(episode, score=0.8)]
     assert (
         _assess_answerability(
@@ -1110,7 +1110,7 @@ def test_historical_support_diagnostics_follow_valid_revision() -> None:
         ),
     )
     cue = RetrievalCue(
-        text="what database was in use", entity_ids=("service",), predicate="database"
+        text="what database was previously in use", entity_ids=("service",), predicate="database"
     )
     results = activator.rank(
         candidates=[

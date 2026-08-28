@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.4] - 2026-08-28
+
+### Added
+
+- Current-at-snapshot temporal semantics: `valid_at` selects validity time, not historical query intent.
+- Saturating aggregation of per-support evidence relevance for multi-episode semantic claims.
+- One-hop associative reach from cue-matched episode entities to related semantic memories.
+- `RetrievalDiagnostics.associative_fit` for inspection.
+- Package regression tests in `tests/test_temporal_associative_recall.py`.
+
+### Changed
+
+- `TemporalRetrievalMode.HISTORICAL` now requires explicit historical cue intent; `valid_at` with a normal recommendation query uses `CURRENT` snapshot mode.
+- Historical cue lexicon tightened to phrases and distinctive tokens (no longer treats `to` / `when` alone as historical).
+- Authoritative current admission accepts relevance ratio **or** distinctive token overlap count (not only the soft activation floor).
+- Evidence-linked relevance aggregates multiple supporting episodes with a bounded saturating formula.
+
+### Fixed
+
+- `as_of == valid_at` demo/bench snapshots no longer misclassify as historical retrieval.
+- Old but authoritative semantics with explicit query overlap (for example hiking interest) remain eligible without clearing the soft floor.
+- Colour and product-fit semantics can be reached through aggregated evidence and entity-linked association.
+
+### Preserved
+
+- Global `retrieval_threshold`, `semantic_soft_admission_floor`, and decay defaults unchanged.
+- `SUPERSEDED` cannot use authoritative current admission; historical-intent queries still retrieve superseded slots.
+- Working-memory selection unchanged.
+
+### Notes
+
+- No migration required.
+
 ## [0.15.3] - 2026-08-28
 
 ### Added
