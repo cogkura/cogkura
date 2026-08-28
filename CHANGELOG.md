@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3] - 2026-08-28
+
+### Added
+
+- Cardinality-one reconciliation by supporting evidence chronology when world validity windows are unspecified.
+- Bounded rank-time evidence-linked semantic relevance from supporting episode statements already in the candidate set.
+- Authoritative current semantic admission (`RetrievalEligibility.SEMANTIC_CURRENT_ADMISSION`) for `ACTIVE`, valid, relevant facts without lowering the activation floor.
+- `ActivationConfig.enable_semantic_evidence_linking`, `max_evidence_link_derivations`, and `semantic_current_min_relevance`.
+- `RetrievalDiagnostics.direct_cue_fit`, `evidence_linked_fit`, and `semantic_relevance` for inspection.
+- Package regression tests in `tests/test_semantic_state_associative_recall.py`.
+
+### Changed
+
+- Incremental `process()` restores `slot_key` from stored semantic memories when hydrating revision inputs.
+- Successor selection for supersession follows evidence/validity chronology rather than always treating the incoming candidate as successor.
+- `inspect_recall()` can report `FILTERED_SEMANTIC_STATUS` when superseded semantics block current admission.
+
+### Fixed
+
+- Competing cardinality-one claims without explicit validity windows reconcile to a single `ACTIVE` authority (for example jacket size L then M).
+- Plain-language cues can reach semantics whose predicates are absent from the query via evidence-linked relevance.
+- Long-lived relevant `ACTIVE` semantics admit through current-authority relevance without bypassing unrelated facts.
+
+### Preserved
+
+- `SemanticMemoryStatus.ACTIVE` remains the current-authority status; no rename to `CURRENT`.
+- Global `retrieval_threshold`, `semantic_soft_admission_floor`, and decay defaults unchanged.
+- `TemporalRetrievalMode.CURRENT` is not broadened to `valid_at is not None`.
+- Tied evidence chronology for unspecified ONE competitors still yields `CONFLICTS`.
+
+### Notes
+
+- No migration required.
+
 ## [0.15.2] - 2026-08-27
 
 ### Added

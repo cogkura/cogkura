@@ -140,6 +140,14 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - Structured `predicate` / `entity_ids` admission behaviour is preserved; the floor applies to text-only lexical admission.
 - Current valid semantic facts can remain accessible when relevant without artificial rehearsal.
 
+## 0.15.3 semantic authority and associative reachability
+
+- **Authority** (`SemanticMemoryStatus.ACTIVE` vs `SUPERSEDED`) is separate from **accessibility** (activation) and **relevance** (cue fit).
+- Cardinality-one competitors without explicit validity windows reconcile by supporting evidence chronology during consolidation.
+- Rank-time evidence-linked relevance uses statements from supporting episodes already in the candidate set (bounded by `max_evidence_link_derivations`).
+- `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
+- `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `semantic_relevance`, and the admission eligibility path.
+
 ## Storage
 
 Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.

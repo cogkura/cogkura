@@ -12,6 +12,7 @@ from cogkura.models import (
     CognitiveTraceOrigin,
     MemoryKind,
     RecallInspectionDisposition,
+    SemanticMemoryStatus,
 )
 
 _TENANT = "shop"
@@ -225,6 +226,21 @@ async def test_superseded_size_not_soft_admitted_after_update() -> None:
     )
     await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=t_m)
 
+    active = await memory.list_semantic_memories(tenant_id=_TENANT, subject_id=_SUBJECT)
+    superseded = await memory.list_semantic_memories(
+        tenant_id=_TENANT,
+        subject_id=_SUBJECT,
+        status=SemanticMemoryStatus.SUPERSEDED,
+    )
+    active_sizes = {
+        item.object_value.casefold() for item in active if item.predicate == "jacket_size"
+    }
+    superseded_sizes = {
+        item.object_value.casefold() for item in superseded if item.predicate == "jacket_size"
+    }
+    assert active_sizes == {"m"}
+    assert superseded_sizes == {"l"}
+
     results = await memory.recall(
         "recommend a jacket",
         tenant_id=_TENANT,
@@ -232,13 +248,13 @@ async def test_superseded_size_not_soft_admitted_after_update() -> None:
         as_of=query_time,
         limit=10,
     )
-    active_sizes = [
+    recalled_sizes = [
         result
         for result in results
         if result.memory_kind is MemoryKind.SEMANTIC and result.memory.predicate == "jacket_size"
     ]
-    assert len(active_sizes) == 1
-    assert active_sizes[0].memory.object_value.casefold() == "m"
+    assert len(recalled_sizes) == 1
+    assert recalled_sizes[0].memory.object_value.casefold() == "m"
 
 
 @pytest.mark.asyncio

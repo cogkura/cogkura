@@ -7,7 +7,7 @@ Status: Shipped
 
 Cogkura `0.8.0` adds **temporal semantic reconsolidation**: revision history, deterministic relation classification (`REINFORCES`, `COEXISTS`, `SUPERSEDES`, `CONFLICTS`), and historical retrieval via `valid_at`. Consolidation still runs through `Memory.consolidate_semantics()`; there is no separate `reconsolidate()` API.
 
-`observed_at` never implies world validity. Unknown chronology yields `CONFLICTS`, not latest-write-wins supersession.
+`observed_at` never implies world validity when explicit `valid_from` / `valid_until` are present. For cardinality-one competitors with **unspecified** world windows, supporting evidence chronology (`last_supported_at`, then `first_supported_at`) determines supersession; equal evidence times still yield `CONFLICTS`, not latest-write-wins supersession.
 
 ## Pipeline
 
@@ -31,7 +31,8 @@ Structured `valid_from` / `valid_until` may appear on `semantic_facts` entries (
 | Same proposition, compatible validity | `REINFORCES` |
 | `MANY` cardinality or distinct slots | `COEXISTS` |
 | Sequential non-overlapping ONE competitors | `SUPERSEDES` |
-| Overlap or unknown chronology for ONE competitors | `CONFLICTS` |
+| Unspecified ONE competitors with ordered evidence chronology | `SUPERSEDES` |
+| Overlap, tied evidence, or unknown chronology for ONE competitors | `CONFLICTS` |
 
 Supersession closes the predecessor interval (`valid_until = successor.valid_from`), marks the predecessor `SUPERSEDED`, and preserves its confidence.
 

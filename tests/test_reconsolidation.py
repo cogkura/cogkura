@@ -86,6 +86,8 @@ def _revision_candidate(
     valid_from: datetime | None = None,
     valid_until: datetime | None = None,
     cardinality: SemanticCardinality = SemanticCardinality.ONE,
+    first_supported_at: datetime = _T0,
+    last_supported_at: datetime = _T0,
 ) -> SemanticRevisionCandidate:
     revision_key = generate_revision_key(
         memory_key,
@@ -109,8 +111,8 @@ def _revision_candidate(
         valid_from=valid_from,
         valid_until=valid_until,
         support_count=1,
-        first_supported_at=_T0,
-        last_supported_at=_T0,
+        first_supported_at=first_supported_at,
+        last_supported_at=last_supported_at,
         support_confidence=0.8,
         importance=0.7,
         derivations=(),
@@ -146,14 +148,35 @@ def test_unknown_validity_conflicts_not_supersedes() -> None:
         memory_key="mem-a",
         object_value="postgresql",
         object_entity_id="postgresql",
+        last_supported_at=_T1,
     )
     right = _revision_candidate(
         memory_key="mem-b",
         object_value="mysql",
         object_entity_id="mysql",
+        last_supported_at=_T1,
     )
     assert (
         classify_update_relation(existing=left, incoming=right) is SemanticUpdateRelation.CONFLICTS
+    )
+
+
+def test_unspecified_validity_uses_evidence_chronology_for_supersession() -> None:
+    predecessor = _revision_candidate(
+        memory_key="mem-l",
+        object_value="L",
+        object_entity_id="size-l",
+        last_supported_at=_T0,
+    )
+    successor = _revision_candidate(
+        memory_key="mem-m",
+        object_value="M",
+        object_entity_id="size-m",
+        last_supported_at=_T1,
+    )
+    assert (
+        classify_update_relation(existing=predecessor, incoming=successor)
+        is SemanticUpdateRelation.SUPERSEDES
     )
 
 

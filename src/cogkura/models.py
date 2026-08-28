@@ -895,6 +895,9 @@ class ActivationConfig:
     lexical_slot_min_overlap: int = 1
     semantic_soft_admission_floor: float = -4.0
     max_soft_admitted_semantics: int = 8
+    enable_semantic_evidence_linking: bool = True
+    max_evidence_link_derivations: int = 3
+    semantic_current_min_relevance: float = 0.06
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -947,6 +950,10 @@ class ActivationConfig:
             raise ValidationError("semantic_soft_admission_floor must be finite.")
         if self.max_soft_admitted_semantics < 1:
             raise ValidationError("max_soft_admitted_semantics must be at least 1.")
+        if self.max_evidence_link_derivations < 1:
+            raise ValidationError("max_evidence_link_derivations must be at least 1.")
+        if not 0.0 <= self.semantic_current_min_relevance <= 1.0:
+            raise ValidationError("semantic_current_min_relevance must be between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -980,6 +987,7 @@ class RetrievalEligibility(StrEnum):
     SEMANTIC_SLOT_ADMISSION = "semantic_slot_admission"
     ENTITY_SLOT_ADMISSION = "entity_slot_admission"
     HISTORICAL_SLOT_ADMISSION = "historical_slot_admission"
+    SEMANTIC_CURRENT_ADMISSION = "semantic_current_admission"
 
 
 class SlotFitSource(StrEnum):
@@ -1053,6 +1061,9 @@ class RetrievalDiagnostics:
     text_coverage: float
     text_cue_fit: float
     temporal_mode: str
+    direct_cue_fit: float = 0.0
+    evidence_linked_fit: float = 0.0
+    semantic_relevance: float = 0.0
     eligibility: RetrievalEligibility = RetrievalEligibility.THRESHOLD
     base_level: float = 0.0
     spreading: float = 0.0
@@ -1092,6 +1103,9 @@ class RetrievalDiagnostics:
         for label, value in (
             ("text_coverage", self.text_coverage),
             ("text_cue_fit", self.text_cue_fit),
+            ("direct_cue_fit", self.direct_cue_fit),
+            ("evidence_linked_fit", self.evidence_linked_fit),
+            ("semantic_relevance", self.semantic_relevance),
         ):
             if not 0.0 <= value <= 1.0:
                 raise ValidationError(f"{label} must be between 0.0 and 1.0.")

@@ -108,6 +108,19 @@ def compare_temporal_validity(
     return _TemporalRelation.UNKNOWN
 
 
+def compare_evidence_chronology(
+    left: SemanticRevisionInput | SemanticRevisionCandidate | StoredSemanticRevision,
+    right: SemanticRevisionInput | SemanticRevisionCandidate | StoredSemanticRevision,
+) -> _TemporalRelation:
+    left_time = _evidence_time(left)
+    right_time = _evidence_time(right)
+    if left_time < right_time:
+        return _TemporalRelation.BEFORE
+    if left_time > right_time:
+        return _TemporalRelation.AFTER
+    return _TemporalRelation.UNKNOWN
+
+
 def classify_update_relation(
     *,
     existing: SemanticRevisionInput | SemanticRevisionCandidate | StoredSemanticRevision,
@@ -143,8 +156,13 @@ def classify_update_relation(
             return SemanticUpdateRelation.SUPERSEDES
     if existing_slot != incoming.slot_key:
         return SemanticUpdateRelation.COEXISTS
-    if temporal is _TemporalRelation.OVERLAPS or temporal is _TemporalRelation.UNKNOWN:
+    if temporal is _TemporalRelation.OVERLAPS:
         return SemanticUpdateRelation.CONFLICTS
+    if temporal is _TemporalRelation.UNKNOWN:
+        evidence = compare_evidence_chronology(existing, incoming)
+        if evidence is _TemporalRelation.UNKNOWN:
+            return SemanticUpdateRelation.CONFLICTS
+        return SemanticUpdateRelation.SUPERSEDES
     if temporal in (_TemporalRelation.BEFORE, _TemporalRelation.AFTER):
         return SemanticUpdateRelation.SUPERSEDES
     return SemanticUpdateRelation.CONFLICTS
@@ -181,6 +199,7 @@ class _ReconciliationBuilder:
         self._relations: dict[tuple[str, str, str], SemanticRevisionRelation] = {}
         self._candidate_by_key: dict[str, SemanticRevisionCandidate] = {}
         self._memory_projection: dict[str, SemanticMemoryInput] = {}
+        self._memory_by_key = {memory.memory_key: memory for memory in existing_memories}
         self._revision_numbers: dict[str, int] = {}
         self._reinforced = 0
         self._coexist = 0
@@ -192,7 +211,11 @@ class _ReconciliationBuilder:
         for memory in existing_memories:
             self._memory_projection[memory.memory_key] = _memory_input_from_stored(memory)
         for revision in existing_revisions:
-            self._revisions[revision.revision_key] = _revision_input_from_stored(revision)
+            stored_memory = self._memory_by_key.get(revision.memory_key)
+            self._revisions[revision.revision_key] = _revision_input_from_stored(
+                revision,
+                memory=stored_memory,
+            )
             self._revision_numbers[revision.memory_key] = max(
                 self._revision_numbers.get(revision.memory_key, 0),
                 revision.revision_number,
@@ -316,30 +339,61 @@ class _ReconciliationBuilder:
         candidate: SemanticRevisionCandidate,
         relations: list[tuple[SemanticRevisionInput, SemanticUpdateRelation]],
     ) -> None:
-        successor = self._create_revision(candidate, status=SemanticMemoryStatus.ACTIVE)
+        superseding = [
+            predecessor
+            for predecessor, relation in relations
+            if relation is SemanticUpdateRelation.SUPERSEDES
+        ]
+        incoming_wins = all(
+            _incoming_is_successor(predecessor, candidate) for predecessor in superseding
+        )
+        if incoming_wins:
+            successor = self._create_revision(candidate, status=SemanticMemoryStatus.ACTIVE)
+            for predecessor, relation in relations:
+                if relation is not SemanticUpdateRelation.SUPERSEDES:
+                    continue
+                if not _incoming_is_successor(predecessor, candidate):
+                    continue
+                updated_predecessor = replace(
+                    predecessor,
+                    status=SemanticMemoryStatus.SUPERSEDED,
+                    valid_until=_successor_valid_until(predecessor, candidate, successor),
+                )
+                self._revisions[predecessor.revision_key] = updated_predecessor
+                self._revisions_updated += 1
+                self._superseded += 1
+                left_key, right_key = _canonical_relation_keys(
+                    predecessor.revision_key,
+                    successor.revision_key,
+                )
+                self._relations[(predecessor.tenant_id, left_key, right_key)] = (
+                    SemanticRevisionRelation(
+                        tenant_id=predecessor.tenant_id,
+                        left_revision_key=left_key,
+                        right_revision_key=right_key,
+                        relation=SemanticUpdateRelation.SUPERSEDES,
+                        effective_at=successor.valid_from or candidate.last_supported_at,
+                    )
+                )
+            return
+
+        superseded = self._create_revision(candidate, status=SemanticMemoryStatus.SUPERSEDED)
+        self._superseded += 1
         for predecessor, relation in relations:
             if relation is not SemanticUpdateRelation.SUPERSEDES:
                 continue
-            updated_predecessor = replace(
-                predecessor,
-                status=SemanticMemoryStatus.SUPERSEDED,
-                valid_until=successor.valid_from or predecessor.valid_until,
-            )
-            self._revisions[predecessor.revision_key] = updated_predecessor
-            self._revisions_updated += 1
-            self._superseded += 1
+            if _incoming_is_successor(predecessor, candidate):
+                continue
             left_key, right_key = _canonical_relation_keys(
                 predecessor.revision_key,
-                successor.revision_key,
+                superseded.revision_key,
             )
-            self._relations[(predecessor.tenant_id, left_key, right_key)] = (
-                SemanticRevisionRelation(
-                    tenant_id=predecessor.tenant_id,
-                    left_revision_key=left_key,
-                    right_revision_key=right_key,
-                    relation=SemanticUpdateRelation.SUPERSEDES,
-                    effective_at=successor.valid_from,
-                )
+            self._relations[(candidate.tenant_id, left_key, right_key)] = SemanticRevisionRelation(
+                tenant_id=candidate.tenant_id,
+                left_revision_key=left_key,
+                right_revision_key=right_key,
+                relation=SemanticUpdateRelation.SUPERSEDES,
+                effective_at=predecessor.valid_from or candidate.last_supported_at,
             )
 
     def _apply_conflict(
@@ -548,6 +602,54 @@ def _canonical_relation_keys(left: str, right: str) -> tuple[str, str]:
     return right, left
 
 
+def _evidence_time(
+    revision: SemanticRevisionInput | SemanticRevisionCandidate | StoredSemanticRevision,
+) -> datetime:
+    last_supported = getattr(revision, "last_supported_at", None)
+    if isinstance(last_supported, datetime):
+        return last_supported.astimezone(UTC)
+    first_supported = getattr(revision, "first_supported_at", None)
+    if isinstance(first_supported, datetime):
+        return first_supported.astimezone(UTC)
+    raise ValidationError("Semantic revision is missing evidence chronology.")
+
+
+def _incoming_is_successor(
+    existing: SemanticRevisionInput,
+    incoming: SemanticRevisionCandidate,
+) -> bool:
+    temporal = compare_temporal_validity(
+        existing.valid_from,
+        existing.valid_until,
+        incoming.valid_from,
+        incoming.valid_until,
+    )
+    if temporal is _TemporalRelation.BEFORE:
+        return True
+    if temporal is _TemporalRelation.AFTER:
+        return False
+    if temporal is _TemporalRelation.OVERLAPS:
+        return False
+    evidence = compare_evidence_chronology(existing, incoming)
+    if evidence is _TemporalRelation.BEFORE:
+        return True
+    if evidence is _TemporalRelation.AFTER:
+        return False
+    return False
+
+
+def _successor_valid_until(
+    predecessor: SemanticRevisionInput,
+    candidate: SemanticRevisionCandidate,
+    successor: SemanticRevisionInput,
+) -> datetime | None:
+    if successor.valid_from is not None:
+        return successor.valid_from
+    if candidate.last_supported_at is not None:
+        return candidate.last_supported_at
+    return predecessor.valid_until
+
+
 def _conflict_partner_map(
     relations: Mapping[tuple[str, str, str], SemanticRevisionRelation],
 ) -> dict[str, tuple[str, ...]]:
@@ -609,7 +711,19 @@ def _select_current_revision(
     return None
 
 
-def _revision_input_from_stored(revision: StoredSemanticRevision) -> SemanticRevisionInput:
+def _revision_input_from_stored(
+    revision: StoredSemanticRevision,
+    *,
+    memory: StoredSemanticMemory | None = None,
+) -> SemanticRevisionInput:
+    metadata: dict[str, object] = {}
+    if memory is not None:
+        metadata = {
+            "semantic": {
+                "slot_key": memory.slot_key,
+                "cardinality": memory.cardinality.value,
+            }
+        }
     return SemanticRevisionInput(
         tenant_id=revision.tenant_id,
         memory_key=revision.memory_key,
@@ -625,7 +739,7 @@ def _revision_input_from_stored(revision: StoredSemanticRevision) -> SemanticRev
         first_supported_at=revision.first_supported_at,
         last_supported_at=revision.last_supported_at,
         derivations=revision.derivations,
-        metadata=MappingProxyType({}),
+        metadata=MappingProxyType(metadata),
     )
 
 
