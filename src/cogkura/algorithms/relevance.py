@@ -6,6 +6,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 
+from cogkura.algorithms.retrieval_features import canonical_content_features
 from cogkura.models import (
     RecallResult,
     RetrievalCue,
@@ -13,7 +14,6 @@ from cogkura.models import (
     StoredSemanticMemory,
 )
 
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 
 
@@ -196,7 +196,7 @@ def _qualifier_coverage(
 
 
 def _tokenize(text: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_PATTERN.findall(text)}
+    return set(canonical_content_features(text))
 
 
 tokenize = _tokenize

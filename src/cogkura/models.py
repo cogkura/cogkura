@@ -1051,6 +1051,26 @@ class SupportProvenance:
 
 
 @dataclass(frozen=True, slots=True)
+class AssociationPath:
+    """Winning deterministic association path for inspectable recall."""
+
+    seed_episode_id: str
+    matched_features: tuple[str, ...]
+    bridge_entity_id: str | None = None
+    related_episode_id: str | None = None
+    hop_kind: str = "entity"
+    weight: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not self.seed_episode_id.strip():
+            raise ValidationError("seed_episode_id must not be empty.")
+        if not self.hop_kind.strip():
+            raise ValidationError("hop_kind must not be empty.")
+        if not math.isfinite(self.weight) or not 0.0 <= self.weight <= 1.0:
+            raise ValidationError("weight must be between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievalDiagnostics:
     """Structured recall diagnostics for ranking and provenance analysis."""
 
@@ -1065,6 +1085,9 @@ class RetrievalDiagnostics:
     evidence_linked_fit: float = 0.0
     associative_fit: float = 0.0
     semantic_relevance: float = 0.0
+    matched_direct_features: tuple[str, ...] = ()
+    matched_evidence_features: tuple[str, ...] = ()
+    association_path: AssociationPath | None = None
     eligibility: RetrievalEligibility = RetrievalEligibility.THRESHOLD
     base_level: float = 0.0
     spreading: float = 0.0
@@ -1275,6 +1298,7 @@ class RecallInspectionResult:
     rejected: tuple[RecallInspectionCandidate, ...]
     truncated: bool = False
     considered_count: int = 0
+    canonical_query_features: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():

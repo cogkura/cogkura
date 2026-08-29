@@ -31,6 +31,7 @@ from cogkura.models import (
     ActivationConfig,
     ActivationReferenceKind,
     ActivationReferenceTrace,
+    AssociationPath,
     CognitiveReferenceTrace,
     CognitiveTraceOrigin,
     EpisodeEncodingResult,
@@ -107,6 +108,7 @@ __all__ = [
     "ActivationConfig",
     "ActivationReferenceKind",
     "ActivationReferenceTrace",
+    "AssociationPath",
     "CognitiveReferenceTrace",
     "CognitiveTraceOrigin",
     "ApproximateTokenEstimator",
@@ -194,4 +196,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.4"
+__version__ = "0.15.5"

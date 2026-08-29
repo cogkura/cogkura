@@ -148,6 +148,13 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
 - `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `associative_fit`, `semantic_relevance`, and the admission eligibility path.
 
+## 0.15.5 deterministic semantic relevance and association
+
+- Canonical retrieval content features (stopword filtering, contractions, morphology, punctuation normalization) drive semantic relevance instead of raw token ratios.
+- Direct, evidence-linked, and associative relevance expose matched feature tuples and winning `AssociationPath` diagnostics on `inspect_recall()`.
+- Evidence-to-evidence association links cue-matched episodes to related product episodes through qualifying shared context before reaching entity-linked semantics.
+- CogKura retrieves what stored memory relationships can justify; optional LLM enrichment remains out of band from `Memory.recall()`.
+
 ## 0.15.4 temporal snapshot and associative reach
 
 - **`as_of`** is the retrieval/evaluation clock; **`valid_at`** is the semantic validity clock; **temporal intent** (current vs historical) comes from the query, not from `valid_at` alone.

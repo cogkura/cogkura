@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.15.4` temporal semantic recall and associative reach
+- Current release focus: `0.15.5` deterministic semantic relevance and association
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -31,7 +31,7 @@ src/cogkura/
   mappers/           # ObservationMapper protocol
   storage/           # ObservationStore, CheckpointStore, EpisodeStore, SemanticMemoryStore, ActivationStore, MemoryDynamicsStore, LearningStore
   migrations/        # Cogkura-owned Postgres schema SQL
-  algorithms/        # episodic.py, semantic.py, activation.py, spreading.py, forgetting.py, working_memory.py, reconsolidation.py, learning.py, relevance.py, metamemory.py
+  algorithms/        # episodic.py, semantic.py, activation.py, retrieval_features.py, spreading.py, forgetting.py, working_memory.py, reconsolidation.py, learning.py, relevance.py, metamemory.py
 tests/
 examples/
   basic_memory.py

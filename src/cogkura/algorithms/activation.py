@@ -17,6 +17,13 @@ from cogkura.algorithms.cognitive_traces import (
     derive_episode_cognitive_traces,
     derive_semantic_cognitive_traces,
 )
+from cogkura.algorithms.retrieval_features import (
+    canonical_content_features,
+    distinctive_content_features,
+    feature_overlap,
+    normalize_and_tokenize,
+    predicate_content_features,
+)
 from cogkura.algorithms.spreading import (
     DeterministicSpreadingActivator,
     SpreadingActivator,
@@ -28,6 +35,7 @@ from cogkura.models import (
     ActivationComponents,
     ActivationConfig,
     ActivationReferenceTrace,
+    AssociationPath,
     LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
@@ -57,6 +65,34 @@ _PARTIAL_MATCH_WEIGHTS = {
     "qualifiers": 1.0,
     "text": 1.0,
 }
+
+_ASSOCIATIVE_ENTITY_HOP_WEIGHT = 0.5
+_ASSOCIATIVE_EVIDENCE_HOP_WEIGHT = 0.25
+
+
+@dataclass(frozen=True, slots=True)
+class _SemanticRelevanceDetail:
+    direct_fit: float
+    evidence_fit: float
+    associative_fit: float
+    combined: float
+    matched_direct_features: tuple[str, ...] = ()
+    matched_evidence_features: tuple[str, ...] = ()
+    association_path: AssociationPath | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _SeedEpisodeMatch:
+    episode: ActivationCandidate
+    seed_fit: float
+    matched_features: frozenset[str]
+
+
+@dataclass(frozen=True, slots=True)
+class _SemanticRelevanceContext:
+    query_features: frozenset[str]
+    by_identity: dict[MemoryIdentity, _SemanticRelevanceDetail]
+    bridge_entities: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,6 +423,8 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
+        relevance_context = _build_semantic_relevance_context(candidates, cue, config=config)
+
         admitted_outcome = _merge_semantic_admissions(
             _semantic_slot_admission_identities(
                 candidates,
@@ -411,6 +449,7 @@ class ACTRDeclarativeActivator:
                 scored=scored,
                 rank_by_identity=rank_by_identity,
                 as_of=as_of,
+                relevance_context=relevance_context,
             ),
             rank_by_identity=rank_by_identity,
             config=config,
@@ -429,9 +468,7 @@ class ACTRDeclarativeActivator:
                 result,
                 admitted_identities=admitted_identities,
                 admission_eligibility=admission_eligibility,
-                semantic_relevance=_semantic_relevance_map(candidates, cue, config=config).get(
-                    _result_identity(result)
-                ),
+                semantic_relevance=relevance_context.by_identity.get(_result_identity(result)),
             )
             for result in scored
         ]
@@ -567,6 +604,8 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
+        relevance_context = _build_semantic_relevance_context(candidates, cue, config=config)
+
         admitted_outcome = _merge_semantic_admissions(
             _semantic_slot_admission_identities(
                 candidates,
@@ -591,6 +630,7 @@ class ACTRDeclarativeActivator:
                 scored=scored,
                 rank_by_identity=rank_by_identity,
                 as_of=as_of,
+                relevance_context=relevance_context,
             ),
             rank_by_identity=rank_by_identity,
             config=config,
@@ -609,9 +649,7 @@ class ACTRDeclarativeActivator:
                 result,
                 admitted_identities=admitted_identities,
                 admission_eligibility=admission_eligibility,
-                semantic_relevance=_semantic_relevance_map(candidates, cue, config=config).get(
-                    _result_identity(result)
-                ),
+                semantic_relevance=relevance_context.by_identity.get(_result_identity(result)),
             )
             for result in scored
         ]
@@ -742,6 +780,7 @@ class ACTRDeclarativeActivator:
             rejected=tuple(rejected_candidates),
             truncated=False,
             considered_count=len(candidates),
+            canonical_query_features=tuple(sorted(relevance_context.query_features)),
         )
 
 
@@ -1207,7 +1246,7 @@ def _annotate_candidate_eligibility(
     *,
     admitted_identities: set[MemoryIdentity],
     admission_eligibility: Mapping[MemoryIdentity, RetrievalEligibility],
-    semantic_relevance: tuple[float, float, float, float] | None = None,
+    semantic_relevance: _SemanticRelevanceDetail | None = None,
 ) -> RecallResult:
     identity = _result_identity(result)
     diagnostics = result.diagnostics
@@ -1215,30 +1254,21 @@ def _annotate_candidate_eligibility(
         return result
     if identity not in admitted_identities:
         if semantic_relevance is not None:
-            direct_fit, evidence_fit, associative_fit, combined = semantic_relevance
             return replace(
                 result,
-                diagnostics=replace(
+                diagnostics=_apply_semantic_relevance_diagnostics(
                     diagnostics,
-                    direct_cue_fit=direct_fit,
-                    evidence_linked_fit=evidence_fit,
-                    associative_fit=associative_fit,
-                    semantic_relevance=combined,
+                    semantic_relevance,
                 ),
             )
         return result
     eligibility = admission_eligibility.get(identity, RetrievalEligibility.SEMANTIC_SLOT_ADMISSION)
     if semantic_relevance is not None:
-        direct_fit, evidence_fit, associative_fit, combined = semantic_relevance
         updated_diagnostics = replace(
-            diagnostics,
+            _apply_semantic_relevance_diagnostics(diagnostics, semantic_relevance),
             eligibility=eligibility,
             admission_reason=eligibility.value,
             soft_admitted=eligibility is not RetrievalEligibility.THRESHOLD,
-            direct_cue_fit=direct_fit,
-            evidence_linked_fit=evidence_fit,
-            associative_fit=associative_fit,
-            semantic_relevance=combined,
         )
     else:
         updated_diagnostics = replace(
@@ -1251,6 +1281,22 @@ def _annotate_candidate_eligibility(
         result,
         diagnostics=updated_diagnostics,
         reason=f"{_build_reason_from_diagnostics(result, updated_diagnostics)}; soft_admitted=true",
+    )
+
+
+def _apply_semantic_relevance_diagnostics(
+    diagnostics: RetrievalDiagnostics,
+    semantic_relevance: _SemanticRelevanceDetail,
+) -> RetrievalDiagnostics:
+    return replace(
+        diagnostics,
+        direct_cue_fit=semantic_relevance.direct_fit,
+        evidence_linked_fit=semantic_relevance.evidence_fit,
+        associative_fit=semantic_relevance.associative_fit,
+        semantic_relevance=semantic_relevance.combined,
+        matched_direct_features=semantic_relevance.matched_direct_features,
+        matched_evidence_features=semantic_relevance.matched_evidence_features,
+        association_path=semantic_relevance.association_path,
     )
 
 
@@ -1906,7 +1952,7 @@ def _candidate_idf_weights(
 def _cue_requests_current_state(cue: RetrievalCue, config: ActivationConfig) -> bool:
     if not cue.text or not cue.text.strip():
         return False
-    cue_tokens = _tokenize(cue.text)
+    cue_tokens = _intent_tokens(cue.text)
     return bool(cue_tokens.intersection(config.current_state_cue_tokens))
 
 
@@ -2012,8 +2058,14 @@ def _results_near_duplicate(
     right_fingerprint = _content_fingerprint_from_result(right)
     if left_fingerprint and left_fingerprint == right_fingerprint:
         return True
-    left_tokens = _collapse_jaccard_tokens(_tokenize(_result_text(left)), config=config)
-    right_tokens = _collapse_jaccard_tokens(_tokenize(_result_text(right)), config=config)
+    left_tokens = _collapse_jaccard_tokens(
+        set(normalize_and_tokenize(_result_text(left))),
+        config=config,
+    )
+    right_tokens = _collapse_jaccard_tokens(
+        set(normalize_and_tokenize(_result_text(right))),
+        config=config,
+    )
     if not left_tokens or not right_tokens:
         return False
     intersection = len(left_tokens.intersection(right_tokens))
@@ -2123,14 +2175,15 @@ def _result_text(result: RecallResult) -> str:
 
 
 def _tokenize(text: str) -> set[str]:
-    return {token.lower() for token in _TOKEN_PATTERN.findall(text)}
+    return set(canonical_content_features(text))
+
+
+def _intent_tokens(text: str) -> set[str]:
+    return set(normalize_and_tokenize(text))
 
 
 def _predicate_tokens(predicate: str | None) -> set[str]:
-    if predicate is None:
-        return set()
-    normalised = _normalise_text(predicate).replace("_", " ")
-    return _tokenize(normalised)
+    return set(predicate_content_features(predicate))
 
 
 def _semantic_lexical_tokens(
@@ -2139,10 +2192,17 @@ def _semantic_lexical_tokens(
     text: str,
 ) -> set[str]:
     tokens: set[str] = set()
-    tokens.update(_predicate_tokens(predicate))
-    tokens.update(_tokenize(object_value or ""))
-    tokens.update(_tokenize(text))
+    tokens.update(predicate_content_features(predicate))
+    tokens.update(canonical_content_features(object_value or ""))
+    tokens.update(canonical_content_features(text))
     return tokens
+
+
+def _episode_content_features(episode: ActivationCandidate) -> set[str]:
+    features = set(canonical_content_features(episode.text))
+    for entity_id in episode.entity_ids:
+        features.update(canonical_content_features(entity_id))
+    return features
 
 
 def _semantic_memory_valid_at(memory: StoredSemanticMemory, at: datetime) -> bool:
@@ -2216,7 +2276,7 @@ def _cue_requests_historical_state(cue: RetrievalCue) -> bool:
     for phrase in _HISTORICAL_CUE_PHRASES:
         if phrase in normalised:
             return True
-    return bool(_tokenize(cue.text).intersection(_HISTORICAL_CUE_TOKENS))
+    return bool(_intent_tokens(cue.text).intersection(_HISTORICAL_CUE_TOKENS))
 
 
 def _episode_by_id(
@@ -2248,10 +2308,10 @@ def _aggregated_evidence_fit(
     memory: StoredSemanticMemory,
     episode_by_id: Mapping[str, ActivationCandidate],
     *,
-    distinctive_tokens: set[str],
+    query_features: frozenset[str],
     direct_tokens: set[str],
     max_derivations: int,
-) -> float:
+) -> tuple[float, tuple[str, ...]]:
     supported = [
         derivation
         for derivation in memory.derivations
@@ -2266,66 +2326,168 @@ def _aggregated_evidence_fit(
         reverse=True,
     )
     per_support_scores: list[float] = []
+    matched_features: set[str] = set()
     for derivation in supported[:max_derivations]:
         episode = episode_by_id.get(derivation.episode_id)
         if episode is None:
             continue
-        episode_tokens = _tokenize(episode.text)
-        for entity_id in episode.entity_ids:
-            episode_tokens.update(_tokenize(entity_id))
-        evidence_only = episode_tokens - direct_tokens
-        overlap = distinctive_tokens.intersection(evidence_only)
+        evidence_only = _episode_content_features(episode) - direct_tokens
+        query_coverage, _, _, overlap = feature_overlap(
+            query_features,
+            frozenset(evidence_only),
+        )
         if overlap:
-            per_support_scores.append(len(overlap) / len(distinctive_tokens))
+            per_support_scores.append(query_coverage)
+            matched_features.update(overlap)
     if not per_support_scores:
-        return 0.0
+        return 0.0, ()
     remaining = 1.0
     for score in per_support_scores:
         remaining *= 1.0 - score
-    return min(1.0, 1.0 - remaining)
+    return min(1.0, 1.0 - remaining), tuple(sorted(matched_features))
 
 
-def _cue_matched_episode_entities(
+def _cue_matched_seed_episodes(
     candidates: Sequence[ActivationCandidate],
-    distinctive_tokens: set[str],
+    query_features: frozenset[str],
     *,
     config: ActivationConfig,
-) -> set[str]:
+) -> list[_SeedEpisodeMatch]:
     episode_by_id = _episode_by_id(candidates)
-    matched: list[tuple[ActivationCandidate, int]] = []
+    matched: list[_SeedEpisodeMatch] = []
     for episode in episode_by_id.values():
-        episode_tokens = _tokenize(episode.text)
-        for entity_id in episode.entity_ids:
-            episode_tokens.update(_tokenize(entity_id))
-        overlap_count = len(distinctive_tokens.intersection(episode_tokens))
-        if overlap_count >= config.lexical_slot_min_overlap:
-            matched.append((episode, overlap_count))
-    matched.sort(key=lambda item: -item[1])
+        episode_features = frozenset(_episode_content_features(episode))
+        query_coverage, _, _, overlap = feature_overlap(query_features, episode_features)
+        if len(overlap) >= config.lexical_slot_min_overlap:
+            matched.append(
+                _SeedEpisodeMatch(
+                    episode=episode,
+                    seed_fit=query_coverage,
+                    matched_features=overlap,
+                )
+            )
+    matched.sort(
+        key=lambda item: (
+            -item.seed_fit,
+            -len(item.matched_features),
+            item.episode.memory_key,
+        )
+    )
+    return matched[: config.max_evidence_link_derivations]
+
+
+def _bridge_entities_from_seed_episodes(
+    seed_episodes: Sequence[_SeedEpisodeMatch],
+) -> set[str]:
     bridge_entities: set[str] = set()
-    for episode, _ in matched[: config.max_evidence_link_derivations]:
-        for entity_id in episode.entity_ids:
-            if entity_id != episode.subject_id:
+    for seed in seed_episodes:
+        for entity_id in seed.episode.entity_ids:
+            if entity_id != seed.episode.subject_id:
                 bridge_entities.add(entity_id)
     return bridge_entities
 
 
 def _associative_entity_fit(
-    bridge_entities: set[str],
+    *,
+    seed_episodes: Sequence[_SeedEpisodeMatch],
     semantic_entity_ids: set[str],
-    distinctive_tokens: set[str],
-) -> float:
-    if not bridge_entities or not semantic_entity_ids:
-        return 0.0
-    shared = bridge_entities.intersection(semantic_entity_ids)
+    episode_by_id: Mapping[str, ActivationCandidate],
+    query_features: frozenset[str],
+    config: ActivationConfig,
+) -> tuple[float, AssociationPath | None]:
+    if not seed_episodes or not semantic_entity_ids:
+        return 0.0, None
+
+    best_fit = 0.0
+    best_path: AssociationPath | None = None
+
+    bridge_entities = _bridge_entities_from_seed_episodes(seed_episodes)
+    shared_direct = bridge_entities.intersection(semantic_entity_ids)
+    if shared_direct:
+        best_seed = max(seed_episodes, key=lambda item: item.seed_fit)
+        entity_id = sorted(shared_direct)[0]
+        direct_fit = best_seed.seed_fit * _ASSOCIATIVE_ENTITY_HOP_WEIGHT
+        if direct_fit > best_fit:
+            best_fit = direct_fit
+            best_path = AssociationPath(
+                seed_episode_id=best_seed.episode.memory_key,
+                matched_features=tuple(sorted(best_seed.matched_features)),
+                bridge_entity_id=entity_id,
+                hop_kind="entity",
+                weight=direct_fit,
+            )
+
+    if not config.enable_semantic_evidence_linking:
+        return best_fit, best_path
+
+    for seed in seed_episodes:
+        seed_features = frozenset(_episode_content_features(seed.episode))
+        if not seed_features:
+            continue
+        related_candidates: list[tuple[ActivationCandidate, frozenset[str]]] = []
+        for episode in episode_by_id.values():
+            if episode.memory_key == seed.episode.memory_key:
+                continue
+            related_features = frozenset(_episode_content_features(episode))
+            bridge_overlap = _qualifying_bridge_features(
+                seed_features,
+                related_features,
+                query_features,
+                episode.entity_ids,
+            )
+            if not bridge_overlap:
+                continue
+            related_candidates.append((episode, bridge_overlap))
+        related_candidates.sort(
+            key=lambda item: (
+                -len(item[1]),
+                item[0].memory_key,
+            )
+        )
+        for related_episode, bridge_overlap in related_candidates[
+            : config.max_evidence_link_derivations
+        ]:
+            related_entities = {
+                entity_id
+                for entity_id in related_episode.entity_ids
+                if entity_id != related_episode.subject_id
+            }
+            shared = related_entities.intersection(semantic_entity_ids)
+            if not shared:
+                continue
+            entity_id = sorted(shared)[0]
+            evidence_fit = seed.seed_fit * _ASSOCIATIVE_EVIDENCE_HOP_WEIGHT
+            if evidence_fit <= best_fit:
+                continue
+            best_fit = evidence_fit
+            best_path = AssociationPath(
+                seed_episode_id=seed.episode.memory_key,
+                matched_features=tuple(sorted(bridge_overlap)),
+                bridge_entity_id=entity_id,
+                related_episode_id=related_episode.memory_key,
+                hop_kind="evidence",
+                weight=evidence_fit,
+            )
+
+    return best_fit, best_path
+
+
+def _qualifying_bridge_features(
+    seed_features: frozenset[str],
+    related_features: frozenset[str],
+    query_features: frozenset[str],
+    related_entity_ids: Sequence[str],
+) -> frozenset[str]:
+    shared = seed_features.intersection(related_features)
     if not shared:
-        return 0.0
-    label_tokens: set[str] = set()
-    for entity_id in shared:
-        label_tokens.update(_tokenize(entity_id))
-    overlap = distinctive_tokens.intersection(label_tokens)
-    if overlap:
-        return len(overlap) / len(distinctive_tokens)
-    return min(1.0, 1.0 / len(distinctive_tokens))
+        return frozenset()
+    entity_label_tokens: set[str] = set()
+    for entity_id in related_entity_ids:
+        entity_label_tokens.update(canonical_content_features(entity_id))
+    qualifying = {
+        token for token in shared if token in query_features or token in entity_label_tokens
+    }
+    return frozenset(qualifying)
 
 
 def _semantic_cue_relevance_fits(
@@ -2333,79 +2495,110 @@ def _semantic_cue_relevance_fits(
     predicate: str | None,
     object_value: str | None,
     text: str,
-    distinctive_tokens: set[str],
+    query_features: frozenset[str],
     memory: StoredSemanticMemory,
     episode_by_id: Mapping[str, ActivationCandidate],
-    bridge_entities: set[str],
+    seed_episodes: Sequence[_SeedEpisodeMatch],
     semantic_entity_ids: set[str],
     config: ActivationConfig,
-) -> tuple[float, float, float, float]:
-    if not distinctive_tokens:
-        return 0.0, 0.0, 0.0, 0.0
+) -> _SemanticRelevanceDetail:
+    if not query_features:
+        return _SemanticRelevanceDetail(0.0, 0.0, 0.0, 0.0)
     direct_tokens = _semantic_lexical_tokens(predicate, object_value, text)
-    direct_overlap = distinctive_tokens.intersection(direct_tokens)
-    direct_fit = len(direct_overlap) / len(distinctive_tokens)
-    evidence_fit = (
-        _aggregated_evidence_fit(
+    direct_fit, _, _, direct_matched = feature_overlap(
+        query_features,
+        frozenset(direct_tokens),
+    )
+    evidence_fit = 0.0
+    evidence_matched: tuple[str, ...] = ()
+    if config.enable_semantic_evidence_linking:
+        evidence_fit, evidence_matched = _aggregated_evidence_fit(
             memory,
             episode_by_id,
-            distinctive_tokens=distinctive_tokens,
+            query_features=query_features,
             direct_tokens=direct_tokens,
             max_derivations=config.max_evidence_link_derivations,
         )
-        if config.enable_semantic_evidence_linking
-        else 0.0
-    )
-    associative_fit = (
-        _associative_entity_fit(bridge_entities, semantic_entity_ids, distinctive_tokens)
-        if config.enable_semantic_evidence_linking
-        else 0.0
-    )
+    associative_fit = 0.0
+    association_path: AssociationPath | None = None
+    if config.enable_semantic_evidence_linking:
+        associative_fit, association_path = _associative_entity_fit(
+            seed_episodes=seed_episodes,
+            semantic_entity_ids=semantic_entity_ids,
+            episode_by_id=episode_by_id,
+            query_features=query_features,
+            config=config,
+        )
     combined = max(direct_fit, evidence_fit, associative_fit)
-    return direct_fit, evidence_fit, associative_fit, combined
+    return _SemanticRelevanceDetail(
+        direct_fit=direct_fit,
+        evidence_fit=evidence_fit,
+        associative_fit=associative_fit,
+        combined=combined,
+        matched_direct_features=tuple(sorted(direct_matched)),
+        matched_evidence_features=evidence_matched,
+        association_path=association_path,
+    )
 
 
 def _semantic_meets_current_relevance(
     *,
-    direct_fit: float,
-    evidence_fit: float,
-    associative_fit: float,
-    combined: float,
-    distinctive_tokens: set[str],
-    direct_tokens: set[str],
+    detail: _SemanticRelevanceDetail,
     bridge_entities: set[str],
     semantic_entity_ids: set[str],
     config: ActivationConfig,
 ) -> bool:
-    if combined >= config.semantic_current_min_relevance:
+    if detail.combined >= config.semantic_current_min_relevance:
         return True
-    direct_overlap = distinctive_tokens.intersection(direct_tokens)
-    if len(direct_overlap) >= config.lexical_slot_min_overlap:
+    if len(detail.matched_direct_features) >= config.lexical_slot_min_overlap:
+        return True
+    if len(detail.matched_evidence_features) >= config.lexical_slot_min_overlap:
         return True
     if bridge_entities.intersection(semantic_entity_ids):
         return True
     return False
 
 
-def _semantic_relevance_map(
+def _query_content_features(
+    cue: RetrievalCue,
+    *,
+    config: ActivationConfig,
+) -> frozenset[str]:
+    if not cue.text or not cue.text.strip():
+        return frozenset()
+    return distinctive_content_features(
+        cue.text,
+        exclude_tokens=config.current_state_cue_tokens,
+    )
+
+
+def _build_semantic_relevance_context(
     candidates: Sequence[ActivationCandidate],
     cue: RetrievalCue,
     *,
     config: ActivationConfig,
-) -> dict[MemoryIdentity, tuple[float, float, float, float]]:
+) -> _SemanticRelevanceContext:
     if not config.enable_semantic_evidence_linking and not config.enable_lexical_slot_matching:
-        return {}
-    cue_tokens = _tokenize(cue.text) if cue.text else set()
-    distinctive_tokens = cue_tokens - config.current_state_cue_tokens
-    if not distinctive_tokens:
-        return {}
+        return _SemanticRelevanceContext(
+            query_features=frozenset(),
+            by_identity={},
+            bridge_entities=frozenset(),
+        )
+    query_features = _query_content_features(cue, config=config)
+    if not query_features:
+        return _SemanticRelevanceContext(
+            query_features=query_features,
+            by_identity={},
+            bridge_entities=frozenset(),
+        )
     episode_by_id = _episode_by_id(candidates)
-    bridge_entities = (
-        _cue_matched_episode_entities(candidates, distinctive_tokens, config=config)
+    seed_episodes = (
+        _cue_matched_seed_episodes(candidates, query_features, config=config)
         if config.enable_semantic_evidence_linking
-        else set()
+        else []
     )
-    relevance: dict[MemoryIdentity, tuple[float, float, float, float]] = {}
+    bridge_entities = frozenset(_bridge_entities_from_seed_episodes(seed_episodes))
+    relevance: dict[MemoryIdentity, _SemanticRelevanceDetail] = {}
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
@@ -2417,14 +2610,18 @@ def _semantic_relevance_map(
             predicate=candidate.predicate,
             object_value=candidate.object_value,
             text=candidate.text,
-            distinctive_tokens=distinctive_tokens,
+            query_features=query_features,
             memory=memory,
             episode_by_id=episode_by_id,
-            bridge_entities=bridge_entities,
+            seed_episodes=seed_episodes,
             semantic_entity_ids=semantic_entity_ids,
             config=config,
         )
-    return relevance
+    return _SemanticRelevanceContext(
+        query_features=query_features,
+        by_identity=relevance,
+        bridge_entities=bridge_entities,
+    )
 
 
 def _authoritative_semantic_current_admission_identities(
@@ -2439,6 +2636,7 @@ def _authoritative_semantic_current_admission_identities(
     scored: Sequence[RecallResult] | None = None,
     rank_by_identity: Mapping[MemoryIdentity, float] | None = None,
     as_of: datetime | None = None,
+    relevance_context: _SemanticRelevanceContext | None = None,
 ) -> _SemanticAdmissionOutcome:
     empty = _SemanticAdmissionOutcome(
         admitted=frozenset(),
@@ -2454,16 +2652,13 @@ def _authoritative_semantic_current_admission_identities(
             "Authoritative semantic admission requires scored results, rank activations, and as_of."
         )
 
-    relevance_map = _semantic_relevance_map(candidates, cue, config=config)
-    bridge_entities = (
-        _cue_matched_episode_entities(
-            candidates,
-            _tokenize(cue.text) - config.current_state_cue_tokens if cue.text else set(),
-            config=config,
-        )
-        if cue.text and config.enable_semantic_evidence_linking
-        else set()
+    context = relevance_context or _build_semantic_relevance_context(
+        candidates,
+        cue,
+        config=config,
     )
+    relevance_map = context.by_identity
+    bridge_entities = set(context.bridge_entities)
     matched: list[tuple[MemoryIdentity, float]] = []
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
@@ -2479,25 +2674,11 @@ def _authoritative_semantic_current_admission_identities(
             as_of=as_of,
         ):
             continue
-        fits = relevance_map.get(candidate.identity)
-        if fits is None:
+        detail = relevance_map.get(candidate.identity)
+        if detail is None:
             continue
-        direct_fit, evidence_fit, associative_fit, combined = fits
-        direct_tokens = _semantic_lexical_tokens(
-            candidate.predicate,
-            candidate.object_value,
-            candidate.text,
-        )
-        distinctive_tokens = (
-            _tokenize(cue.text) - config.current_state_cue_tokens if cue.text else set()
-        )
         if not _semantic_meets_current_relevance(
-            direct_fit=direct_fit,
-            evidence_fit=evidence_fit,
-            associative_fit=associative_fit,
-            combined=combined,
-            distinctive_tokens=distinctive_tokens,
-            direct_tokens=direct_tokens,
+            detail=detail,
             bridge_entities=bridge_entities,
             semantic_entity_ids=_semantic_association_entity_ids(candidate),
             config=config,

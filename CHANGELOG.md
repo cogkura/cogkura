@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.5] - 2026-08-29
+
+### Added
+
+- Canonical retrieval feature pipeline (`retrieval_features.py`) with contraction handling, stopword filtering, conservative morphology, and orthographic normalization.
+- Asymmetric query-coverage semantic relevance scoring with inspectable matched feature tuples.
+- Bounded evidence-to-evidence associative reach with attenuated hop weights and `AssociationPath` diagnostics.
+- `RetrievalDiagnostics.matched_direct_features`, `matched_evidence_features`, and `association_path`.
+- `RecallInspectionResult.canonical_query_features`.
+- Package regression tests in `tests/test_canonical_retrieval_features.py` and `tests/test_deterministic_semantic_relevance.py`.
+
+### Changed
+
+- Semantic direct, evidence-linked, and associative relevance now use canonical content features instead of raw token ratios.
+- Evidence-linked admission can satisfy lexical overlap through direct or evidence matched features.
+- Associative reach uses seed query-coverage with entity and evidence hop attenuation (`0.5` / `0.25`).
+- `relevance.py` and activation recall matching share the canonical token pipeline.
+
+### Fixed
+
+- Stopword-only overlaps (for example `for`, `to`, `a`) no longer admit semantics.
+- Singular/plural jacket evidence (for example `jackets` / `jacket`) produces meaningful overlap.
+- Query verbosity no longer destabilizes semantic admission thresholds for the same content.
+- NorthPeak-style fit semantics can be reached through inspectable evidence-to-evidence association when compare and return episodes share product context.
+
+### Preserved
+
+- Global `retrieval_threshold`, `semantic_soft_admission_floor`, `semantic_current_min_relevance`, and decay defaults unchanged.
+- ACT-R activation, forgetting, and working-memory selection unchanged.
+- `SUPERSEDED` cannot use authoritative current admission.
+
+### Notes
+
+- No migration required.
+- Re-run CogKuraBench `0.3.2` and Demo `0.3.2` externally for release evidence.
+
 ## [0.15.4] - 2026-08-28
 
 ### Added

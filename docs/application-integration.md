@@ -116,6 +116,8 @@ await memory.learn(feedback)
 
 `prepare_context()` does not learn or reinforce automatically.
 
+Core recall remains deterministic. Optional future LLM extraction or cue enrichment belongs outside `Memory.recall()`; applications may add adapters at ingestion or query time without changing the memory contract.
+
 ## Low-level APIs
 
 Research and advanced integrations can still call `encode_episodes()`, `consolidate_semantics()`, `recall()`, `inspect_recall()`, `select_working_memory()`, `assess_memory()`, and `record_access()` directly. Application integration APIs orchestrate those mechanisms without replacing them.
