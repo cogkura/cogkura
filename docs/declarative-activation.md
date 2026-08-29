@@ -148,6 +148,12 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
 - `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `associative_fit`, `semantic_relevance`, and the admission eligibility path.
 
+## 0.15.6 semantic competition and recall specificity
+
+- Recall identity is cardinality-aware: `cardinality=one` groups by `slot_key`; `cardinality=many` groups by claim (`memory_key`) so distinct object values compete rather than collapse.
+- Dedupe (same recall identity, near-duplicate statements) is separate from competition (distinct memories ranked by relevance specificity, then activation).
+- `inspect_recall()` exposes `direct_value_fit`, `direct_predicate_fit`, `relevance_tier`, and collapse diagnostics (`collapse_key`, `collapse_reason`, `collapsed_into`).
+
 ## 0.15.5 deterministic semantic relevance and association
 
 - Canonical retrieval content features (stopword filtering, contractions, morphology, punctuation normalization) drive semantic relevance instead of raw token ratios.

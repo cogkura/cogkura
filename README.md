@@ -470,7 +470,16 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. Through `0.15.5`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, working-memory same-slot collapse, evidence-chronology activation with `inspect_recall()`, lexical semantic slot matching for plain-language cues, bounded soft admission for long-horizon current facts, evidence-linked associative semantic reachability, authoritative current semantic admission, current-at-snapshot temporal semantics, one-hop entity associative reach, canonical retrieval features for semantic relevance, and bounded evidence-to-evidence association.
+Cogkura is in development. Through `0.15.6`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, working-memory same-slot collapse, evidence-chronology activation with `inspect_recall()`, lexical semantic slot matching for plain-language cues, bounded soft admission for long-horizon current facts, evidence-linked associative semantic reachability, authoritative current semantic admission, current-at-snapshot temporal semantics, one-hop entity associative reach, canonical retrieval features for semantic relevance, bounded evidence-to-evidence association, cardinality-aware recall identity, and relevance-specificity competition among distinct semantics.
+
+## Scope of 0.15.6
+
+Implemented in `0.15.6`:
+
+- cardinality-aware recall identity so many-valued semantics stay distinct at recall time;
+- relevance specificity tiers that rank direct object matches above weaker evidence overlap;
+- collapse and competition diagnostics on `inspect_recall()`;
+- [`tests/test_semantic_competition.py`](tests/test_semantic_competition.py).
 
 ## Scope of 0.15.5
 
@@ -581,6 +590,7 @@ flowchart TD
 - `0.15.3`: semantic state reconciliation, evidence-linked associative recall, and authoritative current admission (done).
 - `0.15.4`: temporal snapshot semantics, evidence aggregation, and entity associative reach (done).
 - `0.15.5`: canonical semantic relevance and bounded evidence-to-evidence association (done).
+- `0.15.6`: semantic competition and recall specificity (done).
 - later: additional connectors, and integrations.
 
 See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.

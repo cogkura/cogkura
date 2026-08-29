@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.6] - 2026-08-29
+
+### Added
+
+- Cardinality-aware recall identity so `cardinality=many` semantics keep distinct object values at recall time.
+- Relevance specificity tiers (`direct_value`, `direct_semantic`, `entity_association`, `evidence_association`, `contextual`) for eligible-candidate competition.
+- `RetrievalDiagnostics.direct_value_fit`, `direct_predicate_fit`, `relevance_tier`, `collapse_key`, `collapse_reason`, `collapsed_into`, `canonical_object_value`, and `cardinality`.
+- Package regression tests in `tests/test_semantic_competition.py`.
+
+### Changed
+
+- Eligible recall results sort by relevance tier, then combined semantic relevance, then `rank_activation`.
+- Same-slot and Jaccard collapse require matching recall identity; distinct many-valued semantics no longer merge by predicate slot alone.
+- Support episodes map to the supported claim identity for `cardinality=many`.
+- `direct_cue_fit` is now `max(direct_value_fit, direct_predicate_fit)` for admission compatibility.
+
+### Fixed
+
+- Hiking and skiing `activity_interest` semantics no longer collapse into one another when skiing has stronger jacket evidence.
+- Direct object matches (for example hiking in a hiking query) outrank weaker evidence-only overlaps from unrelated activities.
+
+### Preserved
+
+- Global thresholds, ACT-R decay, working-memory selection, and 0.15.5 canonical relevance pipeline unchanged.
+- Cardinality-one slot competition (for example jacket size L vs M) unchanged.
+
+### Notes
+
+- No migration required.
+- Re-run CogKuraBench `0.3.2` and Demo `0.3.2` externally for release evidence.
+
 ## [0.15.5] - 2026-08-29
 
 ### Added

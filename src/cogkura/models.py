@@ -997,6 +997,16 @@ class SlotFitSource(StrEnum):
     SUPPORT = "support"
 
 
+class RelevanceTier(StrEnum):
+    """Specificity tier for semantic relevance-based competition."""
+
+    DIRECT_VALUE = "direct_value"
+    DIRECT_SEMANTIC = "direct_semantic"
+    ENTITY_ASSOCIATION = "entity_association"
+    EVIDENCE_ASSOCIATION = "evidence_association"
+    CONTEXTUAL = "contextual"
+
+
 @dataclass(frozen=True, slots=True)
 class SupportProvenance:
     """Derivation-backed semantic provenance for a SUPPORT episode."""
@@ -1082,9 +1092,12 @@ class RetrievalDiagnostics:
     text_cue_fit: float
     temporal_mode: str
     direct_cue_fit: float = 0.0
+    direct_value_fit: float = 0.0
+    direct_predicate_fit: float = 0.0
     evidence_linked_fit: float = 0.0
     associative_fit: float = 0.0
     semantic_relevance: float = 0.0
+    relevance_tier: str = RelevanceTier.CONTEXTUAL.value
     matched_direct_features: tuple[str, ...] = ()
     matched_evidence_features: tuple[str, ...] = ()
     association_path: AssociationPath | None = None
@@ -1108,6 +1121,11 @@ class RetrievalDiagnostics:
     observation_evidence_ids: tuple[str, ...] = ()
     support_provenance: tuple[SupportProvenance, ...] = ()
     selected_support_revision_key: str | None = None
+    collapse_key: str | None = None
+    collapse_reason: str | None = None
+    collapsed_into: str | None = None
+    canonical_object_value: str | None = None
+    cardinality: str | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1128,6 +1146,8 @@ class RetrievalDiagnostics:
             ("text_coverage", self.text_coverage),
             ("text_cue_fit", self.text_cue_fit),
             ("direct_cue_fit", self.direct_cue_fit),
+            ("direct_value_fit", self.direct_value_fit),
+            ("direct_predicate_fit", self.direct_predicate_fit),
             ("evidence_linked_fit", self.evidence_linked_fit),
             ("associative_fit", self.associative_fit),
             ("semantic_relevance", self.semantic_relevance),
@@ -1163,6 +1183,16 @@ class RetrievalDiagnostics:
                 raise ValidationError("observation_evidence_ids must not contain empty values.")
         if self.spread_hop is not None and self.spread_hop < 0:
             raise ValidationError("spread_hop must not be negative when provided.")
+        if self.collapse_reason is not None and not self.collapse_reason.strip():
+            raise ValidationError("collapse_reason must not be empty when provided.")
+        if self.collapsed_into is not None and not self.collapsed_into.strip():
+            raise ValidationError("collapsed_into must not be empty when provided.")
+        if self.collapse_key is not None and not self.collapse_key.strip():
+            raise ValidationError("collapse_key must not be empty when provided.")
+        if self.canonical_object_value is not None and not self.canonical_object_value.strip():
+            raise ValidationError("canonical_object_value must not be empty when provided.")
+        if self.cardinality is not None and not self.cardinality.strip():
+            raise ValidationError("cardinality must not be empty when provided.")
 
 
 @dataclass(frozen=True, slots=True)

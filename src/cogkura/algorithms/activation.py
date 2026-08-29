@@ -43,9 +43,11 @@ from cogkura.models import (
     RecallInspectionDisposition,
     RecallInspectionResult,
     RecallResult,
+    RelevanceTier,
     RetrievalCue,
     RetrievalDiagnostics,
     RetrievalEligibility,
+    SemanticCardinality,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
     SlotFitSource,
@@ -69,10 +71,21 @@ _PARTIAL_MATCH_WEIGHTS = {
 _ASSOCIATIVE_ENTITY_HOP_WEIGHT = 0.5
 _ASSOCIATIVE_EVIDENCE_HOP_WEIGHT = 0.25
 
+_RELEVANCE_TIER_RANK = {
+    RelevanceTier.DIRECT_VALUE: 5,
+    RelevanceTier.DIRECT_SEMANTIC: 4,
+    RelevanceTier.ENTITY_ASSOCIATION: 3,
+    RelevanceTier.EVIDENCE_ASSOCIATION: 2,
+    RelevanceTier.CONTEXTUAL: 1,
+}
+_SEMANTIC_TIER_RANK_WEIGHT = 0.25
+
 
 @dataclass(frozen=True, slots=True)
 class _SemanticRelevanceDetail:
     direct_fit: float
+    direct_value_fit: float
+    direct_predicate_fit: float
     evidence_fit: float
     associative_fit: float
     combined: float
@@ -266,12 +279,13 @@ def build_episode_support_index(
 def build_episode_slot_index(
     semantics: Sequence[StoredSemanticMemory],
 ) -> dict[str, str]:
-    """Map episode ids to semantic slot keys they support."""
+    """Map episode ids to semantic recall identities they support."""
     index: dict[str, str] = {}
     for memory in semantics:
+        recall_identity = _semantic_recall_identity(memory)
         for derivation in memory.derivations:
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
-                index[derivation.episode_id] = memory.slot_key
+                index[derivation.episode_id] = recall_identity
     return index
 
 
@@ -313,15 +327,16 @@ def build_episode_support_provenance_index(
 def build_episode_slot_index_from_results(
     results: Sequence[RecallResult],
 ) -> dict[str, str]:
-    """Map episode ids to slot keys using semantic memories in recall results."""
+    """Map episode ids to recall identities using semantic memories in recall results."""
     index: dict[str, str] = {}
     for result in results:
         memory = result.memory
         if not isinstance(memory, StoredSemanticMemory):
             continue
+        recall_identity = _semantic_recall_identity(memory)
         for derivation in memory.derivations:
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
-                index[derivation.episode_id] = memory.slot_key
+                index[derivation.episode_id] = recall_identity
     return index
 
 
@@ -483,10 +498,10 @@ class ACTRDeclarativeActivator:
         ]
         ordered = sorted(
             eligible,
-            key=lambda item: (
-                -rank_by_identity[_result_identity(item)],
-                item.memory_kind.value,
-                _memory_key(item),
+            key=lambda item: _eligible_sort_key(
+                item,
+                rank_by_identity=rank_by_identity,
+                relevance_context=relevance_context,
             ),
         )
 
@@ -673,10 +688,10 @@ class ACTRDeclarativeActivator:
             )
         ordered = sorted(
             [result for result in scored if _result_identity(result) in eligible_identities],
-            key=lambda item: (
-                -rank_by_identity[_result_identity(item)],
-                item.memory_kind.value,
-                _memory_key(item),
+            key=lambda item: _eligible_sort_key(
+                item,
+                rank_by_identity=rank_by_identity,
+                relevance_context=relevance_context,
             ),
         )
 
@@ -694,23 +709,24 @@ class ACTRDeclarativeActivator:
                 ordered = filtered_ordered
 
         returned_results: list[RecallResult] = []
+        collapse_diagnostics: dict[MemoryIdentity, tuple[str, str, str]] = {}
         if config.enable_duplicate_collapse:
             for result in ordered:
                 identity = _result_identity(result)
                 if len(returned_results) >= limit:
                     disposition_by_identity[identity] = RecallInspectionDisposition.LIMITED
                     continue
-                if any(
-                    _should_collapse(
-                        existing,
-                        result,
-                        config=config,
-                        support_index=support_index,
-                        slot_index=slot_index,
-                    )
-                    for existing in returned_results
-                ):
+                collapse_match = _find_collapse_match(
+                    returned_results,
+                    result,
+                    config=config,
+                    support_index=support_index,
+                    slot_index=slot_index,
+                )
+                if collapse_match is not None:
+                    reason, winner_key, collapse_key = collapse_match
                     disposition_by_identity[identity] = RecallInspectionDisposition.COLLAPSED
+                    collapse_diagnostics[identity] = (reason, winner_key, collapse_key)
                     continue
                 disposition_by_identity[identity] = RecallInspectionDisposition.RETURNED
                 returned_results.append(result)
@@ -722,6 +738,11 @@ class ACTRDeclarativeActivator:
                     returned_results.append(result)
                 else:
                     disposition_by_identity[identity] = RecallInspectionDisposition.LIMITED
+
+        if collapse_diagnostics:
+            scored = [
+                _apply_collapse_diagnostics(result, collapse_diagnostics) for result in scored
+            ]
 
         returned_candidates: list[RecallInspectionCandidate] = []
         rejected_candidates: list[RecallInspectionCandidate] = []
@@ -1252,6 +1273,7 @@ def _annotate_candidate_eligibility(
     diagnostics = result.diagnostics
     if diagnostics is None:
         return result
+    semantic_memory = result.memory if isinstance(result.memory, StoredSemanticMemory) else None
     if identity not in admitted_identities:
         if semantic_relevance is not None:
             return replace(
@@ -1259,13 +1281,18 @@ def _annotate_candidate_eligibility(
                 diagnostics=_apply_semantic_relevance_diagnostics(
                     diagnostics,
                     semantic_relevance,
+                    memory=semantic_memory,
                 ),
             )
         return result
     eligibility = admission_eligibility.get(identity, RetrievalEligibility.SEMANTIC_SLOT_ADMISSION)
     if semantic_relevance is not None:
         updated_diagnostics = replace(
-            _apply_semantic_relevance_diagnostics(diagnostics, semantic_relevance),
+            _apply_semantic_relevance_diagnostics(
+                diagnostics,
+                semantic_relevance,
+                memory=semantic_memory,
+            ),
             eligibility=eligibility,
             admission_reason=eligibility.value,
             soft_admitted=eligibility is not RetrievalEligibility.THRESHOLD,
@@ -1287,16 +1314,29 @@ def _annotate_candidate_eligibility(
 def _apply_semantic_relevance_diagnostics(
     diagnostics: RetrievalDiagnostics,
     semantic_relevance: _SemanticRelevanceDetail,
+    *,
+    memory: StoredSemanticMemory | None = None,
 ) -> RetrievalDiagnostics:
-    return replace(
+    tier = _relevance_tier(semantic_relevance)
+    updated = replace(
         diagnostics,
         direct_cue_fit=semantic_relevance.direct_fit,
+        direct_value_fit=semantic_relevance.direct_value_fit,
+        direct_predicate_fit=semantic_relevance.direct_predicate_fit,
         evidence_linked_fit=semantic_relevance.evidence_fit,
         associative_fit=semantic_relevance.associative_fit,
         semantic_relevance=semantic_relevance.combined,
         matched_direct_features=semantic_relevance.matched_direct_features,
         matched_evidence_features=semantic_relevance.matched_evidence_features,
         association_path=semantic_relevance.association_path,
+        relevance_tier=tier.value,
+    )
+    if memory is None:
+        return updated
+    return replace(
+        updated,
+        canonical_object_value=memory.object_value,
+        cardinality=memory.cardinality.value,
     )
 
 
@@ -2016,19 +2056,153 @@ def _collapse_results(
     for result in results:
         if len(selected) >= limit:
             break
-        if any(
-            _should_collapse(
-                existing,
+        if (
+            _find_collapse_match(
+                selected,
                 result,
                 config=config,
                 support_index=support_index,
                 slot_index=slot_index,
             )
-            for existing in selected
+            is not None
         ):
             continue
         selected.append(result)
     return selected
+
+
+def _find_collapse_match(
+    selected: Sequence[RecallResult],
+    candidate: RecallResult,
+    *,
+    config: ActivationConfig,
+    support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_index: Mapping[str, str],
+) -> tuple[str, str, str] | None:
+    for existing in selected:
+        reason = _collapse_reason(
+            existing,
+            candidate,
+            config=config,
+            support_index=support_index,
+            slot_index=slot_index,
+        )
+        if reason is None:
+            continue
+        winner_key = _memory_key(existing)
+        collapse_key = _recall_identity_from_result(existing, slot_index=slot_index)
+        if collapse_key is None:
+            collapse_key = winner_key
+        return reason, winner_key, collapse_key
+    return None
+
+
+def _apply_collapse_diagnostics(
+    result: RecallResult,
+    collapse_diagnostics: Mapping[MemoryIdentity, tuple[str, str, str]],
+) -> RecallResult:
+    identity = _result_identity(result)
+    collapse = collapse_diagnostics.get(identity)
+    if collapse is None or result.diagnostics is None:
+        return result
+    reason, collapsed_into, collapse_key = collapse
+    return replace(
+        result,
+        diagnostics=replace(
+            result.diagnostics,
+            collapse_reason=reason,
+            collapsed_into=collapsed_into,
+            collapse_key=collapse_key,
+        ),
+    )
+
+
+def _semantic_recall_identity(memory: StoredSemanticMemory) -> str:
+    if memory.cardinality is SemanticCardinality.MANY:
+        return memory.memory_key
+    return memory.slot_key
+
+
+def _recall_identity_from_result(
+    result: RecallResult,
+    *,
+    slot_index: Mapping[str, str],
+) -> str | None:
+    memory = result.memory
+    if isinstance(memory, StoredSemanticMemory):
+        return _semantic_recall_identity(memory)
+    if isinstance(memory, StoredEpisode):
+        return slot_index.get(memory.id)
+    return None
+
+
+def _relevance_tier(detail: _SemanticRelevanceDetail | None) -> RelevanceTier:
+    if detail is None:
+        return RelevanceTier.CONTEXTUAL
+    if detail.direct_value_fit > 0.0:
+        return RelevanceTier.DIRECT_VALUE
+    if detail.direct_predicate_fit > 0.0:
+        return RelevanceTier.DIRECT_SEMANTIC
+    if detail.associative_fit > 0.0:
+        return RelevanceTier.ENTITY_ASSOCIATION
+    if detail.evidence_fit > 0.0:
+        return RelevanceTier.EVIDENCE_ASSOCIATION
+    return RelevanceTier.CONTEXTUAL
+
+
+def _eligible_sort_key(
+    result: RecallResult,
+    *,
+    rank_by_identity: Mapping[MemoryIdentity, float],
+    relevance_context: _SemanticRelevanceContext,
+) -> tuple[float | int | str, ...]:
+    identity = _result_identity(result)
+    rank_activation = rank_by_identity[identity]
+    memory = result.memory
+    if (
+        result.memory_kind is MemoryKind.SEMANTIC
+        and isinstance(memory, StoredSemanticMemory)
+        and memory.cardinality is SemanticCardinality.MANY
+    ):
+        detail = relevance_context.by_identity.get(identity)
+        tier = _RELEVANCE_TIER_RANK[_relevance_tier(detail)]
+        combined = detail.combined if detail is not None else 0.0
+        effective_rank = rank_activation + (tier * _SEMANTIC_TIER_RANK_WEIGHT)
+        return (
+            -effective_rank,
+            -combined,
+            result.memory_kind.value,
+            _memory_key(result),
+        )
+    return (
+        -rank_activation,
+        result.memory_kind.value,
+        _memory_key(result),
+    )
+
+
+def _collapse_reason(
+    left: RecallResult,
+    right: RecallResult,
+    *,
+    config: ActivationConfig,
+    support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
+    slot_index: Mapping[str, str],
+) -> str | None:
+    if config.enable_duplicate_collapse and _results_near_duplicate(
+        left,
+        right,
+        config=config,
+        slot_index=slot_index,
+    ):
+        return "near_duplicate"
+    if config.collapse_same_slot_support and _results_same_slot_support(
+        left,
+        right,
+        slot_index=slot_index,
+    ):
+        return "same_identity"
+    return None
 
 
 def _should_collapse(
@@ -2039,13 +2213,16 @@ def _should_collapse(
     support_index: Mapping[str, frozenset[SemanticMemoryStatus]],
     slot_index: Mapping[str, str],
 ) -> bool:
-    if config.enable_duplicate_collapse and _results_near_duplicate(left, right, config=config):
-        return True
-    if config.collapse_same_slot_support and _results_same_slot_support(
-        left, right, slot_index=slot_index
-    ):
-        return True
-    return False
+    return (
+        _collapse_reason(
+            left,
+            right,
+            config=config,
+            support_index=support_index,
+            slot_index=slot_index,
+        )
+        is not None
+    )
 
 
 def _results_near_duplicate(
@@ -2053,7 +2230,15 @@ def _results_near_duplicate(
     right: RecallResult,
     *,
     config: ActivationConfig,
+    slot_index: Mapping[str, str],
 ) -> bool:
+    left_memory = left.memory
+    right_memory = right.memory
+    if isinstance(left_memory, StoredSemanticMemory) and isinstance(
+        right_memory, StoredSemanticMemory
+    ):
+        if _semantic_recall_identity(left_memory) != _semantic_recall_identity(right_memory):
+            return False
     left_fingerprint = _content_fingerprint_from_result(left)
     right_fingerprint = _content_fingerprint_from_result(right)
     if left_fingerprint and left_fingerprint == right_fingerprint:
@@ -2113,7 +2298,7 @@ def _slot_support_group(
 ) -> str | None:
     memory = result.memory
     if isinstance(memory, StoredSemanticMemory):
-        return memory.slot_key
+        return _semantic_recall_identity(memory)
     if isinstance(memory, StoredEpisode):
         return slot_index.get(memory.id)
     return None
@@ -2503,12 +2688,21 @@ def _semantic_cue_relevance_fits(
     config: ActivationConfig,
 ) -> _SemanticRelevanceDetail:
     if not query_features:
-        return _SemanticRelevanceDetail(0.0, 0.0, 0.0, 0.0)
-    direct_tokens = _semantic_lexical_tokens(predicate, object_value, text)
-    direct_fit, _, _, direct_matched = feature_overlap(
+        return _SemanticRelevanceDetail(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    object_tokens = set(canonical_content_features(object_value or ""))
+    if memory.object_entity_id:
+        object_tokens.update(canonical_content_features(memory.object_entity_id))
+    predicate_tokens = set(predicate_content_features(predicate))
+    value_fit, _, _, value_matched = feature_overlap(
         query_features,
-        frozenset(direct_tokens),
+        frozenset(object_tokens),
     )
+    predicate_fit, _, _, predicate_matched = feature_overlap(
+        query_features,
+        frozenset(predicate_tokens),
+    )
+    direct_fit = max(value_fit, predicate_fit)
+    direct_matched = tuple(sorted(set(value_matched).union(predicate_matched)))
     evidence_fit = 0.0
     evidence_matched: tuple[str, ...] = ()
     if config.enable_semantic_evidence_linking:
@@ -2516,7 +2710,7 @@ def _semantic_cue_relevance_fits(
             memory,
             episode_by_id,
             query_features=query_features,
-            direct_tokens=direct_tokens,
+            direct_tokens=object_tokens.union(predicate_tokens),
             max_derivations=config.max_evidence_link_derivations,
         )
     associative_fit = 0.0
@@ -2532,10 +2726,12 @@ def _semantic_cue_relevance_fits(
     combined = max(direct_fit, evidence_fit, associative_fit)
     return _SemanticRelevanceDetail(
         direct_fit=direct_fit,
+        direct_value_fit=value_fit,
+        direct_predicate_fit=predicate_fit,
         evidence_fit=evidence_fit,
         associative_fit=associative_fit,
         combined=combined,
-        matched_direct_features=tuple(sorted(direct_matched)),
+        matched_direct_features=direct_matched,
         matched_evidence_features=evidence_matched,
         association_path=association_path,
     )

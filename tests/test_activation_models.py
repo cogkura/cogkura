@@ -52,6 +52,23 @@ def test_activation_config_rejects_noise() -> None:
         ActivationConfig(enable_noise=True)
 
 
+def test_retrieval_diagnostics_relevance_tier_defaults() -> None:
+    from cogkura.models import RelevanceTier, RetrievalDiagnostics
+
+    diagnostics = RetrievalDiagnostics(
+        rank_activation=1.0,
+        accessibility_partial=0.5,
+        ranking_partial=0.5,
+        conjunction=0.5,
+        text_coverage=0.5,
+        text_cue_fit=0.5,
+        temporal_mode="current",
+    )
+    assert diagnostics.relevance_tier == RelevanceTier.CONTEXTUAL.value
+    assert diagnostics.direct_value_fit == 0.0
+    assert diagnostics.direct_predicate_fit == 0.0
+
+
 def test_memory_reference_identity() -> None:
     reference = MemoryReference(
         tenant_id="company_123",
