@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.7] - 2026-08-31
+
+### Added
+
+- Candidate-set association indexes built per recall (`entity_id → episodes`, `entity_id → semantics`, `episode_id → SUPPORT semantics`) without new storage.
+- Entity recovery from seed episode text against known candidate entity ids (for example NorthPeak Alpine Shell → `northpeak-alpine-shell`).
+- Entity-indexed episode-to-episode associative hop with attenuation before reaching SUPPORT semantics.
+- Contextual evidence hop requiring two distinctive shared features unless a single entity-label token qualifies.
+- `ActivationConfig.association_seed_min_relevance`, `max_association_seeds`, `max_association_neighbours`, and `contextual_association_min_relevance`.
+- `AssociationPath.hop_count` and `seed_relevance`; `RecallInspectionCandidate.association_role`; `RecallInspectionResult.association_seed_count` and `association_paths_used`.
+- Package regression tests in `tests/test_contextual_association.py`.
+
+### Changed
+
+- Association seeds use a dedicated relevance floor and cap independent of `retrieval_threshold`.
+- `_relevance_tier` maps `hop_kind="entity"` to `ENTITY_ASSOCIATION`; evidence and contextual association map to `CONTEXTUAL` (evidence-linked fit still uses `EVIDENCE_ASSOCIATION`).
+- Subject entity tokens are excluded from bridge-feature overlap to prevent shared-subject flooding.
+
+### Fixed
+
+- Demo-shaped NorthPeak recall where compare episodes name a product in text but omit product `entity_ids` and return episodes share no jacket tokens with the seed.
+- Single generic query tokens (for example `jacket` alone) no longer admit unrelated product-fit semantics via entity recovery.
+
+### Preserved
+
+- ACT-R activation thresholds, working-memory selection, cardinality-aware recall identity, and 0.15.6 relevance specificity unchanged.
+- Bridge-only seed episodes remain below threshold; association does not mutate semantic `support_count`, confidence, status, or derivations.
+
+### Notes
+
+- No migration required.
+- Re-run CogKuraBench and Demo externally for release evidence; NorthPeak and lightweight behaviour is covered by package inspect-path tests.
+
 ## [0.15.6] - 2026-08-29
 
 ### Added

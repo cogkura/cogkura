@@ -898,6 +898,10 @@ class ActivationConfig:
     enable_semantic_evidence_linking: bool = True
     max_evidence_link_derivations: int = 3
     semantic_current_min_relevance: float = 0.06
+    association_seed_min_relevance: float = 0.15
+    max_association_seeds: int = 5
+    max_association_neighbours: int = 5
+    contextual_association_min_relevance: float = 0.06
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -954,6 +958,16 @@ class ActivationConfig:
             raise ValidationError("max_evidence_link_derivations must be at least 1.")
         if not 0.0 <= self.semantic_current_min_relevance <= 1.0:
             raise ValidationError("semantic_current_min_relevance must be between 0.0 and 1.0.")
+        if not 0.0 <= self.association_seed_min_relevance <= 1.0:
+            raise ValidationError("association_seed_min_relevance must be between 0.0 and 1.0.")
+        if self.max_association_seeds <= 0:
+            raise ValidationError("max_association_seeds must be greater than zero.")
+        if self.max_association_neighbours <= 0:
+            raise ValidationError("max_association_neighbours must be greater than zero.")
+        if not 0.0 <= self.contextual_association_min_relevance <= 1.0:
+            raise ValidationError(
+                "contextual_association_min_relevance must be between 0.0 and 1.0."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1070,6 +1084,8 @@ class AssociationPath:
     related_episode_id: str | None = None
     hop_kind: str = "entity"
     weight: float = 0.0
+    hop_count: int = 1
+    seed_relevance: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.seed_episode_id.strip():
@@ -1078,6 +1094,10 @@ class AssociationPath:
             raise ValidationError("hop_kind must not be empty.")
         if not math.isfinite(self.weight) or not 0.0 <= self.weight <= 1.0:
             raise ValidationError("weight must be between 0.0 and 1.0.")
+        if self.hop_count <= 0:
+            raise ValidationError("hop_count must be greater than zero.")
+        if not math.isfinite(self.seed_relevance) or not 0.0 <= self.seed_relevance <= 1.0:
+            raise ValidationError("seed_relevance must be between 0.0 and 1.0.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1302,6 +1322,7 @@ class RecallInspectionCandidate:
     rank: int | None = None
     diagnostics: RetrievalDiagnostics | None = None
     reason: str | None = None
+    association_role: str | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.activation):
@@ -1314,6 +1335,8 @@ class RecallInspectionCandidate:
             raise ValidationError("retrieval_threshold must be finite.")
         if self.rank is not None and self.rank <= 0:
             raise ValidationError("rank must be greater than zero when provided.")
+        if self.association_role is not None and not self.association_role.strip():
+            raise ValidationError("association_role must not be empty when provided.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1329,6 +1352,8 @@ class RecallInspectionResult:
     truncated: bool = False
     considered_count: int = 0
     canonical_query_features: tuple[str, ...] = ()
+    association_seed_count: int = 0
+    association_paths_used: int = 0
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -1340,6 +1365,10 @@ class RecallInspectionResult:
             raise ValidationError("retrieval_threshold must be finite.")
         if self.considered_count < 0:
             raise ValidationError("considered_count must not be negative.")
+        if self.association_seed_count < 0:
+            raise ValidationError("association_seed_count must not be negative.")
+        if self.association_paths_used < 0:
+            raise ValidationError("association_paths_used must not be negative.")
 
 
 class MemoryRetentionState(StrEnum):

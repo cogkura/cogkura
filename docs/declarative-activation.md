@@ -148,6 +148,16 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
 - `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `associative_fit`, `semantic_relevance`, and the admission eligibility path.
 
+## 0.15.7 contextual association
+
+- Candidate-set association indexes are built per recall from eligible episodes and semantics (no new Postgres tables).
+- Query-relevant seeds (`association_seed_min_relevance`, `max_association_seeds`) can bridge to semantics even when below `retrieval_threshold`.
+- Entity recovery matches seed episode text tokens to known product entity ids without domain taxonomies.
+- Three bounded bridges: direct entity hop (×0.5), entity-indexed episode hop (×0.5×0.5), and contextual evidence (×0.25); strongest path wins.
+- Contextual hops require two distinctive shared features unless a single entity-label token qualifies (preserves shell-style evidence hops).
+- `inspect_recall()` exposes `association_role` (`seed` / `bridge`), `association_seed_count`, `association_paths_used`, and extended `AssociationPath` fields.
+- Bridge-only episodes stay `BELOW_THRESHOLD`; association does not write semantic derivations or confidence.
+
 ## 0.15.6 semantic competition and recall specificity
 
 - Recall identity is cardinality-aware: `cardinality=one` groups by `slot_key`; `cardinality=many` groups by claim (`memory_key`) so distinct object values compete rather than collapse.
