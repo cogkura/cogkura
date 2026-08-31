@@ -12,6 +12,7 @@ from cogkura.sources.postgres import PostgresTableSource
 from cogkura.storage.postgres import (
     PostgresActivationStore,
     PostgresCheckpointStore,
+    PostgresEntityRelationshipStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
     PostgresSemanticMemoryStore,
@@ -69,12 +70,14 @@ async def main() -> None:
     episode_store = PostgresEpisodeStore(memory_engine)
     semantic_store = PostgresSemanticMemoryStore(memory_engine)
     activation_store = PostgresActivationStore(memory_engine)
+    entity_relationship_store = PostgresEntityRelationshipStore(memory_engine)
     memory = Memory(
         observation_store=observation_store,
         checkpoint_store=checkpoint_store,
         episode_store=episode_store,
         semantic_store=semantic_store,
         activation_store=activation_store,
+        entity_relationship_store=entity_relationship_store,
     )
     source = PostgresTableSource(
         connector_id="application-messages",

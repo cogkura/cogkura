@@ -12,6 +12,16 @@ from typing import Any
 
 from cogkura.exceptions import ValidationError
 
+_DEFAULT_RELATIONSHIP_TYPE_WEIGHTS: Mapping[str, float] = MappingProxyType(
+    {
+        "alias_of": 1.0,
+        "is_a": 0.8,
+        "category": 0.8,
+        "part_of": 0.7,
+        "related_to": 0.4,
+    }
+)
+
 
 class EpisodeWriteStatus(StrEnum):
     """Outcome of upserting a single episodic memory."""
@@ -19,6 +29,91 @@ class EpisodeWriteStatus(StrEnum):
     CREATED = "created"
     UPDATED = "updated"
     UNCHANGED = "unchanged"
+
+
+@dataclass(frozen=True, slots=True)
+class EntityRelationshipInput:
+    """Application-supplied directed entity relationship."""
+
+    source_entity_id: str
+    relation_type: str
+    target_entity_id: str
+    provenance: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.source_entity_id.strip():
+            raise ValidationError("source_entity_id must not be empty.")
+        if not self.relation_type.strip():
+            raise ValidationError("relation_type must not be empty.")
+        if not self.target_entity_id.strip():
+            raise ValidationError("target_entity_id must not be empty.")
+        if self.source_entity_id == self.target_entity_id:
+            raise ValidationError("source_entity_id and target_entity_id must differ.")
+        if self.provenance is not None and not self.provenance.strip():
+            raise ValidationError("provenance must not be empty when provided.")
+
+
+@dataclass(frozen=True, slots=True)
+class StoredEntityRelationship:
+    """Persisted directed entity relationship."""
+
+    relationship_id: str
+    tenant_id: str
+    source_entity_id: str
+    relation_type: str
+    target_entity_id: str
+    provenance: str | None
+    source_namespace: str | None
+    source_record_id: str | None
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.relationship_id.strip():
+            raise ValidationError("relationship_id must not be empty.")
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.source_entity_id.strip():
+            raise ValidationError("source_entity_id must not be empty.")
+        if not self.relation_type.strip():
+            raise ValidationError("relation_type must not be empty.")
+        if not self.target_entity_id.strip():
+            raise ValidationError("target_entity_id must not be empty.")
+        if self.source_entity_id == self.target_entity_id:
+            raise ValidationError("source_entity_id and target_entity_id must differ.")
+        if self.provenance is not None and not self.provenance.strip():
+            raise ValidationError("provenance must not be empty when provided.")
+        if self.created_at.tzinfo is None:
+            raise ValidationError("created_at must be timezone-aware.")
+        object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipEdge:
+    """One hop along a structured relationship association path."""
+
+    relationship_id: str
+    relation_type: str
+    direction: str
+    source_entity_id: str
+    target_entity_id: str
+    weight: float
+    provenance: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.relationship_id.strip():
+            raise ValidationError("relationship_id must not be empty.")
+        if not self.relation_type.strip():
+            raise ValidationError("relation_type must not be empty.")
+        if self.direction not in {"forward", "reverse"}:
+            raise ValidationError("direction must be 'forward' or 'reverse'.")
+        if not self.source_entity_id.strip():
+            raise ValidationError("source_entity_id must not be empty.")
+        if not self.target_entity_id.strip():
+            raise ValidationError("target_entity_id must not be empty.")
+        if not math.isfinite(self.weight) or not 0.0 <= self.weight <= 1.0:
+            raise ValidationError("weight must be between 0.0 and 1.0.")
+        if self.provenance is not None and not self.provenance.strip():
+            raise ValidationError("provenance must not be empty when provided.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -902,6 +997,14 @@ class ActivationConfig:
     max_association_seeds: int = 5
     max_association_neighbours: int = 5
     contextual_association_min_relevance: float = 0.06
+    enable_structured_relationships: bool = True
+    max_relationship_hops: int = 2
+    max_relationship_neighbours: int = 5
+    relationship_default_weight: float = 0.4
+    relationship_type_weights: Mapping[str, float] = field(
+        default_factory=lambda: _DEFAULT_RELATIONSHIP_TYPE_WEIGHTS
+    )
+    semantic_relationship_min_relevance: float = 0.06
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -968,6 +1071,23 @@ class ActivationConfig:
             raise ValidationError(
                 "contextual_association_min_relevance must be between 0.0 and 1.0."
             )
+        if self.max_relationship_hops <= 0:
+            raise ValidationError("max_relationship_hops must be greater than zero.")
+        if self.max_relationship_neighbours <= 0:
+            raise ValidationError("max_relationship_neighbours must be greater than zero.")
+        if not 0.0 <= self.relationship_default_weight <= 1.0:
+            raise ValidationError("relationship_default_weight must be between 0.0 and 1.0.")
+        if not 0.0 <= self.semantic_relationship_min_relevance <= 1.0:
+            raise ValidationError(
+                "semantic_relationship_min_relevance must be between 0.0 and 1.0."
+            )
+        for relation_type, weight in self.relationship_type_weights.items():
+            if not relation_type.strip():
+                raise ValidationError("relationship_type_weights keys must not be empty.")
+            if not math.isfinite(weight) or not 0.0 <= weight <= 1.0:
+                raise ValidationError(
+                    "relationship_type_weights values must be between 0.0 and 1.0."
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1017,6 +1137,7 @@ class RelevanceTier(StrEnum):
     DIRECT_VALUE = "direct_value"
     DIRECT_SEMANTIC = "direct_semantic"
     ENTITY_ASSOCIATION = "entity_association"
+    STRUCTURED_RELATION = "structured_relation"
     EVIDENCE_ASSOCIATION = "evidence_association"
     CONTEXTUAL = "contextual"
 
@@ -1078,18 +1199,24 @@ class SupportProvenance:
 class AssociationPath:
     """Winning deterministic association path for inspectable recall."""
 
-    seed_episode_id: str
     matched_features: tuple[str, ...]
+    seed_episode_id: str | None = None
+    seed_entity_id: str | None = None
     bridge_entity_id: str | None = None
     related_episode_id: str | None = None
     hop_kind: str = "entity"
     weight: float = 0.0
     hop_count: int = 1
     seed_relevance: float = 0.0
+    relationship_edges: tuple[RelationshipEdge, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.seed_episode_id.strip():
-            raise ValidationError("seed_episode_id must not be empty.")
+        if not self.seed_episode_id and not self.seed_entity_id:
+            raise ValidationError("seed_episode_id or seed_entity_id must be provided.")
+        if self.seed_episode_id is not None and not self.seed_episode_id.strip():
+            raise ValidationError("seed_episode_id must not be empty when provided.")
+        if self.seed_entity_id is not None and not self.seed_entity_id.strip():
+            raise ValidationError("seed_entity_id must not be empty when provided.")
         if not self.hop_kind.strip():
             raise ValidationError("hop_kind must not be empty.")
         if not math.isfinite(self.weight) or not 0.0 <= self.weight <= 1.0:
@@ -1116,6 +1243,7 @@ class RetrievalDiagnostics:
     direct_predicate_fit: float = 0.0
     evidence_linked_fit: float = 0.0
     associative_fit: float = 0.0
+    structured_association_fit: float = 0.0
     semantic_relevance: float = 0.0
     relevance_tier: str = RelevanceTier.CONTEXTUAL.value
     matched_direct_features: tuple[str, ...] = ()
@@ -1170,6 +1298,7 @@ class RetrievalDiagnostics:
             ("direct_predicate_fit", self.direct_predicate_fit),
             ("evidence_linked_fit", self.evidence_linked_fit),
             ("associative_fit", self.associative_fit),
+            ("structured_association_fit", self.structured_association_fit),
             ("semantic_relevance", self.semantic_relevance),
         ):
             if not 0.0 <= value <= 1.0:
@@ -1354,6 +1483,8 @@ class RecallInspectionResult:
     canonical_query_features: tuple[str, ...] = ()
     association_seed_count: int = 0
     association_paths_used: int = 0
+    relationship_seed_count: int = 0
+    relationship_paths_used: int = 0
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -1369,6 +1500,10 @@ class RecallInspectionResult:
             raise ValidationError("association_seed_count must not be negative.")
         if self.association_paths_used < 0:
             raise ValidationError("association_paths_used must not be negative.")
+        if self.relationship_seed_count < 0:
+            raise ValidationError("relationship_seed_count must not be negative.")
+        if self.relationship_paths_used < 0:
+            raise ValidationError("relationship_paths_used must not be negative.")
 
 
 class MemoryRetentionState(StrEnum):

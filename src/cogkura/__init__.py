@@ -34,6 +34,7 @@ from cogkura.models import (
     AssociationPath,
     CognitiveReferenceTrace,
     CognitiveTraceOrigin,
+    EntityRelationshipInput,
     EpisodeEncodingResult,
     EpisodeEntity,
     EpisodeEvidenceInput,
@@ -62,6 +63,7 @@ from cogkura.models import (
     RecallInspectionDisposition,
     RecallInspectionResult,
     RecallResult,
+    RelationshipEdge,
     RetrievalCue,
     RetrievalDiagnostics,
     RetrievalEligibility,
@@ -82,6 +84,7 @@ from cogkura.models import (
     SemanticUpdateRelation,
     SemanticWriteStatus,
     SlotFitSource,
+    StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryLearningState,
     StoredSemanticMemory,
@@ -125,6 +128,7 @@ __all__ = [
     "EpisodeEntity",
     "EpisodeEvidenceInput",
     "EpisodeInput",
+    "EntityRelationshipInput",
     "EpisodeWriteStatus",
     "EpisodicEncoder",
     "ForgettingConfig",
@@ -160,6 +164,7 @@ __all__ = [
     "RecallInspectionResult",
     "RecallInspectionUnsupportedError",
     "RecallResult",
+    "RelationshipEdge",
     "RetrievalDiagnostics",
     "RetrievalEligibility",
     "RetrievalCue",
@@ -183,6 +188,7 @@ __all__ = [
     "SemanticUpdateRelation",
     "SemanticWriteStatus",
     "StoredEpisode",
+    "StoredEntityRelationship",
     "StoredMemoryLearningState",
     "StoredSemanticMemory",
     "StoredSemanticRevision",
@@ -196,4 +202,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.7"
+__version__ = "0.15.8"

@@ -325,7 +325,7 @@ For simulated replay, pass the same `as_of` to `encode_episodes()` and `consolid
 
 Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md) and [`docs/design-string-cues-current-state.md`](docs/design-string-cues-current-state.md).
 
-For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, `PostgresMemoryDynamicsStore`, and `PostgresLearningStore` to `Memory`.
+For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, `PostgresEntityRelationshipStore`, `PostgresMemoryDynamicsStore`, and `PostgresLearningStore` to `Memory`.
 
 See [`docs/forgetting.md`](docs/forgetting.md) for lifecycle thresholds and compaction details.
 
@@ -359,6 +359,7 @@ from cogkura.sources.postgres import PostgresTableSource
 from cogkura.storage.postgres import (
     PostgresActivationStore,
     PostgresCheckpointStore,
+    PostgresEntityRelationshipStore,
     PostgresEpisodeStore,
     PostgresLearningStore,
     PostgresMemoryDynamicsStore,
@@ -375,6 +376,7 @@ memory = Memory(
     episode_store=PostgresEpisodeStore(memory_engine),
     semantic_store=PostgresSemanticMemoryStore(memory_engine),
     activation_store=PostgresActivationStore(memory_engine),
+    entity_relationship_store=PostgresEntityRelationshipStore(memory_engine),
     dynamics_store=PostgresMemoryDynamicsStore(memory_engine),
     learning_store=PostgresLearningStore(memory_engine),
 )
@@ -470,7 +472,16 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. Through `0.15.7`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, working-memory same-slot collapse, evidence-chronology activation with `inspect_recall()`, lexical semantic slot matching for plain-language cues, bounded soft admission for long-horizon current facts, evidence-linked associative semantic reachability, authoritative current semantic admission, current-at-snapshot temporal semantics, one-hop entity associative reach, canonical retrieval features for semantic relevance, bounded evidence-to-evidence association, cardinality-aware recall identity, relevance-specificity competition among distinct semantics, and contextual association with entity recovery and entity-indexed episode hops.
+Cogkura is in development. Through `0.15.8`, the library provides application integration via `Memory.process()`, `Memory.prepare_context()`, `MemoryContext`, and `Memory.record_context_use()`, plus observation ingestion, episodic encoding, semantic consolidation with temporal reconsolidation, ACT-R declarative activation with global eligible-candidate ranking, spreading activation, Ebbinghaus-inspired forgetting dynamics, bounded working-memory selection with precision-aware goal relevance, outcome-driven learning via `Memory.learn()`, and read-only metamemory assessment via `Memory.assess_memory()`, with explicit `record_access()` / `record_context_use()` reinforcement (presentation vs use), `apply_forgetting()` maintenance, simulated `as_of` on encode/consolidate/process, episode `valid_at` filtering, candidate-set IDF ranking, near-duplicate collapse, temporal current-state policy, soft entity slot admission, coverage-based accessibility with precision-aware ranking, conjunctive structured slot matching, positive bounded structured ranking, retrieval diagnostics with explicit eligibility and provenance, metamemory answerability, multi-entity conjunction, incident tag seeding, superseded-only SUPPORT exclusion, metamemory `MISSING_KNOWLEDGE`, working-memory same-slot collapse, evidence-chronology activation with `inspect_recall()`, lexical semantic slot matching for plain-language cues, bounded soft admission for long-horizon current facts, evidence-linked associative semantic reachability, authoritative current semantic admission, current-at-snapshot temporal semantics, one-hop entity associative reach, canonical retrieval features for semantic relevance, bounded evidence-to-evidence association, cardinality-aware recall identity, relevance-specificity competition among distinct semantics, and contextual association with entity recovery and entity-indexed episode hops, plus structured entity relationships supplied via observation metadata and traversed at recall time.
+
+## Scope of 0.15.8
+
+Implemented in `0.15.8`:
+
+- application-supplied entity→entity relationships on `metadata["relationships"]` with `EntityRelationshipStore` persistence;
+- query concept seeding and bounded forward/reverse graph traversal with relation-type weights;
+- `STRUCTURED_RELATION` relevance tier, structured admission floor, and inspectable relationship paths;
+- [`tests/test_entity_relationships.py`](tests/test_entity_relationships.py) and [`tests/test_structured_association.py`](tests/test_structured_association.py).
 
 ## Scope of 0.15.7
 
@@ -601,6 +612,7 @@ flowchart TD
 - `0.15.4`: temporal snapshot semantics, evidence aggregation, and entity associative reach (done).
 - `0.15.5`: canonical semantic relevance and bounded evidence-to-evidence association (done).
 - `0.15.7`: contextual association with entity recovery and entity-indexed episode hops (done).
+- `0.15.8`: structured entity relationships via observation metadata and graph traversal at recall (done).
 - `0.15.6`: semantic competition and recall specificity (done).
 - later: additional connectors, and integrations.
 

@@ -148,6 +148,34 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 - `SEMANTIC_CURRENT_ADMISSION` admits `ACTIVE`, valid, relevant semantics when combined direct/evidence relevance meets `semantic_current_min_relevance`, without lowering `semantic_soft_admission_floor`.
 - `inspect_recall()` exposes `direct_cue_fit`, `evidence_linked_fit`, `associative_fit`, `semantic_relevance`, and the admission eligibility path.
 
+## 0.15.8 structured entity relationships
+
+- Applications supply directed entity→entity edges via `ObservationInput.metadata["relationships"]` (same pattern as `semantic_facts`); malformed entries fail `observe()` with `ValidationError`.
+- `EntityRelationshipStore` persists graph structure on observe (independent of `process()` and observation `UNCHANGED`); Postgres migration `008_entity_relationships.sql`.
+- `Memory.list_entity_relationships(tenant_id=..., entity_id=...)` for inspection; `clear()` removes relationships before semantic memories.
+- Query concept seeding: cue `entity_ids` (excluding `subject_id`) plus graph endpoints whose `canonical_content_features(entity_id)` are a subset of query features.
+- Bounded forward/reverse traversal (`max_relationship_hops`, `max_relationship_neighbours`) with application relation-type weights reaches episodes/semantics through existing SUPPORT indexes.
+- `RelevanceTier.STRUCTURED_RELATION` sits between entity association and evidence association; `semantic_relationship_min_relevance` gates soft admission.
+- `AssociationPath` supports `seed_entity_id`, `hop_kind="relationship"`, and `relationship_edges`; `inspect_recall()` exposes `relationship_seed_count` and `relationship_paths_used`.
+- CogKura stores and traverses supplied structure; it does not infer retail taxonomies. Optional enrichers (rules, parsers, LLMs) remain out of band.
+
+Example non-retail ingest:
+
+```python
+metadata = {
+    "relationships": [
+        {
+            "source_entity_id": "CheckoutService",
+            "relation_type": "depends_on",
+            "target_entity_id": "PaymentService",
+            "provenance": "service-map",
+        }
+    ]
+}
+```
+
+Re-run CogKuraBench/Demo externally: expect ~4/5 and ~3/5 until those fixtures supply catalog relationships.
+
 ## 0.15.7 contextual association
 
 - Candidate-set association indexes are built per recall from eligible episodes and semantics (no new Postgres tables).
@@ -181,11 +209,11 @@ See [`design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retriev
 
 ## Storage
 
-Migration `004_declarative_activation.sql` adds `cogkura.memory_activation_references`.
+Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.
 
-Postgres apps must pass `PostgresActivationStore` alongside other Postgres stores.
+Postgres apps must pass `PostgresActivationStore` and `PostgresEntityRelationshipStore` alongside other Postgres stores.
 
-`Memory.clear()` order: activation → semantic → episodic → observations.
+`Memory.clear()` order: learning → activation → dynamics → relationships → semantic → episodic → observations.
 
 ## Roadmap
 

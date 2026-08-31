@@ -43,6 +43,7 @@ from cogkura.models import (
     RecallInspectionDisposition,
     RecallInspectionResult,
     RecallResult,
+    RelationshipEdge,
     RelevanceTier,
     RetrievalCue,
     RetrievalDiagnostics,
@@ -51,6 +52,7 @@ from cogkura.models import (
     SemanticDerivationRelation,
     SemanticMemoryStatus,
     SlotFitSource,
+    StoredEntityRelationship,
     StoredEpisode,
     StoredSemanticMemory,
     SupportProvenance,
@@ -74,9 +76,10 @@ _ASSOCIATIVE_ENTITY_EPISODE_HOP_WEIGHT = 0.5
 _CONTEXTUAL_MIN_SHARED_FEATURES = 2
 
 _RELEVANCE_TIER_RANK = {
-    RelevanceTier.DIRECT_VALUE: 5,
-    RelevanceTier.DIRECT_SEMANTIC: 4,
-    RelevanceTier.ENTITY_ASSOCIATION: 3,
+    RelevanceTier.DIRECT_VALUE: 6,
+    RelevanceTier.DIRECT_SEMANTIC: 5,
+    RelevanceTier.ENTITY_ASSOCIATION: 4,
+    RelevanceTier.STRUCTURED_RELATION: 3,
     RelevanceTier.EVIDENCE_ASSOCIATION: 2,
     RelevanceTier.CONTEXTUAL: 1,
 }
@@ -90,6 +93,7 @@ class _SemanticRelevanceDetail:
     direct_predicate_fit: float
     evidence_fit: float
     associative_fit: float
+    structured_fit: float
     combined: float
     matched_direct_features: tuple[str, ...] = ()
     matched_evidence_features: tuple[str, ...] = ()
@@ -111,6 +115,22 @@ class _SemanticRelevanceContext:
     seed_episodes: tuple[_SeedEpisodeMatch, ...] = ()
     bridge_episode_ids: frozenset[str] = frozenset()
     association_paths_used: int = 0
+    relationship_seed_count: int = 0
+    relationship_paths_used: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _RelationshipSeed:
+    entity_id: str
+    seed_score: float
+    matched_features: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class _RelationshipNeighbour:
+    other_entity_id: str
+    edge: RelationshipEdge
+    relation_weight: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +186,8 @@ class DeclarativeActivator(Protocol):
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
         valid_at: datetime | None = None,
         episode_slot_index: Mapping[str, str] | None = None,
+        entity_relationships: Sequence[StoredEntityRelationship] = (),
+        subject_id: str | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -371,6 +393,8 @@ class ACTRDeclarativeActivator:
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
         valid_at: datetime | None = None,
         episode_slot_index: Mapping[str, str] | None = None,
+        entity_relationships: Sequence[StoredEntityRelationship] = (),
+        subject_id: str | None = None,
     ) -> list[RecallResult]:
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
         tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
@@ -450,7 +474,13 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
-        relevance_context = _build_semantic_relevance_context(candidates, cue, config=config)
+        relevance_context = _build_semantic_relevance_context(
+            candidates,
+            cue,
+            config=config,
+            entity_relationships=entity_relationships,
+            subject_id=subject_id,
+        )
 
         admitted_outcome = _merge_semantic_admissions(
             _semantic_slot_admission_identities(
@@ -550,6 +580,7 @@ class ACTRDeclarativeActivator:
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
         valid_at: datetime | None = None,
         episode_slot_index: Mapping[str, str] | None = None,
+        entity_relationships: Sequence[StoredEntityRelationship] = (),
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
         candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
@@ -631,7 +662,13 @@ class ACTRDeclarativeActivator:
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
 
-        relevance_context = _build_semantic_relevance_context(candidates, cue, config=config)
+        relevance_context = _build_semantic_relevance_context(
+            candidates,
+            cue,
+            config=config,
+            entity_relationships=entity_relationships,
+            subject_id=subject_id,
+        )
 
         admitted_outcome = _merge_semantic_admissions(
             _semantic_slot_admission_identities(
@@ -827,6 +864,8 @@ class ACTRDeclarativeActivator:
             canonical_query_features=tuple(sorted(relevance_context.query_features)),
             association_seed_count=len(relevance_context.seed_episodes),
             association_paths_used=relevance_context.association_paths_used,
+            relationship_seed_count=relevance_context.relationship_seed_count,
+            relationship_paths_used=relevance_context.relationship_paths_used,
         )
 
 
@@ -1350,6 +1389,7 @@ def _apply_semantic_relevance_diagnostics(
         direct_predicate_fit=semantic_relevance.direct_predicate_fit,
         evidence_linked_fit=semantic_relevance.evidence_fit,
         associative_fit=semantic_relevance.associative_fit,
+        structured_association_fit=semantic_relevance.structured_fit,
         semantic_relevance=semantic_relevance.combined,
         matched_direct_features=semantic_relevance.matched_direct_features,
         matched_evidence_features=semantic_relevance.matched_evidence_features,
@@ -2168,13 +2208,25 @@ def _relevance_tier(detail: _SemanticRelevanceDetail | None) -> RelevanceTier:
         return RelevanceTier.DIRECT_VALUE
     if detail.direct_predicate_fit > 0.0:
         return RelevanceTier.DIRECT_SEMANTIC
-    if detail.evidence_fit > 0.0:
-        return RelevanceTier.EVIDENCE_ASSOCIATION
-    if detail.associative_fit > 0.0:
-        path = detail.association_path
-        if path is not None and path.hop_kind == "entity":
-            return RelevanceTier.ENTITY_ASSOCIATION
-        return RelevanceTier.CONTEXTUAL
+    path = detail.association_path
+    entity_associative = (
+        detail.associative_fit if path is not None and path.hop_kind == "entity" else 0.0
+    )
+    contextual_associative = (
+        detail.associative_fit
+        if path is not None and path.hop_kind not in ("entity", "relationship")
+        else 0.0
+    )
+    tier_candidates = (
+        (entity_associative, RelevanceTier.ENTITY_ASSOCIATION),
+        (detail.structured_fit, RelevanceTier.STRUCTURED_RELATION),
+        (detail.evidence_fit, RelevanceTier.EVIDENCE_ASSOCIATION),
+        (contextual_associative, RelevanceTier.CONTEXTUAL),
+    )
+    combined = detail.combined
+    for fit, tier in tier_candidates:
+        if fit > 0.0 and math.isclose(fit, combined, rel_tol=0.0, abs_tol=1e-9):
+            return tier
     return RelevanceTier.CONTEXTUAL
 
 
@@ -2728,6 +2780,258 @@ def _consider_association_path(
     return candidate_fit, candidate_path
 
 
+def _relationship_type_weight(relation_type: str, *, config: ActivationConfig) -> float:
+    return config.relationship_type_weights.get(
+        relation_type.casefold(),
+        config.relationship_default_weight,
+    )
+
+
+def _build_relationship_indexes(
+    relationships: Sequence[StoredEntityRelationship],
+) -> tuple[
+    dict[str, tuple[StoredEntityRelationship, ...]],
+    dict[str, tuple[StoredEntityRelationship, ...]],
+    frozenset[str],
+]:
+    forward: dict[str, list[StoredEntityRelationship]] = defaultdict(list)
+    reverse: dict[str, list[StoredEntityRelationship]] = defaultdict(list)
+    endpoints: set[str] = set()
+    for relationship in relationships:
+        forward[relationship.source_entity_id].append(relationship)
+        reverse[relationship.target_entity_id].append(relationship)
+        endpoints.add(relationship.source_entity_id)
+        endpoints.add(relationship.target_entity_id)
+    forward_index = {
+        entity_id: tuple(
+            sorted(
+                edges,
+                key=lambda edge: (edge.relation_type.casefold(), edge.target_entity_id),
+            )
+        )
+        for entity_id, edges in forward.items()
+    }
+    reverse_index = {
+        entity_id: tuple(
+            sorted(
+                edges,
+                key=lambda edge: (edge.relation_type.casefold(), edge.source_entity_id),
+            )
+        )
+        for entity_id, edges in reverse.items()
+    }
+    return forward_index, reverse_index, frozenset(endpoints)
+
+
+def _concept_entity_seeds(
+    cue: RetrievalCue,
+    query_features: frozenset[str],
+    endpoints: frozenset[str],
+    *,
+    subject_id: str | None,
+    config: ActivationConfig,
+) -> tuple[_RelationshipSeed, ...]:
+    seeds: dict[str, _RelationshipSeed] = {}
+    for entity_id in cue.entity_ids:
+        if subject_id and entity_id == subject_id:
+            continue
+        seeds[entity_id] = _RelationshipSeed(
+            entity_id=entity_id,
+            seed_score=1.0,
+            matched_features=frozenset(),
+        )
+    for entity_id in sorted(endpoints):
+        if entity_id in seeds:
+            continue
+        if subject_id and entity_id == subject_id:
+            continue
+        features = frozenset(canonical_content_features(entity_id))
+        if features and features.issubset(query_features):
+            seeds[entity_id] = _RelationshipSeed(
+                entity_id=entity_id,
+                seed_score=1.0,
+                matched_features=features,
+            )
+    ordered = sorted(seeds.values(), key=lambda seed: seed.entity_id)
+    return tuple(ordered[: config.max_association_seeds])
+
+
+def _relationship_neighbours(
+    entity_id: str,
+    *,
+    forward: Mapping[str, tuple[StoredEntityRelationship, ...]],
+    reverse: Mapping[str, tuple[StoredEntityRelationship, ...]],
+    config: ActivationConfig,
+) -> tuple[_RelationshipNeighbour, ...]:
+    neighbours: list[_RelationshipNeighbour] = []
+    for relationship in forward.get(entity_id, ()):
+        relation_weight = _relationship_type_weight(relationship.relation_type, config=config)
+        neighbours.append(
+            _RelationshipNeighbour(
+                other_entity_id=relationship.target_entity_id,
+                edge=RelationshipEdge(
+                    relationship_id=relationship.relationship_id,
+                    relation_type=relationship.relation_type,
+                    direction="forward",
+                    source_entity_id=relationship.source_entity_id,
+                    target_entity_id=relationship.target_entity_id,
+                    weight=relation_weight,
+                    provenance=relationship.provenance,
+                ),
+                relation_weight=relation_weight,
+            )
+        )
+    for relationship in reverse.get(entity_id, ()):
+        relation_weight = _relationship_type_weight(relationship.relation_type, config=config)
+        neighbours.append(
+            _RelationshipNeighbour(
+                other_entity_id=relationship.source_entity_id,
+                edge=RelationshipEdge(
+                    relationship_id=relationship.relationship_id,
+                    relation_type=relationship.relation_type,
+                    direction="reverse",
+                    source_entity_id=relationship.source_entity_id,
+                    target_entity_id=relationship.target_entity_id,
+                    weight=relation_weight,
+                    provenance=relationship.provenance,
+                ),
+                relation_weight=relation_weight,
+            )
+        )
+    neighbours.sort(key=lambda item: (item.edge.relation_type.casefold(), item.other_entity_id))
+    return tuple(neighbours[: config.max_relationship_neighbours])
+
+
+def _structured_semantic_attachment(
+    *,
+    seed: _RelationshipSeed,
+    entity_id: str,
+    path_score: float,
+    relationship_edges: tuple[RelationshipEdge, ...],
+    semantic_entity_ids: set[str],
+    semantic_identity: MemoryIdentity,
+    indexes: _AssociationIndexes,
+    episode_by_id: Mapping[str, ActivationCandidate],
+    config: ActivationConfig,
+) -> tuple[float, AssociationPath | None]:
+    if entity_id in semantic_entity_ids:
+        fit = min(1.0, path_score * _ASSOCIATIVE_ENTITY_HOP_WEIGHT)
+        return fit, AssociationPath(
+            seed_entity_id=seed.entity_id,
+            matched_features=tuple(sorted(seed.matched_features)),
+            bridge_entity_id=entity_id,
+            hop_kind="relationship",
+            weight=fit,
+            hop_count=len(relationship_edges) or 1,
+            seed_relevance=seed.seed_score,
+            relationship_edges=relationship_edges,
+        )
+
+    related_ids = indexes.episodes_by_entity.get(entity_id, ())
+    for related_id in related_ids[: config.max_association_neighbours]:
+        supported = indexes.semantics_by_support_episode.get(related_id, ())
+        if semantic_identity not in supported:
+            continue
+        related = episode_by_id.get(related_id)
+        if related is None:
+            continue
+        fit = min(
+            1.0,
+            path_score * _ASSOCIATIVE_ENTITY_HOP_WEIGHT * _ASSOCIATIVE_ENTITY_EPISODE_HOP_WEIGHT,
+        )
+        return fit, AssociationPath(
+            seed_entity_id=seed.entity_id,
+            matched_features=tuple(sorted(seed.matched_features)),
+            bridge_entity_id=entity_id,
+            related_episode_id=related.memory_key,
+            hop_kind="relationship",
+            weight=fit,
+            hop_count=len(relationship_edges) or 1,
+            seed_relevance=seed.seed_score,
+            relationship_edges=relationship_edges,
+        )
+    return 0.0, None
+
+
+def _structured_entity_association_fit(
+    *,
+    relationship_seeds: Sequence[_RelationshipSeed],
+    semantic_entity_ids: set[str],
+    semantic_identity: MemoryIdentity,
+    indexes: _AssociationIndexes,
+    forward: Mapping[str, tuple[StoredEntityRelationship, ...]],
+    reverse: Mapping[str, tuple[StoredEntityRelationship, ...]],
+    episode_by_id: Mapping[str, ActivationCandidate],
+    subject_id: str | None,
+    config: ActivationConfig,
+) -> tuple[float, AssociationPath | None]:
+    if not relationship_seeds:
+        return 0.0, None
+
+    best_fit = 0.0
+    best_path: AssociationPath | None = None
+
+    for seed in relationship_seeds:
+        queue: list[tuple[str, float, tuple[RelationshipEdge, ...], int, bool]] = [
+            (seed.entity_id, seed.seed_score, (), 0, True),
+        ]
+        best_score_by_entity: dict[str, float] = {seed.entity_id: seed.seed_score}
+        visited_edges: set[tuple[str, str]] = set()
+
+        while queue:
+            entity_id, path_score, edges, hop_count, is_seed = queue.pop(0)
+            if path_score < best_score_by_entity.get(entity_id, 0.0):
+                continue
+            if not is_seed and (subject_id is None or entity_id != subject_id):
+                candidate_fit, candidate_path = _structured_semantic_attachment(
+                    seed=seed,
+                    entity_id=entity_id,
+                    path_score=path_score,
+                    relationship_edges=edges,
+                    semantic_entity_ids=semantic_entity_ids,
+                    semantic_identity=semantic_identity,
+                    indexes=indexes,
+                    episode_by_id=episode_by_id,
+                    config=config,
+                )
+                if candidate_path is not None:
+                    best_fit, best_path = _consider_association_path(
+                        best_fit=best_fit,
+                        best_path=best_path,
+                        candidate_fit=candidate_fit,
+                        candidate_path=candidate_path,
+                    )
+            if hop_count >= config.max_relationship_hops:
+                continue
+            for neighbour in _relationship_neighbours(
+                entity_id,
+                forward=forward,
+                reverse=reverse,
+                config=config,
+            ):
+                edge_key = (neighbour.edge.relationship_id, neighbour.edge.direction)
+                if edge_key in visited_edges:
+                    continue
+                visited_edges.add(edge_key)
+                if subject_id and neighbour.other_entity_id == subject_id:
+                    continue
+                next_score = path_score * neighbour.relation_weight
+                if next_score <= best_score_by_entity.get(neighbour.other_entity_id, 0.0):
+                    continue
+                best_score_by_entity[neighbour.other_entity_id] = next_score
+                queue.append(
+                    (
+                        neighbour.other_entity_id,
+                        next_score,
+                        edges + (neighbour.edge,),
+                        hop_count + 1,
+                        False,
+                    )
+                )
+
+    return best_fit, best_path
+
+
 def _associative_entity_fit(
     *,
     seed_episodes: Sequence[_SeedEpisodeMatch],
@@ -2924,9 +3228,13 @@ def _semantic_cue_relevance_fits(
     semantic_identity: MemoryIdentity,
     indexes: _AssociationIndexes,
     config: ActivationConfig,
+    relationship_seeds: Sequence[_RelationshipSeed] = (),
+    relationship_forward: Mapping[str, tuple[StoredEntityRelationship, ...]] | None = None,
+    relationship_reverse: Mapping[str, tuple[StoredEntityRelationship, ...]] | None = None,
+    subject_id: str | None = None,
 ) -> _SemanticRelevanceDetail:
     if not query_features:
-        return _SemanticRelevanceDetail(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        return _SemanticRelevanceDetail(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     object_tokens = set(canonical_content_features(object_value or ""))
     if memory.object_entity_id:
         object_tokens.update(canonical_content_features(memory.object_entity_id))
@@ -2963,17 +3271,42 @@ def _semantic_cue_relevance_fits(
             indexes=indexes,
             config=config,
         )
-    combined = max(direct_fit, evidence_fit, associative_fit)
+    structured_fit = 0.0
+    structured_path: AssociationPath | None = None
+    if (
+        config.enable_structured_relationships
+        and relationship_seeds
+        and relationship_forward is not None
+        and relationship_reverse is not None
+    ):
+        structured_fit, structured_path = _structured_entity_association_fit(
+            relationship_seeds=relationship_seeds,
+            semantic_entity_ids=semantic_entity_ids,
+            semantic_identity=semantic_identity,
+            indexes=indexes,
+            forward=relationship_forward,
+            reverse=relationship_reverse,
+            episode_by_id=episode_by_id,
+            subject_id=subject_id,
+            config=config,
+        )
+    winning_path = association_path
+    if structured_fit > associative_fit:
+        winning_path = structured_path
+    elif structured_fit > 0.0 and winning_path is None:
+        winning_path = structured_path
+    combined = max(direct_fit, evidence_fit, associative_fit, structured_fit)
     return _SemanticRelevanceDetail(
         direct_fit=direct_fit,
         direct_value_fit=value_fit,
         direct_predicate_fit=predicate_fit,
         evidence_fit=evidence_fit,
         associative_fit=associative_fit,
+        structured_fit=structured_fit,
         combined=combined,
         matched_direct_features=direct_matched,
         matched_evidence_features=evidence_matched,
-        association_path=association_path,
+        association_path=winning_path,
     )
 
 
@@ -2993,6 +3326,8 @@ def _semantic_meets_current_relevance(
     if bridge_entities.intersection(semantic_entity_ids):
         return True
     if detail.associative_fit >= config.contextual_association_min_relevance:
+        return True
+    if detail.structured_fit >= config.semantic_relationship_min_relevance:
         return True
     return False
 
@@ -3015,8 +3350,14 @@ def _build_semantic_relevance_context(
     cue: RetrievalCue,
     *,
     config: ActivationConfig,
+    entity_relationships: Sequence[StoredEntityRelationship] = (),
+    subject_id: str | None = None,
 ) -> _SemanticRelevanceContext:
-    if not config.enable_semantic_evidence_linking and not config.enable_lexical_slot_matching:
+    if (
+        not config.enable_semantic_evidence_linking
+        and not config.enable_lexical_slot_matching
+        and not config.enable_structured_relationships
+    ):
         return _SemanticRelevanceContext(
             query_features=frozenset(),
             by_identity={},
@@ -3048,7 +3389,23 @@ def _build_semantic_relevance_context(
             known_entities=indexes.known_entities,
         )
     )
+    relationship_forward: dict[str, tuple[StoredEntityRelationship, ...]] = {}
+    relationship_reverse: dict[str, tuple[StoredEntityRelationship, ...]] = {}
+    relationship_endpoints = frozenset[str]()
+    relationship_seeds: tuple[_RelationshipSeed, ...] = ()
+    if config.enable_structured_relationships and entity_relationships:
+        relationship_forward, relationship_reverse, relationship_endpoints = (
+            _build_relationship_indexes(entity_relationships)
+        )
+        relationship_seeds = _concept_entity_seeds(
+            cue,
+            query_features,
+            relationship_endpoints,
+            subject_id=subject_id,
+            config=config,
+        )
     association_paths_used = 0
+    relationship_paths_used = 0
     relevance: dict[MemoryIdentity, _SemanticRelevanceDetail] = {}
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
@@ -3069,10 +3426,17 @@ def _build_semantic_relevance_context(
             semantic_identity=candidate.identity,
             indexes=indexes,
             config=config,
+            relationship_seeds=relationship_seeds,
+            relationship_forward=relationship_forward,
+            relationship_reverse=relationship_reverse,
+            subject_id=subject_id,
         )
         relevance[candidate.identity] = detail
-        if detail.association_path is not None:
+        path = detail.association_path
+        if path is not None and path.hop_kind != "relationship":
             association_paths_used += 1
+        if detail.structured_fit > 0.0:
+            relationship_paths_used += 1
     bridge_episode_ids: set[str] = set()
     for detail in relevance.values():
         path = detail.association_path
@@ -3089,6 +3453,8 @@ def _build_semantic_relevance_context(
         seed_episodes=seed_episodes,
         bridge_episode_ids=frozenset(bridge_episode_ids),
         association_paths_used=association_paths_used,
+        relationship_seed_count=len(relationship_seeds),
+        relationship_paths_used=relationship_paths_used,
     )
 
 

@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.15.7` contextual association
+- Current release focus: `0.15.8` structured entity relationships
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -65,7 +65,8 @@ examples/
 | `consolidate_semantics(tenant_id=..., as_of=...)` | Build semantic memories from active episodes (includes reconsolidation) |
 | `list_semantic_memories(tenant_id=..., valid_at=...)` | List consolidated semantic memories for a tenant |
 | `list_semantic_revisions(tenant_id=..., valid_at=...)` | List semantic revision history |
-| `clear(tenant_id=...)` | Remove learning, activation refs, dynamics, semantic memories, episodes, observations |
+| `list_entity_relationships(tenant_id=..., entity_id=...)` | List stored entity→entity relationships |
+| `clear(tenant_id=...)` | Remove learning, activation refs, dynamics, relationships, semantic memories, episodes, observations |
 
 There is **no** parallel `MemoryEvent` / string-`observe` path. Cognitive work builds on observations.
 

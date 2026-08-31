@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cogkura"
-version = "0.15.7"
+version = "0.15.8"
 description = "Research-driven cognitive memory framework for AI systems."
 readme = "README.md"
 requires-python = ">=3.11"

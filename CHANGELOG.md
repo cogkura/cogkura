@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.8] - 2026-08-31
+
+### Added
+
+- Application-supplied directed entity relationships via `ObservationInput.metadata["relationships"]` with `EntityRelationshipInput` / `StoredEntityRelationship` models and tenant-scoped identity hashing.
+- `EntityRelationshipStore` with in-memory and Postgres (`008_entity_relationships.sql`) implementations; `Memory.list_entity_relationships()` inspection API.
+- Bounded structured relationship traversal in declarative activation: query concept seeding, forward/reverse graph walks, relation-type weights, and SUPPORT-index attachment.
+- `RelevanceTier.STRUCTURED_RELATION`, `ActivationConfig.enable_structured_relationships` and relationship hop/weight knobs, `RetrievalDiagnostics.structured_association_fit`, and `RecallInspectionResult.relationship_seed_count` / `relationship_paths_used`.
+- Package regression tests in `tests/test_entity_relationships.py` and `tests/test_structured_association.py`.
+
+### Changed
+
+- `observe()` / ingest upsert relationships even when the observation store returns `UNCHANGED`.
+- `Memory.clear()` clears entity relationships before semantic memories.
+- `_relevance_tier` and soft semantic admission include structured relationship fit between entity association and evidence association.
+
 ## [0.15.7] - 2026-08-31
 
 ### Added

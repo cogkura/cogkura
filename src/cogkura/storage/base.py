@@ -15,6 +15,7 @@ from cogkura.models import (
     ReferenceCompactionResult,
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
+    StoredEntityRelationship,
     StoredMemoryAssociation,
     StoredMemoryDynamics,
     StoredMemoryLearningState,
@@ -277,3 +278,21 @@ class LearningStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove learning data for a tenant."""
+
+
+class EntityRelationshipStore(Protocol):
+    """Persists directed entity-to-entity relationships."""
+
+    async def upsert_many(self, relationships: Sequence[StoredEntityRelationship]) -> None:
+        """Insert or update entity relationships idempotently."""
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        entity_id: str | None = None,
+    ) -> Sequence[StoredEntityRelationship]:
+        """List tenant relationships, optionally filtered to one entity endpoint."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove all relationships for a tenant."""

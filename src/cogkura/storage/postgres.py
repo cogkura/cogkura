@@ -39,6 +39,7 @@ from cogkura.models import (
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
     SemanticWriteStatus,
+    StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryAssociation,
     StoredMemoryDynamics,
@@ -52,6 +53,7 @@ from cogkura.storage.activation_compaction import compaction_representative_time
 from cogkura.storage.base import (
     ActivationStore,
     CheckpointStore,
+    EntityRelationshipStore,
     EpisodeStore,
     LearningStore,
     MemoryDynamicsStore,
@@ -2623,4 +2625,130 @@ def _association_from_row(row: Mapping[str, Any]) -> StoredMemoryAssociation:
         first_reinforced_at=row["first_reinforced_at"],
         last_reinforced_at=row["last_reinforced_at"],
         updated_at=row["updated_at"],
+    )
+
+
+class PostgresEntityRelationshipStore(EntityRelationshipStore):
+    """PostgreSQL store for directed entity relationships."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cogkura") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def upsert_many(self, relationships: Sequence[StoredEntityRelationship]) -> None:
+        if not relationships:
+            return
+        async with self._engine.begin() as conn:
+            for relationship in relationships:
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("entity_relationships")} (
+                            tenant_id,
+                            relationship_id,
+                            source_entity_id,
+                            relation_type,
+                            relation_type_normalized,
+                            target_entity_id,
+                            provenance,
+                            source_namespace,
+                            source_record_id,
+                            created_at
+                        ) VALUES (
+                            :tenant_id,
+                            :relationship_id,
+                            :source_entity_id,
+                            :relation_type,
+                            :relation_type_normalized,
+                            :target_entity_id,
+                            :provenance,
+                            :source_namespace,
+                            :source_record_id,
+                            :created_at
+                        )
+                        ON CONFLICT (tenant_id, relationship_id) DO UPDATE SET
+                            provenance = EXCLUDED.provenance,
+                            source_namespace = EXCLUDED.source_namespace,
+                            source_record_id = EXCLUDED.source_record_id,
+                            created_at = EXCLUDED.created_at
+                        """
+                    ),
+                    {
+                        "tenant_id": relationship.tenant_id,
+                        "relationship_id": relationship.relationship_id,
+                        "source_entity_id": relationship.source_entity_id,
+                        "relation_type": relationship.relation_type,
+                        "relation_type_normalized": relationship.relation_type.casefold(),
+                        "target_entity_id": relationship.target_entity_id,
+                        "provenance": relationship.provenance,
+                        "source_namespace": relationship.source_namespace,
+                        "source_record_id": relationship.source_record_id,
+                        "created_at": relationship.created_at,
+                    },
+                )
+
+    async def list(
+        self,
+        *,
+        tenant_id: str,
+        entity_id: str | None = None,
+    ) -> list[StoredEntityRelationship]:
+        query = f"""
+            SELECT
+                tenant_id,
+                relationship_id,
+                source_entity_id,
+                relation_type,
+                target_entity_id,
+                provenance,
+                source_namespace,
+                source_record_id,
+                created_at
+            FROM {self._table("entity_relationships")}
+            WHERE tenant_id = :tenant_id
+        """
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        if entity_id is not None:
+            query += """
+                AND (
+                    source_entity_id = :entity_id
+                    OR target_entity_id = :entity_id
+                )
+            """
+            params["entity_id"] = entity_id
+        query += """
+            ORDER BY source_entity_id, relation_type, target_entity_id, relationship_id
+        """
+        async with self._engine.connect() as conn:
+            result = await conn.execute(text(query), params)
+            rows = result.mappings().all()
+        return [_entity_relationship_from_row(cast(Mapping[str, Any], row)) for row in rows]
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("entity_relationships")}
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+
+
+def _entity_relationship_from_row(row: Mapping[str, Any]) -> StoredEntityRelationship:
+    return StoredEntityRelationship(
+        relationship_id=row["relationship_id"],
+        tenant_id=row["tenant_id"],
+        source_entity_id=row["source_entity_id"],
+        relation_type=row["relation_type"],
+        target_entity_id=row["target_entity_id"],
+        provenance=row["provenance"],
+        source_namespace=row["source_namespace"],
+        source_record_id=row["source_record_id"],
+        created_at=row["created_at"],
     )

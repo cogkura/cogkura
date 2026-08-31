@@ -78,6 +78,7 @@ from cogkura.models import (
     SemanticConsolidationResult,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
+    StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryLearningState,
     StoredSemanticMemory,
@@ -88,11 +89,16 @@ from cogkura.models import (
 from cogkura.observations.models import IngestionResult, IngestStatus, ObservationInput
 from cogkura.observations.pipeline import ObservationPipeline
 from cogkura.observations.policies import DefaultObservationPolicy, ObservationPolicy
+from cogkura.observations.relationships import (
+    build_stored_entity_relationship,
+    parse_entity_relationship_inputs,
+)
 from cogkura.observations.retention import ObservationRetentionMode
 from cogkura.sources.base import SourceConnector
 from cogkura.storage import (
     ActivationStore,
     CheckpointStore,
+    EntityRelationshipStore,
     EpisodeStore,
     LearningStore,
     MemoryDynamicsStore,
@@ -101,6 +107,7 @@ from cogkura.storage import (
 )
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
+from cogkura.storage.in_memory_entity_relationship import InMemoryEntityRelationshipStore
 from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
 from cogkura.storage.in_memory_learning import InMemoryLearningStore
 from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
@@ -135,6 +142,7 @@ class Memory:
         activation_store: ActivationStore | None = None,
         dynamics_store: MemoryDynamicsStore | None = None,
         learning_store: LearningStore | None = None,
+        entity_relationship_store: EntityRelationshipStore | None = None,
         learning_processor: LearningProcessor | None = None,
         learning_config: LearningConfig | None = None,
         episodic_encoder: EpisodicEncoder | None = None,
@@ -171,6 +179,11 @@ class Memory:
         )
         self._learning_store = (
             learning_store if learning_store is not None else InMemoryLearningStore()
+        )
+        self._entity_relationship_store = (
+            entity_relationship_store
+            if entity_relationship_store is not None
+            else InMemoryEntityRelationshipStore()
         )
         self._learning_processor = (
             learning_processor
@@ -240,7 +253,24 @@ class Memory:
         status = await self._pipeline.ingest(observation)
         if status is None:
             raise ValidationError("Observation was rejected by policy.")
+        await self._upsert_observation_relationships(observation)
         return status
+
+    async def _upsert_observation_relationships(self, observation: ObservationInput) -> None:
+        relationship_inputs = parse_entity_relationship_inputs(observation.metadata)
+        if not relationship_inputs:
+            return
+        stored = [
+            build_stored_entity_relationship(
+                relationship=item,
+                tenant_id=observation.tenant_id,
+                source_namespace=observation.source_namespace,
+                source_record_id=observation.source_record_id,
+                observed_at=observation.observed_at,
+            )
+            for item in relationship_inputs
+        ]
+        await self._entity_relationship_store.upsert_many(stored)
 
     async def ingest(
         self,
@@ -327,6 +357,7 @@ class Memory:
                     )
                 else:
                     result = result.record(status)
+                    await self._upsert_observation_relationships(observation)
                 batch_checkpoint = source.checkpoint_for(record)
             except Exception:
                 result = IngestionResult(
@@ -493,6 +524,7 @@ class Memory:
             ),
             self._dynamics_store.get_many(tenant_id=tenant_id, identities=identities),
         )
+        entity_relationships = await self._entity_relationship_store.list(tenant_id=tenant_id)
         inspection = self._declarative_activator.inspect(
             candidates=candidates,
             cue=cue,
@@ -506,6 +538,7 @@ class Memory:
             episode_support_index=episode_support_index,
             valid_at=valid_at,
             episode_slot_index=episode_slot_index,
+            entity_relationships=tuple(entity_relationships),
         )
         if not forgotten_identities:
             return replace(
@@ -632,6 +665,7 @@ class Memory:
                 identities=identities,
             ),
         )
+        entity_relationships = await self._entity_relationship_store.list(tenant_id=tenant_id)
         return self._declarative_activator.rank(
             candidates=candidates,
             cue=cue,
@@ -643,6 +677,8 @@ class Memory:
             episode_support_index=episode_support_index,
             valid_at=valid_at,
             episode_slot_index=episode_slot_index,
+            entity_relationships=tuple(entity_relationships),
+            subject_id=subject_id,
         )
 
     async def select_working_memory(
@@ -1325,6 +1361,24 @@ class Memory:
             )
         )
 
+    async def list_entity_relationships(
+        self,
+        *,
+        tenant_id: str,
+        entity_id: str | None = None,
+    ) -> list[StoredEntityRelationship]:
+        """List stored entity relationships for diagnostics and inspection."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if entity_id is not None and not entity_id.strip():
+            raise ValidationError("entity_id must not be empty when provided.")
+        return list(
+            await self._entity_relationship_store.list(
+                tenant_id=tenant_id,
+                entity_id=entity_id,
+            )
+        )
+
     async def clear(self, *, tenant_id: str) -> None:
         """Clear learning, activation, dynamics, semantic memories, episodes, and observations."""
         if not tenant_id.strip():
@@ -1332,6 +1386,7 @@ class Memory:
         await self._learning_store.clear(tenant_id=tenant_id)
         await self._activation_store.clear(tenant_id=tenant_id)
         await self._dynamics_store.clear(tenant_id=tenant_id)
+        await self._entity_relationship_store.clear(tenant_id=tenant_id)
         await self._semantic_store.clear(tenant_id=tenant_id)
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
