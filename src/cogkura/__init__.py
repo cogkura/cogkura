@@ -90,9 +90,12 @@ from cogkura.models import (
     StoredSemanticMemory,
     StoredSemanticRevision,
     SupportProvenance,
+    WorkingMemoryChunk,
+    WorkingMemoryChunkType,
     WorkingMemoryComponents,
     WorkingMemoryConfig,
     WorkingMemoryItem,
+    WorkingMemoryRejectionReason,
     WorkingMemorySnapshot,
 )
 from cogkura.observations import (
@@ -196,10 +199,13 @@ __all__ = [
     "SlotFitSource",
     "StoredObservation",
     "TokenEstimator",
+    "WorkingMemoryChunk",
+    "WorkingMemoryChunkType",
     "WorkingMemoryComponents",
     "WorkingMemoryConfig",
     "WorkingMemoryItem",
+    "WorkingMemoryRejectionReason",
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.8"
+__version__ = "0.15.9"

@@ -1639,6 +1639,72 @@ class ReferenceCompactionResult:
     references_compacted: int = 0
 
 
+class WorkingMemoryChunkType(StrEnum):
+    """Deterministic working-memory chunk classification."""
+
+    SEMANTIC_SLOT = "semantic_slot"
+    SEMANTIC_COLLECTION = "semantic_collection"
+    SEMANTIC_WITH_SUPPORT = "semantic_with_support"
+    EPISODIC = "episodic"
+
+
+class WorkingMemoryRejectionReason(StrEnum):
+    """Deterministic reason a working-memory chunk was not selected."""
+
+    REDUNDANT_COVERAGE = "redundant_coverage"
+    LOW_UTILITY = "low_utility"
+    CHUNK_CAPACITY = "chunk_capacity"
+    TOKEN_BUDGET = "token_budget"
+    LOW_NOVELTY = "low_novelty"
+
+
+@dataclass(frozen=True, slots=True)
+class WorkingMemoryChunk:
+    """One coherent working-memory unit containing one or more recalled memories."""
+
+    chunk_id: str
+    chunk_type: WorkingMemoryChunkType
+    coverage_key: str
+    member_identities: tuple[MemoryIdentity, ...]
+    primary_identity: MemoryIdentity
+    serialized_text: str
+    estimated_tokens: int
+    relevance_tier: str
+    activation: float
+    novelty: float = 0.0
+    selected: bool = False
+    rejection_reason: str | None = None
+    members_total: int = 0
+    members_included: int = 0
+    members_omitted: int = 0
+
+    def __post_init__(self) -> None:
+        if not self.chunk_id.strip():
+            raise ValidationError("chunk_id must not be empty.")
+        if not self.coverage_key.strip():
+            raise ValidationError("coverage_key must not be empty.")
+        if not self.member_identities:
+            raise ValidationError("member_identities must not be empty.")
+        if not self.serialized_text.strip():
+            raise ValidationError("serialized_text must not be empty.")
+        if self.estimated_tokens < 0:
+            raise ValidationError("estimated_tokens must not be negative.")
+        if not self.relevance_tier.strip():
+            raise ValidationError("relevance_tier must not be empty.")
+        if not math.isfinite(self.activation):
+            raise ValidationError("activation must be finite.")
+        if not math.isfinite(self.novelty):
+            raise ValidationError("novelty must be finite.")
+        if self.members_total <= 0:
+            raise ValidationError("members_total must be greater than zero.")
+        if self.members_included <= 0:
+            raise ValidationError("members_included must be greater than zero.")
+        if self.members_omitted < 0:
+            raise ValidationError("members_omitted must not be negative.")
+        if self.members_included + self.members_omitted != self.members_total:
+            raise ValidationError("members_included + members_omitted must equal members_total.")
+
+
 @dataclass(frozen=True, slots=True)
 class WorkingMemoryConfig:
     """Configuration for bounded working-memory selection."""
@@ -1658,6 +1724,7 @@ class WorkingMemoryConfig:
     learned_utility_weight: float = 0.10
     collapse_same_slot_support: bool = True
     stale_goal_penalty: float = 0.35
+    enable_chunking: bool = True
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -1756,6 +1823,8 @@ class WorkingMemoryItem:
     components: WorkingMemoryComponents
     rank: int
     reason: str
+    chunk: WorkingMemoryChunk | None = None
+    member_recalls: tuple[RecallResult, ...] = ()
 
     def __post_init__(self) -> None:
         if self.estimated_tokens < 0:
@@ -1817,6 +1886,9 @@ class WorkingMemorySnapshot:
     goal_filtered_count: int
     inhibited_count: int
     budget_skipped_count: int
+    candidate_chunk_count: int = 0
+    selected_chunk_count: int = 0
+    chunks: tuple[WorkingMemoryChunk, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -1838,10 +1910,20 @@ class WorkingMemorySnapshot:
             raise ValidationError("inhibited_count must not be negative.")
         if self.budget_skipped_count < 0:
             raise ValidationError("budget_skipped_count must not be negative.")
+        if self.candidate_chunk_count < 0:
+            raise ValidationError("candidate_chunk_count must not be negative.")
+        if self.selected_chunk_count < 0:
+            raise ValidationError("selected_chunk_count must not be negative.")
 
     @property
     def recall_results(self) -> tuple[RecallResult, ...]:
-        return tuple(item.recall for item in self.items)
+        results: list[RecallResult] = []
+        for item in self.items:
+            if item.member_recalls:
+                results.extend(item.member_recalls)
+            else:
+                results.append(item.recall)
+        return tuple(results)
 
 
 class LearningOutcome(StrEnum):
@@ -2378,6 +2460,9 @@ class MemoryContext:
             return ""
         lines = ["Relevant memory:", ""]
         for item in self.items:
-            statement = item.memory.statement.replace("\n", "\n  ")
+            if item.chunk is not None:
+                statement = item.chunk.serialized_text.replace("\n", "\n  ")
+            else:
+                statement = item.memory.statement.replace("\n", "\n  ")
             lines.append(f"- {statement}")
         return "\n".join(lines)

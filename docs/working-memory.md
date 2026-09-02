@@ -99,3 +99,15 @@ See `WorkingMemoryConfig` in `src/cogkura/models.py`. Defaults include `candidat
 - No persistent working-memory store or migration
 - No automatic `record_access` on selection
 - Previous-only items are not reinserted without passing recall again
+
+## 0.15.9 working-memory chunking and coverage
+
+`0.15.9` groups related recall candidates into deterministic **chunks** before greedy selection. `max_items` counts **chunks**, not raw memories (default remains `8`). Chunking is enabled by default (`WorkingMemoryConfig.enable_chunking=true`); set `enable_chunking=false` to restore item-level `0.15.8` selection on the same pool.
+
+Research basis: Baddeley’s bounded workspace and Miller’s chunking insight—capacity applies to meaningful units, not every surface form.
+
+**Collection vs independent many:** `cardinality=MANY` semantics that share `slot_key`, `status`, `relevance_tier`, and provenance (shared SUPPORT episode or observation evidence) form one `SEMANTIC_COLLECTION` chunk—for example `database = postgres / replicated / encrypted` from one source becomes one bullet. Same predicate with disjoint provenance (hiking vs skiing) stays separate chunks with object-specific coverage keys.
+
+**Coverage-aware selection:** staged greedy pick prefers uncovered `coverage_key` areas, then activation/goal/importance within tier. Jaccard inhibition applies to chunk `serialized_text`, not raw member statements.
+
+**Render and access:** `MemoryContext.render()` emits one bullet per selected chunk using deterministic serialized text (Oxford-comma collections, semantic compression for SUPPORT episodes). `WorkingMemorySnapshot.recall_results` and `record_context_use()` flatten **included** chunk members for reinforcement; trimmed members are omitted. Inspect `WorkingMemorySnapshot.chunks` for all formed chunks, rejection reasons, and member include/omit counts.

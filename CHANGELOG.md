@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.9] - 2026-09-02
+
+### Added
+
+- Deterministic working-memory **chunking** after recall: `WorkingMemoryChunk`, `WorkingMemoryChunkType`, `WorkingMemoryRejectionReason`, and inspectable `WorkingMemorySnapshot.chunks` with member include/omit counts.
+- Collection grouping for `cardinality=MANY` semantics sharing slot, status, relevance tier, and provenance; independent many-valued semantics keep object-specific coverage keys.
+- `SEMANTIC_WITH_SUPPORT` attachment, deterministic serialization (Oxford-comma collections, semantic compression), token-budget member trim, and coverage-aware greedy chunk selection.
+- `WorkingMemoryConfig.enable_chunking` (default `true`) to A/B against item-level selection; `WorkingMemoryItem.chunk`, `member_recalls`, and flattened `recall_results` for included members.
+- `MemoryContext.render()` uses chunk `serialized_text`; package regression tests in `tests/test_working_memory_chunking.py`.
+
+### Changed
+
+- `max_items` and `prompt_budget_tokens` apply to **chunks** when chunking is enabled (default behaviour unchanged at `8` items).
+- Support episodes backing already-selected semantics are not emitted as separate episodic chunks.
+
 ## [0.15.8] - 2026-08-31
 
 ### Added
