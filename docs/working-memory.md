@@ -111,3 +111,7 @@ Research basis: Baddeley’s bounded workspace and Miller’s chunking insight�
 **Coverage-aware selection:** staged greedy pick prefers uncovered `coverage_key` areas, then activation/goal/importance within tier. Jaccard inhibition applies to chunk `serialized_text`, not raw member statements.
 
 **Render and access:** `MemoryContext.render()` emits one bullet per selected chunk using deterministic serialized text (Oxford-comma collections, semantic compression for SUPPORT episodes). `WorkingMemorySnapshot.recall_results` and `record_context_use()` flatten **included** chunk members for reinforcement; trimmed members are omitted. Inspect `WorkingMemorySnapshot.chunks` for all formed chunks, rejection reasons, and member include/omit counts.
+
+## 0.15.10 chunk primary correctness
+
+`0.15.10` fixes a correctness bug where `SEMANTIC_WITH_SUPPORT` serialization assumed `members[0]` was always the semantic. Relevance ordering may legitimately place a supporting episode first; structural primary is now resolved at chunk construction and used by the serializer. Member relevance order remains independent and is still used for diagnostics, trimming, and display.

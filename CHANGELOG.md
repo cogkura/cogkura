@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.10] - 2026-09-03
+
+### Fixed
+
+- `SEMANTIC_WITH_SUPPORT` chunks now retain an explicit semantic structural primary independent of member relevance ordering; supporting episodes may rank ahead of the semantic without crashing serialization or `prepare_context()`.
+- Malformed `SEMANTIC_WITH_SUPPORT` construction (no semantic member) fails early with `InternalInvariantError` at chunk build time instead of a late serializer assertion.
+
+### Changed
+
+- `_serialize_semantic_chunk()` accepts an explicit `primary` candidate; `_trim_chunk_for_budget()` threads `chunk.primary` through serialization calls.
+
 ## [0.15.9] - 2026-09-02
 
 ### Added

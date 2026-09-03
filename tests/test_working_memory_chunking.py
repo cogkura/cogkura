@@ -12,11 +12,15 @@ from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidato
 from cogkura.algorithms.working_memory import (
     ApproximateTokenEstimator,
     DeterministicWorkingMemorySelector,
+    InternalInvariantError,
+    _build_semantic_chunk,
+    _ScoredCandidate,
 )
 from cogkura.models import (
     ActivationComponents,
     EpisodeEntity,
     EpisodeEvidenceInput,
+    MemoryIdentity,
     MemoryKind,
     RecallResult,
     RelevanceTier,
@@ -769,3 +773,295 @@ def test_rejected_chunks_expose_capacity_reason() -> None:
         reason == WorkingMemoryRejectionReason.CHUNK_CAPACITY.value
         for reason in (chunk.rejection_reason for chunk in rejected)
     )
+
+
+def _scored_from_recall(
+    recall: RecallResult,
+    *,
+    goal_relevance: float | None = None,
+) -> _ScoredCandidate:
+    relevance = goal_relevance if goal_relevance is not None else recall.score
+    return _ScoredCandidate(
+        recall=recall,
+        goal_relevance=relevance,
+        importance=recall.memory.importance,
+        carryover=0.0,
+        base_priority=recall.score,
+        learned_utility=0.5,
+        utility_adjustment=0.0,
+        adjusted_priority=recall.score,
+        estimated_tokens=_ESTIMATOR.estimate(recall.memory.statement),
+    )
+
+
+def _size_update_semantic_and_support() -> tuple[StoredSemanticMemory, StoredEpisode]:
+    semantic = _semantic(
+        semantic_id="id-size",
+        memory_key="jacket-size",
+        statement="Customer wears jacket size L.",
+        predicate="jacket_size",
+        object_value="L",
+        slot_key="slot:jacket_size",
+        cardinality=SemanticCardinality.ONE,
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-update",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    support = _episode(
+        episode_id="ep-update",
+        memory_key="size-update",
+        statement="Actually, I'm back to a large now.",
+        observation_id="obs-update",
+    )
+    return semantic, support
+
+
+def test_semantic_with_support_episode_outranks_semantic() -> None:
+    semantic, support = _size_update_semantic_and_support()
+    snapshot = _select(
+        [
+            _recall(support, score=0.95, relevance_tier=RelevanceTier.DIRECT_VALUE),
+            _recall(semantic, score=0.4, relevance_tier=RelevanceTier.CONTEXTUAL),
+        ],
+        goal="Need a waterproof jacket.",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    chunk_item = next(
+        item
+        for item in snapshot.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    assert chunk_item.chunk is not None
+    assert chunk_item.chunk.primary_identity == MemoryIdentity(
+        memory_kind=MemoryKind.SEMANTIC,
+        memory_key="jacket-size",
+    )
+    assert chunk_item.chunk.serialized_text
+    ordered_keys = [recall.memory.memory_key for recall in chunk_item.member_recalls]
+    assert ordered_keys[0] == "size-update"
+    assert "jacket-size" in ordered_keys
+
+
+def test_semantic_with_support_semantic_first_unchanged() -> None:
+    semantic, support = _size_update_semantic_and_support()
+    redundant_support = _episode(
+        episode_id="ep-update",
+        memory_key="size-update",
+        statement="Customer wears jacket size L.",
+        observation_id="obs-update",
+    )
+    snapshot = _select(
+        [
+            _recall(semantic, score=0.9, relevance_tier=RelevanceTier.DIRECT_SEMANTIC),
+            _recall(
+                redundant_support,
+                score=0.7,
+                relevance_tier=RelevanceTier.EVIDENCE_ASSOCIATION,
+            ),
+        ],
+        goal="jacket size",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    chunk_item = next(
+        item
+        for item in snapshot.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    assert chunk_item.chunk is not None
+    assert chunk_item.chunk.primary_identity.memory_key == "jacket-size"
+    assert chunk_item.chunk.serialized_text == semantic.statement
+
+
+def test_semantic_with_support_multiple_episodes_primary_remains_semantic() -> None:
+    semantic = _semantic(
+        semantic_id="id-size",
+        memory_key="jacket-size",
+        statement="Customer wears jacket size L.",
+        predicate="jacket_size",
+        object_value="L",
+        slot_key="slot:jacket_size",
+        cardinality=SemanticCardinality.ONE,
+    )
+    episode_a = _episode(
+        episode_id="ep-a",
+        memory_key="support-a",
+        statement="Actually, I'm back to a large now.",
+        observation_id="obs-a",
+    )
+    episode_b = _episode(
+        episode_id="ep-b",
+        memory_key="support-b",
+        statement="Confirmed large fit after trying on.",
+        observation_id="obs-b",
+    )
+    members = (
+        _scored_from_recall(
+            _recall(episode_a, score=0.95, relevance_tier=RelevanceTier.DIRECT_VALUE),
+        ),
+        _scored_from_recall(
+            _recall(episode_b, score=0.85, relevance_tier=RelevanceTier.ENTITY_ASSOCIATION),
+        ),
+        _scored_from_recall(
+            _recall(semantic, score=0.4, relevance_tier=RelevanceTier.CONTEXTUAL),
+        ),
+    )
+    chunk = _build_semantic_chunk(
+        chunk_type=WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT,
+        coverage_key="slot:jacket_size",
+        members=members,
+        episode_by_id={},
+        token_estimator=_ESTIMATOR,
+    )
+    assert chunk.primary.recall.memory_kind is MemoryKind.SEMANTIC
+    assert chunk.primary.recall.memory.memory_key == "jacket-size"
+    assert [member.recall.memory.memory_key for member in chunk.members] == [
+        "support-a",
+        "support-b",
+        "jacket-size",
+    ]
+    assert chunk.serialized_text
+
+
+def test_malformed_semantic_with_support_raises_early() -> None:
+    episode = _episode(
+        episode_id="ep-only",
+        memory_key="episode-only",
+        statement="Episode without semantic.",
+        observation_id="obs-only",
+    )
+    with pytest.raises(InternalInvariantError, match="exactly one semantic member"):
+        _build_semantic_chunk(
+            chunk_type=WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT,
+            coverage_key="slot:invalid",
+            members=(
+                _scored_from_recall(
+                    _recall(episode, score=0.9, relevance_tier=RelevanceTier.DIRECT_VALUE),
+                ),
+            ),
+            episode_by_id={},
+            token_estimator=_ESTIMATOR,
+        )
+
+
+def test_semantic_with_support_primary_identity_stable_across_member_order() -> None:
+    semantic, support = _size_update_semantic_and_support()
+    episode_first = _select(
+        [
+            _recall(support, score=0.95, relevance_tier=RelevanceTier.DIRECT_VALUE),
+            _recall(semantic, score=0.4, relevance_tier=RelevanceTier.CONTEXTUAL),
+        ],
+        goal="Need a waterproof jacket.",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    semantic_first = _select(
+        [
+            _recall(semantic, score=0.9, relevance_tier=RelevanceTier.DIRECT_SEMANTIC),
+            _recall(support, score=0.7, relevance_tier=RelevanceTier.EVIDENCE_ASSOCIATION),
+        ],
+        goal="Need a waterproof jacket.",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    chunk_a = next(
+        item.chunk
+        for item in episode_first.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    chunk_b = next(
+        item.chunk
+        for item in semantic_first.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    assert chunk_a is not None
+    assert chunk_b is not None
+    assert chunk_a.chunk_id == chunk_b.chunk_id
+    assert chunk_a.primary_identity == chunk_b.primary_identity
+    assert chunk_a.coverage_key == chunk_b.coverage_key
+
+
+@pytest.mark.asyncio
+async def test_short_cue_prepare_context_with_outranking_support() -> None:
+    memory = _memory()
+    memory._working_memory_config = WorkingMemoryConfig(max_items=4, candidate_pool_size=20)
+    t_size = _T - timedelta(days=60)
+    t_update = _T - timedelta(days=10)
+    await memory.observe(
+        ObservationInput(
+            tenant_id=_TENANT,
+            subject_id=_SUBJECT,
+            actor_id=_SUBJECT,
+            source_namespace="chat.messages",
+            source_record_id="size-semantic",
+            event_type="message",
+            content="Customer wears jacket size L.",
+            observed_at=t_size,
+            metadata={
+                "conversation_id": "conv-size",
+                "entity_ids": [_SUBJECT],
+                "semantic_facts": [
+                    {
+                        "predicate": "jacket_size",
+                        "object_value": "L",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            },
+        )
+    )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=t_size)
+    await memory.observe(
+        ObservationInput(
+            tenant_id=_TENANT,
+            subject_id=_SUBJECT,
+            actor_id=_SUBJECT,
+            source_namespace="chat.messages",
+            source_record_id="size-update",
+            event_type="message",
+            content="Actually, I'm back to a large now.",
+            observed_at=t_update,
+            metadata={
+                "conversation_id": "conv-update",
+                "entity_ids": [_SUBJECT],
+                "semantic_facts": [
+                    {
+                        "predicate": "jacket_size",
+                        "object_value": "L",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            },
+        )
+    )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=t_update)
+    context = await memory.prepare_context(
+        "Need a waterproof jacket.",
+        tenant_id=_TENANT,
+        subject_id=_SUBJECT,
+        as_of=_T,
+    )
+    rendered = context.render()
+    assert isinstance(rendered, str)
+
+
+def test_episodic_chunk_unaffected_by_semantic_primary_rules() -> None:
+    episode = _episode(
+        episode_id="ep-only",
+        memory_key="episode-only",
+        statement="Customer browsed jackets online.",
+        observation_id="obs-only",
+    )
+    snapshot = _select(
+        [_recall(episode, score=0.8, relevance_tier=RelevanceTier.CONTEXTUAL)],
+        goal="waterproof jacket",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    assert snapshot.items[0].chunk is not None
+    assert snapshot.items[0].chunk.chunk_type is WorkingMemoryChunkType.EPISODIC
+    assert snapshot.items[0].chunk.serialized_text == episode.statement

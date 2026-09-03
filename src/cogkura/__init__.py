@@ -208,4 +208,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.9"
+__version__ = "0.15.10"

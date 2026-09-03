@@ -47,6 +47,10 @@ _RELEVANCE_TIER_RANK = {
 }
 
 
+class InternalInvariantError(ValueError):
+    """Raised when working-memory chunk construction violates structural invariants."""
+
+
 class TokenEstimator(Protocol):
     """Protocol for estimating token counts from memory statement text."""
 
@@ -642,14 +646,21 @@ def _build_semantic_chunk(
     token_estimator: TokenEstimator,
 ) -> _ChunkCandidate:
     ordered = _order_members(members)
-    primary = ordered[0]
-    serialized = _serialize_semantic_chunk(chunk_type, ordered)
+    if chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT:
+        semantic_primary = _semantic_primary_for_support(ordered)
+    else:
+        semantic_primary = ordered[0]
+    serialized = _serialize_semantic_chunk(
+        chunk_type,
+        ordered,
+        primary=semantic_primary,
+    )
     estimated_tokens = token_estimator.estimate(serialized)
     return _chunk_candidate_from_members(
         chunk_type=chunk_type,
         coverage_key=coverage_key,
         members=ordered,
-        primary=primary,
+        primary=semantic_primary,
         serialized_text=serialized,
         estimated_tokens=estimated_tokens,
         included_members=ordered,
@@ -831,11 +842,21 @@ def _coverage_key_for_semantic(memory: StoredSemanticMemory, *, collection: bool
     return f"slot:{memory.slot_key}:object:{memory.object_value}"
 
 
+def _semantic_primary_for_support(members: Sequence[_ScoredCandidate]) -> _ScoredCandidate:
+    semantics = [member for member in members if member.recall.memory_kind is MemoryKind.SEMANTIC]
+    if len(semantics) != 1:
+        raise InternalInvariantError(
+            f"SEMANTIC_WITH_SUPPORT requires exactly one semantic member; got {len(semantics)}."
+        )
+    return semantics[0]
+
+
 def _serialize_semantic_chunk(
     chunk_type: WorkingMemoryChunkType,
     members: Sequence[_ScoredCandidate],
+    *,
+    primary: _ScoredCandidate,
 ) -> str:
-    primary = members[0]
     memory = primary.recall.memory
     assert isinstance(memory, StoredSemanticMemory)
     semantic_members = [
@@ -885,7 +906,11 @@ def _trim_chunk_for_budget(
     while len(included) > 1:
         included.pop()
         omitted += 1
-        serialized = _serialize_semantic_chunk(chunk.chunk_type, included)
+        serialized = _serialize_semantic_chunk(
+            chunk.chunk_type,
+            included,
+            primary=chunk.primary,
+        )
         estimated = token_estimator.estimate(serialized)
         if estimated <= remaining_tokens:
             trimmed = _chunk_candidate_from_members(
@@ -903,7 +928,11 @@ def _trim_chunk_for_budget(
             trimmed.novelty = chunk.novelty
             return trimmed, estimated
 
-    primary_only = _serialize_semantic_chunk(chunk.chunk_type, (chunk.primary,))
+    primary_only = _serialize_semantic_chunk(
+        chunk.chunk_type,
+        (chunk.primary,),
+        primary=chunk.primary,
+    )
     estimated = token_estimator.estimate(primary_only)
     if estimated > remaining_tokens:
         return None, 0
