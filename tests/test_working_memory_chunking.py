@@ -374,6 +374,7 @@ def test_collection_groups_shared_provenance_colours() -> None:
     assert "black" in item.chunk.serialized_text
     assert "navy" in item.chunk.serialized_text
     assert "grey" in item.chunk.serialized_text
+    assert ", and " in item.chunk.serialized_text
 
 
 def test_independent_many_hiking_and_skiing_are_separate_chunks() -> None:
@@ -590,6 +591,63 @@ async def test_prepare_context_render_uses_chunk_serialized_text() -> None:
     )
     assert colour_item.chunk is not None
     assert colour_item.chunk.serialized_text in context.render()
+
+
+@pytest.mark.asyncio
+async def test_record_context_use_flattens_semantic_with_support_members() -> None:
+    memory = _memory()
+    memory._working_memory_config = WorkingMemoryConfig(max_items=4, candidate_pool_size=20)
+    t_pref = _T - timedelta(days=30)
+    await memory.observe(
+        ObservationInput(
+            tenant_id=_TENANT,
+            subject_id=_SUBJECT,
+            actor_id=_SUBJECT,
+            source_namespace="chat.messages",
+            source_record_id="pref-light",
+            event_type="purchase",
+            content="Customer purchased a lightweight windbreaker in size L.",
+            observed_at=t_pref,
+            metadata={
+                "conversation_id": "conv-pref",
+                "entity_ids": [_SUBJECT],
+                "semantic_facts": [
+                    {
+                        "predicate": "outerwear_weight_preference",
+                        "object_value": "lightweight",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            },
+        )
+    )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=t_pref)
+    context = await memory.prepare_context(
+        "Recommend lightweight outerwear.",
+        tenant_id=_TENANT,
+        subject_id=_SUBJECT,
+        as_of=_T,
+    )
+    support_chunk = next(
+        item
+        for item in context.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    support_member_keys = {
+        recall.memory.memory_key
+        for recall in support_chunk.member_recalls
+        if recall.memory_kind is MemoryKind.EPISODE
+    }
+    flattened_episode_keys = {
+        recall.memory.memory_key
+        for recall in context.recall_results
+        if recall.memory_kind is MemoryKind.EPISODE
+    }
+    assert support_member_keys
+    assert support_member_keys.issubset(flattened_episode_keys)
+    await memory.record_context_use(context, referenced_at=_T)
 
 
 @pytest.mark.asyncio
@@ -918,6 +976,12 @@ def test_semantic_with_support_serializes_semantic_only_when_structured() -> Non
     assert len(chunk_item.member_recalls) == 2
     member_keys = {recall.memory.memory_key for recall in chunk_item.member_recalls}
     assert member_keys == {"lightweight", "light-support"}
+    support_identity = next(
+        identity
+        for identity in chunk_item.chunk.member_identities
+        if identity.memory_key == "light-support"
+    )
+    assert support_identity.memory_kind is MemoryKind.EPISODE
 
 
 def test_semantic_with_support_multiple_episodes_primary_remains_semantic() -> None:
@@ -967,7 +1031,9 @@ def test_semantic_with_support_multiple_episodes_primary_remains_semantic() -> N
         "support-b",
         "jacket-size",
     ]
-    assert chunk.serialized_text
+    assert chunk.serialized_text == semantic.statement
+    assert "Actually" not in chunk.serialized_text
+    assert "Confirmed large" not in chunk.serialized_text
 
 
 def test_malformed_semantic_with_support_raises_early() -> None:

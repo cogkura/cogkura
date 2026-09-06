@@ -114,7 +114,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.15.11)
+## Current implementation boundary (0.15.12)
 
 Implemented:
 
@@ -122,9 +122,11 @@ Implemented:
 - episodic and semantic memory with reconsolidation
 - ACT-R activation, spreading, forgetting, learning
 - gated admission, evidence-linked relevance, contextual association, structured relationships
-- working-memory chunking with semantic structural primary (0.15.10) and semantic-only support render (0.15.11)
-- `prepare_context` / `MemoryContext` application boundary
+- working-memory chunking with semantic structural primary (0.15.10) and frozen semantic-only support render (0.15.11–0.15.12)
+- `prepare_context` / `MemoryContext` application boundary with explicit members-vs-rendered-text provenance contract
 - metamemory assessment and recall inspection
+
+**Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
 Next major milestone: **0.16 Encoding Specificity** (cue-context match; not started in 0.15.x).
 

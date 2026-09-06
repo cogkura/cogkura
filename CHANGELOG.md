@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.12] - 2026-09-06
+
+### Added
+
+- Frozen `SEMANTIC_WITH_SUPPORT` rendering contract tests covering member provenance, multi-support serialization, `record_context_use` flattening, collections, and episodic chunks.
+- Reusable observational benchmark helper (`benchmarks/prepare_context.py`, `scripts/run_prepare_context_benchmark.py`) writing `results/benchmark-results.{json,md}`; committed historical snapshot [`docs/findings/0.15.12-performance-baseline.md`](docs/findings/0.15.12-performance-baseline.md).
+- Mandatory mechanism assertions in canonical 0.15 architecture regression (`tests/test_015_architecture_regression.py`).
+
+### Changed
+
+- `tests/test_prepare_context_benchmarks.py` now asserts stable workload counts only; wall-clock timing moved out of default pytest.
+- `scripts/benchmark_release.sh` runs quality gates once, then the benchmark helper (no duplicate timed pytest pass).
+- [`docs/working-memory.md`](docs/working-memory.md) and [`docs/architecture.md`](docs/architecture.md) document members-vs-rendered-text provenance for support chunks.
+
 ## [0.15.11] - 2026-09-06
 
 ### Added

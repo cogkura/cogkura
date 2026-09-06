@@ -9,7 +9,7 @@
 - tests and documentation;
 - PyPI publishing workflow.
 
-## 0.1 - PostgreSQL observation ingestion
+## 0.1 - PostgreSQL observation ingestion (done)
 
 - `ObservationInput` and observation storage protocols;
 - PostgreSQL schema, migrations, observation store, checkpoint store;
@@ -70,12 +70,6 @@
 - immutable `WorkingMemorySnapshot`;
 - no persistent working-memory store.
 
-## 0.9 - Learning and reinforcement (done)
-
-- Outcome feedback (`HELPFUL`, `UNHELPFUL`, `INCORRECT`) via `Memory.learn()`.
-- Contextual utility for working memory; HELPFUL ACT-R traces; learned associations in spreading.
-- Migration `007_learning_reinforcement.sql`.
-
 ## 0.8 - Reconsolidation / memory updating (done)
 
 - revision-aware semantic consolidation (`SemanticRevisionCandidate`);
@@ -84,6 +78,77 @@
 - `Memory.list_semantic_revisions()` and `valid_at` historical retrieval;
 - migration `006_semantic_reconsolidation.sql`;
 - [`docs/reconsolidation.md`](reconsolidation.md).
+
+## 0.9 - Learning and reinforcement (done)
+
+- Outcome feedback (`HELPFUL`, `UNHELPFUL`, `INCORRECT`) via `Memory.learn()`.
+- Contextual utility for working memory; HELPFUL ACT-R traces; learned associations in spreading.
+- Migration `007_learning_reinforcement.sql`.
+
+## 0.10 - Metamemory / memory monitoring (done)
+
+- Deterministic read-only metamemory via `Memory.assess_memory()`.
+- Cue coverage, retrieval strength, evidence confidence, conflict, and forgetting-pressure signals.
+- [`docs/metamemory.md`](metamemory.md).
+
+## 0.11 - Ranking, simulated time, and current-state recall (done)
+
+- Simulated time on encode/consolidate; episode visibility at `valid_at`.
+- Candidate-set IDF, near-duplicate collapse, current-state semantic bias.
+- Importance-aware forgetting and semantic-support protection.
+- [`docs/design-ranking-time-current-state.md`](design-ranking-time-current-state.md).
+
+## 0.12 - String cues and access recording (done)
+
+- String-cue entity seeding for spreading (`enable_text_entity_seeding`).
+- Semantic slot admission before threshold cut.
+- Superseded-slot current-state penalties on supporting episodes.
+- Numeric-token duplicate collapse; `record_access(..., min_score=...)`.
+- [`docs/design-string-cues-current-state.md`](design-string-cues-current-state.md).
+
+## 0.13 - Gated slot admission and association (done)
+
+- Gate slot admission to current-state lexicon, `predicate`, or `force_slot_admission`.
+- Multi-entity conjunction bonus; incident IDF scale and tag seeding.
+- Hard-exclude SUPERSEDED-only SUPPORT on current-state recall.
+- Metamemory `MISSING_KNOWLEDGE`; WM same-slot collapse and stale-goal penalty.
+- Rank-time same-slot SUPPORT collapse; `__version__` fix.
+- [`docs/design-gated-slot-admission.md`](design-gated-slot-admission.md).
+
+## 0.14 - Retrieval eligibility, global ranking, and temporal relevance (done)
+
+- Global ranking over eligible candidates; admission is threshold bypass only.
+- Soft entity slot admission (`enable_entity_slot_admission`).
+- Current-state policy decoupled from admission; lifecycle bias only under policy.
+- Precision-aware text matching (`enable_text_precision_matching`) for recall and WM relevance.
+- [`docs/design-retrieval-eligibility-ranking.md`](design-retrieval-eligibility-ranking.md).
+
+## 0.14.1 - Retrieval corrections and ranking separation (done)
+
+- Lexical current-state intent independent of structured cue fields.
+- Historical slot admission respects `valid_at` rather than present ACTIVE status.
+- Query coverage for accessibility; precision-aware F1 for eligible ranking only.
+- Current-state bonuses scoped to matched semantic slots.
+- [`docs/design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14.1.md).
+
+## 0.14.2 - Temporal mode, structured slot fit, and metamemory answerability (done)
+
+- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` retrieval modes; historical mode can activate matching soft admission.
+- Structured semantic-slot fit refines eligible ranking only; SUPPORT episodes inherit fit from the slot they support.
+- Metamemory answerability distinguishes unresolved knowledge from weak retrieval.
+- [`docs/design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answerability-0.14.2.md).
+
+## 0.14.3 - Conjunctive slot matching and positive structured ranking (done)
+
+- Explicit entity, predicate, and object constraints are conjunctive in shared semantic matching.
+- Perfect structured slot fit provides positive bounded ranking evidence; mismatch is penalised relative to neutral.
+- [`docs/design-conjunctive-slot-ranking-0.14.3.md`](design-conjunctive-slot-ranking-0.14.3.md).
+
+## 0.14.4 - Retrieval diagnostics and SUPPORT provenance (done)
+
+- `RecallResult.diagnostics` exposes accessibility vs rank activation, text coverage, cue fit, temporal mode, structured fit, and eligibility diagnostics.
+- SUPPORT ranking diagnostics preserve derivation-backed semantic revision provenance and selected inherited-fit source.
+- [`docs/design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retrieval-diagnostics-support-provenance-0.14.4.md).
 
 ## 0.15.0 - Application integration and memory context (done)
 
@@ -95,7 +160,7 @@
 - [`docs/application-integration.md`](application-integration.md) and [`examples/application_context.py`](../../examples/application_context.py).
 - [`docs/design-application-integration-memory-context-0.15.0.md`](design-application-integration-memory-context-0.15.0.md).
 
-## 0.15.1–0.15.11 — Dependable recall line (done)
+## 0.15.1–0.15.12 — Dependable recall line (done)
 
 - **0.15.1** evidence-chronology traces; `inspect_recall()`
 - **0.15.2** lexical slot matching; bounded soft admission
@@ -108,68 +173,13 @@
 - **0.15.9** working-memory chunking; coverage-aware selection
 - **0.15.10** `SEMANTIC_WITH_SUPPORT` structural primary correctness
 - **0.15.11** temporal contract verification; semantic-only support render; performance baselines; configuration/architecture docs freeze
+- **0.15.12** architecture-freeze hardening: frozen support-render contract, observational performance baseline snapshot, mandatory canonical regression fixture
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
-## 0.14.4 - Retrieval diagnostics and SUPPORT provenance (done)
-
-- `RecallResult.diagnostics` exposes accessibility vs rank activation, text coverage, cue fit, temporal mode, structured fit, and eligibility diagnostics.
-- SUPPORT ranking diagnostics preserve derivation-backed semantic revision provenance and selected inherited-fit source.
-- [`docs/design-retrieval-diagnostics-support-provenance-0.14.4.md`](design-retrieval-diagnostics-support-provenance-0.14.4.md).
-
-## 0.14.3 - Conjunctive slot matching and positive structured ranking (done)
-
-- Explicit entity, predicate, and object constraints are conjunctive in shared semantic matching.
-- Perfect structured slot fit provides positive bounded ranking evidence; mismatch is penalised relative to neutral.
-- [`docs/design-conjunctive-slot-ranking-0.14.3.md`](design-conjunctive-slot-ranking-0.14.3.md).
-
-## 0.14.2 - Temporal mode, structured slot fit, and metamemory answerability (done)
-
-- Internal `NEUTRAL` / `CURRENT` / `HISTORICAL` retrieval modes; historical mode can activate matching soft admission.
-- Structured semantic-slot fit refines eligible ranking only; SUPPORT episodes inherit fit from the slot they support.
-- Metamemory answerability distinguishes unresolved knowledge from weak retrieval.
-- [`docs/design-temporal-slot-answerability-0.14.2.md`](design-temporal-slot-answerability-0.14.2.md).
-
-## 0.14.1 - Retrieval corrections and ranking separation (done)
-
-- Lexical current-state intent independent of structured cue fields.
-- Historical slot admission respects `valid_at` rather than present ACTIVE status.
-- Query coverage for accessibility; precision-aware F1 for eligible ranking only.
-- Current-state bonuses scoped to matched semantic slots.
-- [`docs/design-retrieval-corrections-0.14.1.md`](design-retrieval-corrections-0.14.1.md).
-
-## 0.14 - Retrieval eligibility, global ranking, and temporal relevance (done)
-
-- Global ranking over eligible candidates; admission is threshold bypass only.
-- Soft entity slot admission (`enable_entity_slot_admission`).
-- Current-state policy decoupled from admission; lifecycle bias only under policy.
-- Precision-aware text matching (`enable_text_precision_matching`) for recall and WM relevance.
-- [`docs/design-retrieval-eligibility-ranking.md`](design-retrieval-eligibility-ranking.md).
-
-## 0.13 - Gated slot admission and association (done)
-
-- Gate slot admission to current-state lexicon, `predicate`, or `force_slot_admission`.
-- Multi-entity conjunction bonus; incident IDF scale and tag seeding.
-- Hard-exclude SUPERSEDED-only SUPPORT on current-state recall.
-- Metamemory `MISSING_KNOWLEDGE`; WM same-slot collapse and stale-goal penalty.
-- Rank-time same-slot SUPPORT collapse; `__version__` fix.
-- [`docs/design-gated-slot-admission.md`](design-gated-slot-admission.md).
-
-## 0.12 - String cues and access recording (done)
-
-- String-cue entity seeding for spreading (`enable_text_entity_seeding`).
-- Semantic slot admission before threshold cut.
-- Superseded-slot current-state penalties on supporting episodes.
-- Numeric-token duplicate collapse; `record_access(..., min_score=...)`.
-- [`docs/design-string-cues-current-state.md`](design-string-cues-current-state.md).
-
 ## Later
 
-- **0.16.0 — Encoding Specificity**: cue-context match and encoding-context reinstatement (new concept; builds on stable 0.15 retrieval/context pipeline).
-- `0.9`: learning / reinforcement (done);
-- `0.10`: metamemory / memory monitoring (done);
-- `0.11`: ranking, simulated time, and current-state recall (done);
-- `0.12+`: additional cognitive maintenance (planned);
+- **0.16.0 — Encoding Specificity** (next): cue-context match and encoding-context reinstatement (new concept; builds on stable 0.15 retrieval/context pipeline).
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

@@ -110,7 +110,7 @@ Research basis: Baddeley’s bounded workspace and Miller’s chunking insight�
 
 **Coverage-aware selection:** staged greedy pick prefers uncovered `coverage_key` areas, then activation/goal/importance within tier. Jaccard inhibition applies to chunk `serialized_text`, not raw member statements.
 
-**Render and access:** `MemoryContext.render()` emits one bullet per selected chunk using deterministic serialized text (Oxford-comma collections, semantic compression for SUPPORT episodes). `WorkingMemorySnapshot.recall_results` and `record_context_use()` flatten **included** chunk members for reinforcement; trimmed members are omitted. Inspect `WorkingMemorySnapshot.chunks` for all formed chunks, rejection reasons, and member include/omit counts.
+**Render and access:** `MemoryContext.render()` emits one bullet per selected chunk using deterministic serialized text (Oxford-comma collections, semantic-only render for structured `SEMANTIC_WITH_SUPPORT`). `WorkingMemorySnapshot.recall_results` and `record_context_use()` flatten **included** chunk members for reinforcement; trimmed members are omitted. Inspect `WorkingMemorySnapshot.chunks` for all formed chunks, rejection reasons, and member include/omit counts. Members and rendered text are intentionally separate: support episodes may be omitted from `serialized_text` while remaining in `member_recalls`.
 
 ## 0.15.10 chunk primary correctness
 
@@ -121,6 +121,12 @@ Research basis: Baddeley’s bounded workspace and Miller’s chunking insight�
 `SEMANTIC_WITH_SUPPORT` chunks with structured predicate and object now serialize the **semantic statement only** by default. Supporting episodes remain chunk members for provenance, inspection, and `record_context_use`; only rendered context text is omitted when the semantic already carries the structured value.
 
 Chunk membership is separate from chunk serialization. Token-budget trimming may still drop members from `included_members`; that path is unrelated to support-text omission.
+
+## 0.15.12 frozen rendering contract
+
+**Frozen for the 0.15 line:** structured `SEMANTIC_WITH_SUPPORT` chunks serialize the semantic primary statement only. Supporting episodes stay attached as chunk members (`member_identities`, `member_recalls`) for inspection and `record_context_use`; omitted support **text** does not omit support **access**. Chunk member count is not the number of rendered statements.
+
+Use `WorkingMemoryChunk.primary_identity`, `member_identities`, `serialized_text`, and `WorkingMemoryItem.member_recalls` to distinguish members from model-facing text. `SEMANTIC_COLLECTION` chunks still Oxford-join object values; episodic chunks still render episode text. Support-detail rendering heuristics remain future work (0.16+).
 
 `inspect_recall()` remains the diagnostic API for admission; `prepare_context()` explains selection. Admitted candidates may be selected while capacity remains because `minimum_goal_relevance` and `minimum_selection_score` default to `0.0`.
 

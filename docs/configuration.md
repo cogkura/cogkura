@@ -1,4 +1,4 @@
-# Configuration reference (0.15.11)
+# Configuration reference (0.15.12)
 
 Cogkura exposes two primary configuration dataclasses on `Memory(...)`: `ActivationConfig` and `WorkingMemoryConfig`. Defaults are defined in [`src/cogkura/models.py`](../src/cogkura/models.py).
 
@@ -112,4 +112,16 @@ ACT-R activation controls **accessibility and ranking**, not semantic truth. For
 
 Working-memory chunks are **ephemeral**. They group recalled memories, preserve member identities for inspection and `record_context_use`, consume bounded capacity, and serialize deterministic context. They are not persisted as long-term memory.
 
-Since 0.15.11, `SEMANTIC_WITH_SUPPORT` chunks with structured predicate/object serialize the **semantic statement only** by default; support episodes remain attached for provenance.
+Since 0.15.11, `SEMANTIC_WITH_SUPPORT` chunks with structured predicate/object serialize the **semantic statement only** by default; support episodes remain attached for provenance. See [`docs/working-memory.md`](working-memory.md) for the frozen 0.15.12 members-vs-rendered contract.
+
+## Performance baselines (observational)
+
+Correctness is enforced by pytest. Local timing evidence is optional and machine-dependent:
+
+```bash
+./scripts/benchmark_release.sh
+# or timings only:
+uv run python scripts/run_prepare_context_benchmark.py
+```
+
+The helper writes `results/benchmark-results.{json,md}` (gitignored). A committed historical snapshot lives in [`docs/findings/0.15.12-performance-baseline.md`](findings/0.15.12-performance-baseline.md). Timings are **not** CI acceptance thresholds.
