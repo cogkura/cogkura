@@ -11,6 +11,7 @@ from types import MappingProxyType
 from typing import Any
 
 from cogkura.exceptions import ValidationError
+from cogkura.observations.encoding_context import ObservationContext
 
 
 def _validate_attention_score(score: float) -> None:
@@ -47,6 +48,7 @@ class ObservationInput:
     source_updated_at: datetime | None = None
     event_type: str = "document"
     metadata: dict[str, Any] = field(default_factory=dict)
+    context: ObservationContext | None = None
     is_deleted: bool = False
 
     def __post_init__(self) -> None:
@@ -69,6 +71,10 @@ class ObservationInput:
                 raise ValidationError(f"{label} must be timezone-aware.")
         metadata_dict = dict(self.metadata)
         object.__setattr__(self, "metadata", MappingProxyType(metadata_dict))
+        if self.context is None:
+            object.__setattr__(self, "context", ObservationContext())
+        else:
+            object.__setattr__(self, "context", self.context)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +101,7 @@ class StoredObservation:
     attention_score: float = 0.5
     retention_class: str = "full"
     policy_reasons: tuple[str, ...] = ()
+    context: ObservationContext = field(default_factory=ObservationContext)
 
     def __post_init__(self) -> None:
         _validate_attention_score(self.attention_score)

@@ -50,6 +50,7 @@ from cogkura.models import (
     MemoryAssessment,
     MemoryAssessmentFlag,
     MemoryContext,
+    MemoryContextSignature,
     MemoryFeedback,
     MemoryIdentity,
     MemoryKind,
@@ -102,6 +103,7 @@ from cogkura.observations import (
     DefaultObservationPolicy,
     IngestionResult,
     IngestStatus,
+    ObservationContext,
     ObservationDecision,
     ObservationInput,
     ObservationPolicy,
@@ -148,6 +150,7 @@ __all__ = [
     "MemoryAssessment",
     "MemoryAssessmentFlag",
     "MemoryContext",
+    "MemoryContextSignature",
     "MemoryFeedback",
     "MemoryIdentity",
     "MemoryKind",
@@ -159,6 +162,7 @@ __all__ = [
     "MetamemoryConfig",
     "MetamemoryItem",
     "MetamemorySignals",
+    "ObservationContext",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPolicy",
@@ -208,4 +212,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.15.12"
+__version__ = "0.16.0"

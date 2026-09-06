@@ -25,6 +25,7 @@ from cogkura.models import (
     LearningOutcome,
     LearningPlan,
     LearningWriteResult,
+    MemoryContextSignature,
     MemoryIdentity,
     MemoryKind,
     MemoryReference,
@@ -46,7 +47,9 @@ from cogkura.models import (
     StoredMemoryLearningState,
     StoredSemanticMemory,
     StoredSemanticRevision,
+    memory_context_signatures_equal,
 )
+from cogkura.observations.encoding_context import ObservationContext, observation_contexts_equal
 from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cogkura.observations.retention import RetainedObservation
 from cogkura.storage.activation_compaction import compaction_representative_time
@@ -97,6 +100,7 @@ class PostgresObservationStore(ObservationStore):
         revision_id = str(uuid4())
         observed_at = observation.observed_at.astimezone(UTC)
         metadata_json = json.dumps(retained.metadata)
+        context_json = json.dumps(retained.context.to_canonical_dict(), sort_keys=True)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -104,7 +108,7 @@ class PostgresObservationStore(ObservationStore):
                     INSERT INTO {self._table("observations")} (
                         id, tenant_id, subject_id, actor_id,
                         source_type, source_namespace, source_record_id, source_version,
-                        event_type, content, content_hash, metadata,
+                        event_type, content, content_hash, metadata, encoding_context,
                         source_created_at, source_updated_at,
                         first_observed_at, last_observed_at,
                         current_revision, is_deleted,
@@ -114,6 +118,7 @@ class PostgresObservationStore(ObservationStore):
                         :id, :tenant_id, :subject_id, :actor_id,
                         :source_type, :source_namespace, :source_record_id, :source_version,
                         :event_type, :content, :content_hash, CAST(:metadata AS jsonb),
+                        CAST(:encoding_context AS jsonb),
                         :source_created_at, :source_updated_at,
                         :first_observed_at, :last_observed_at,
                         1, :is_deleted,
@@ -128,6 +133,7 @@ class PostgresObservationStore(ObservationStore):
                     retained,
                     observed_at=observed_at,
                     revision=1,
+                    context_json=context_json,
                 ),
             )
             await conn.execute(
@@ -135,10 +141,12 @@ class PostgresObservationStore(ObservationStore):
                     f"""
                     INSERT INTO {self._table("observation_revisions")} (
                         id, observation_id, revision_number, source_version,
-                        content, content_hash, metadata, change_type, observed_at
+                        content, content_hash, metadata, encoding_context,
+                        change_type, observed_at
                     ) VALUES (
                         :revision_id, :observation_id, 1, :source_version,
                         :content, :content_hash, CAST(:metadata AS jsonb),
+                        CAST(:encoding_context AS jsonb),
                         'created', :observed_at
                     )
                     """
@@ -150,6 +158,7 @@ class PostgresObservationStore(ObservationStore):
                     "content": retained.content,
                     "content_hash": retained.content_hash,
                     "metadata": metadata_json,
+                    "encoding_context": context_json,
                     "observed_at": observed_at,
                 },
             )
@@ -166,6 +175,7 @@ class PostgresObservationStore(ObservationStore):
             existing.source_version == observation.source_version
             and existing.content_hash == retained.content_hash
             and existing.is_deleted == observation.is_deleted
+            and observation_contexts_equal(existing.context, retained.context)
         )
         if unchanged:
             return IngestStatus.UNCHANGED
@@ -184,6 +194,7 @@ class PostgresObservationStore(ObservationStore):
         revision_id = str(uuid4())
         observed_at = observation.observed_at.astimezone(UTC)
         metadata_json = json.dumps(retained.metadata)
+        context_json = json.dumps(retained.context.to_canonical_dict(), sort_keys=True)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -198,6 +209,7 @@ class PostgresObservationStore(ObservationStore):
                         content = :content,
                         content_hash = :content_hash,
                         metadata = CAST(:metadata AS jsonb),
+                        encoding_context = CAST(:encoding_context AS jsonb),
                         source_created_at = :source_created_at,
                         source_updated_at = :source_updated_at,
                         last_observed_at = :last_observed_at,
@@ -220,6 +232,7 @@ class PostgresObservationStore(ObservationStore):
                     "content": retained.content,
                     "content_hash": retained.content_hash,
                     "metadata": metadata_json,
+                    "encoding_context": context_json,
                     "source_created_at": observation.source_created_at,
                     "source_updated_at": observation.source_updated_at,
                     "last_observed_at": observed_at,
@@ -236,10 +249,12 @@ class PostgresObservationStore(ObservationStore):
                     f"""
                     INSERT INTO {self._table("observation_revisions")} (
                         id, observation_id, revision_number, source_version,
-                        content, content_hash, metadata, change_type, observed_at
+                        content, content_hash, metadata, encoding_context,
+                        change_type, observed_at
                     ) VALUES (
                         :revision_id, :observation_id, :revision_number, :source_version,
                         :content, :content_hash, CAST(:metadata AS jsonb),
+                        CAST(:encoding_context AS jsonb),
                         :change_type, :observed_at
                     )
                     """
@@ -252,6 +267,7 @@ class PostgresObservationStore(ObservationStore):
                     "content": retained.content,
                     "content_hash": retained.content_hash,
                     "metadata": metadata_json,
+                    "encoding_context": context_json,
                     "change_type": change_type,
                     "observed_at": observed_at,
                 },
@@ -266,7 +282,10 @@ class PostgresObservationStore(ObservationStore):
         *,
         observed_at: Any,
         revision: int,
+        context_json: str | None = None,
     ) -> dict[str, Any]:
+        if context_json is None:
+            context_json = json.dumps(retained.context.to_canonical_dict(), sort_keys=True)
         return {
             "id": obs_id,
             "tenant_id": observation.tenant_id,
@@ -280,6 +299,7 @@ class PostgresObservationStore(ObservationStore):
             "content": retained.content,
             "content_hash": retained.content_hash,
             "metadata": json.dumps(retained.metadata),
+            "encoding_context": context_json,
             "source_created_at": observation.source_created_at,
             "source_updated_at": observation.source_updated_at,
             "first_observed_at": observed_at,
@@ -306,7 +326,7 @@ class PostgresObservationStore(ObservationStore):
                     SELECT
                         id, tenant_id, subject_id, actor_id,
                         source_type, source_namespace, source_record_id, source_version,
-                        event_type, content, content_hash, metadata,
+                        event_type, content, content_hash, metadata, encoding_context,
                         source_created_at, source_updated_at, last_observed_at,
                         current_revision, is_deleted,
                         attention_score, retention_class, policy_reasons
@@ -348,7 +368,7 @@ class PostgresObservationStore(ObservationStore):
                     SELECT
                         id, tenant_id, subject_id, actor_id,
                         source_type, source_namespace, source_record_id, source_version,
-                        event_type, content, content_hash, metadata,
+                        event_type, content, content_hash, metadata, encoding_context,
                         source_created_at, source_updated_at, last_observed_at,
                         current_revision, is_deleted,
                         attention_score, retention_class, policy_reasons
@@ -377,7 +397,7 @@ class PostgresObservationStore(ObservationStore):
                     SELECT
                         id, tenant_id, subject_id, actor_id,
                         source_type, source_namespace, source_record_id, source_version,
-                        event_type, content, content_hash, metadata,
+                        event_type, content, content_hash, metadata, encoding_context,
                         source_created_at, source_updated_at, last_observed_at,
                         current_revision, is_deleted,
                         attention_score, retention_class, policy_reasons
@@ -403,6 +423,9 @@ class PostgresObservationStore(ObservationStore):
         metadata = row["metadata"]
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
+        encoding_context = row.get("encoding_context", {})
+        if isinstance(encoding_context, str):
+            encoding_context = json.loads(encoding_context)
         policy_reasons = row.get("policy_reasons", [])
         if isinstance(policy_reasons, str):
             policy_reasons = json.loads(policy_reasons)
@@ -427,6 +450,7 @@ class PostgresObservationStore(ObservationStore):
             attention_score=float(row.get("attention_score", 0.5)),
             retention_class=row.get("retention_class", "full"),
             policy_reasons=tuple(policy_reasons),
+            context=ObservationContext.from_canonical_dict(encoding_context),
         )
 
 
@@ -524,7 +548,10 @@ class PostgresEpisodeStore(EpisodeStore):
         )
         if existing is not None:
             existing_fingerprint = existing.metadata["episode"]["content_fingerprint"]
-            if existing_fingerprint == fingerprint:
+            if existing_fingerprint == fingerprint and memory_context_signatures_equal(
+                existing.encoding_context,
+                episode.encoding_context,
+            ):
                 return EpisodeWriteStatus.UNCHANGED
             await self._update(existing.id, episode, as_of=as_of)
             return EpisodeWriteStatus.UPDATED
@@ -564,7 +591,7 @@ class PostgresEpisodeStore(EpisodeStore):
                     SELECT
                         id, tenant_id, subject_id, memory_key, statement,
                         confidence, importance, valid_from, valid_until,
-                        is_active, metadata, created_at, updated_at
+                        is_active, metadata, encoding_context, created_at, updated_at
                     FROM {self._table("memories")}
                     WHERE id = :id
                     """
@@ -612,12 +639,13 @@ class PostgresEpisodeStore(EpisodeStore):
                     INSERT INTO {self._table("memories")} (
                         id, tenant_id, subject_id, memory_type, memory_key,
                         statement, confidence, importance,
-                        valid_from, valid_until, is_active, metadata,
+                        valid_from, valid_until, is_active, metadata, encoding_context,
                         created_at, updated_at
                     ) VALUES (
                         :id, :tenant_id, :subject_id, 'episodic', :memory_key,
                         :statement, :confidence, :importance,
                         :valid_from, :valid_until, TRUE, CAST(:metadata AS jsonb),
+                        CAST(:encoding_context AS jsonb),
                         :now, :now
                     )
                     """
@@ -635,6 +663,10 @@ class PostgresEpisodeStore(EpisodeStore):
         as_of: datetime | None = None,
     ) -> None:
         metadata_json = json.dumps(dict(episode.metadata))
+        encoding_context_json = json.dumps(
+            episode.encoding_context.to_canonical_dict(),
+            sort_keys=True,
+        )
         now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         async with self._engine.begin() as conn:
             await conn.execute(
@@ -650,6 +682,7 @@ class PostgresEpisodeStore(EpisodeStore):
                         valid_until = :valid_until,
                         is_active = TRUE,
                         metadata = CAST(:metadata AS jsonb),
+                        encoding_context = CAST(:encoding_context AS jsonb),
                         updated_at = :now
                     WHERE id = :id
                     """
@@ -663,6 +696,7 @@ class PostgresEpisodeStore(EpisodeStore):
                     "valid_from": episode.started_at,
                     "valid_until": episode.ended_at,
                     "metadata": metadata_json,
+                    "encoding_context": encoding_context_json,
                     "now": now,
                 },
             )
@@ -748,6 +782,10 @@ class PostgresEpisodeStore(EpisodeStore):
             "valid_from": episode.started_at,
             "valid_until": episode.ended_at,
             "metadata": json.dumps(dict(episode.metadata)),
+            "encoding_context": json.dumps(
+                episode.encoding_context.to_canonical_dict(),
+                sort_keys=True,
+            ),
             "now": now,
         }
 
@@ -860,6 +898,9 @@ class PostgresEpisodeStore(EpisodeStore):
         metadata = row["metadata"]
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
+        encoding_context = row.get("encoding_context", {})
+        if isinstance(encoding_context, str):
+            encoding_context = json.loads(encoding_context)
         evidence = tuple(
             EpisodeEvidenceInput(
                 observation_id=str(item["observation_id"]),
@@ -887,6 +928,7 @@ class PostgresEpisodeStore(EpisodeStore):
             evidence=evidence,
             entities=entities,
             metadata=MappingProxyType(dict(metadata)),
+            encoding_context=MemoryContextSignature.from_canonical_dict(encoding_context),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )

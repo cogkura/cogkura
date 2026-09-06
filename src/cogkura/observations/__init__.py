@@ -1,5 +1,6 @@
 """Observation models, pipeline, and policies."""
 
+from cogkura.observations.encoding_context import ObservationContext
 from cogkura.observations.models import (
     IngestionResult,
     IngestStatus,
@@ -14,6 +15,7 @@ __all__ = [
     "DefaultObservationPolicy",
     "IngestionResult",
     "IngestStatus",
+    "ObservationContext",
     "ObservationDecision",
     "ObservationInput",
     "ObservationPipeline",

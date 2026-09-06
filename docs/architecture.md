@@ -54,7 +54,7 @@ Core does not parse arbitrary external data. Configuration and contracts: [`conf
 | `apply_forgetting` / `record_access` / `learn` | Dynamics, reinforcement, feedback |
 | `list_semantic_memories` / `list_semantic_revisions` | Semantic authority and history |
 
-Typed models: `ObservationInput`, `MemoryContext`, `RecallResult`, `WorkingMemorySnapshot`, `RecallInspectionResult`.
+Typed models: `ObservationInput`, `ObservationContext`, `MemoryContextSignature`, `MemoryContext`, `RecallResult`, `WorkingMemorySnapshot`, `RecallInspectionResult`.
 
 ## Layers
 
@@ -91,6 +91,30 @@ Typed models: `ObservationInput`, `MemoryContext`, `RecallResult`, `WorkingMemor
 - `prepare_context()` runs recall once, selects bounded working-memory chunks, and returns metamemory assessment.
 - Chunks are ephemeral; SUPPORT derivations provide provenance; ASSOCIATION paths are recall-time bridges only.
 
+## Encoding context (0.16.0)
+
+Encoding context captures the circumstances under which a memory was formed. It is **not** arbitrary application metadata and is **not** used during retrieval in `0.16.0`.
+
+```text
+Source record
+    ↓
+Application mapper
+    ↓
+ObservationInput
+ ├── statement / entities / source / time
+ └── ObservationContext (optional)
+    ↓
+Episodic encoding
+    ↓
+StoredEpisode.encoding_context (MemoryContextSignature)
+```
+
+Applications supply structured context when it is already available (conversation, goal, activity, domain, and so on). Cogkura does not infer context from natural-language observation text.
+
+`0.16.0` captures and persists encoding context only. Context reinstatement and context-dependent recall are planned for later `0.16.x` releases.
+
+Prefer coarse contextual identifiers for `location` when possible; the core library remains agnostic but applications should minimise sensitive detail.
+
 ## Deployment models
 
 1. Same database, separate `cogkura` schema
@@ -114,7 +138,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.15.12)
+## Current implementation boundary (0.16.0)
 
 Implemented:
 
@@ -125,9 +149,12 @@ Implemented:
 - working-memory chunking with semantic structural primary (0.15.10) and frozen semantic-only support render (0.15.11–0.15.12)
 - `prepare_context` / `MemoryContext` application boundary with explicit members-vs-rendered-text provenance contract
 - metamemory assessment and recall inspection
+- **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); retrieval remains unchanged
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
-Next major milestone: **0.16 Encoding Specificity** (cue-context match; not started in 0.15.x).
+**Encoding-context contract (0.16.0):** encoding context is part of the episodic memory trace and is visible via `list_episodes()` / `inspect_recall()`. It does not alter recall ranking, activation, admission, or working-memory selection in this release.
+
+Next major milestones: **0.16.1 retrieval context matching**, **0.16.2 context reinstatement**.
 
 Planned later: additional connectors, embedding/LLM provider interfaces, benchmark suites in separate packages.

@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
 
+from cogkura.observations.encoding_context import ObservationContext, observation_contexts_equal
 from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
 from cogkura.observations.retention import RetainedObservation
 from cogkura.storage.base import CheckpointStore, ObservationStore
@@ -21,6 +22,7 @@ class _Revision:
     content: str | None
     content_hash: str
     metadata: dict[str, Any]
+    context: ObservationContext
     change_type: str
     observed_at: Any
 
@@ -80,6 +82,7 @@ class InMemoryObservationStore(ObservationStore):
                 attention_score=retained.attention_score,
                 retention_class=retained.retention_class,
                 policy_reasons=retained.policy_reasons,
+                context=retained.context,
             )
             self._observations[key] = stored
             self._revisions[obs_id] = [
@@ -89,6 +92,7 @@ class InMemoryObservationStore(ObservationStore):
                     content=retained.content,
                     content_hash=retained.content_hash,
                     metadata=dict(retained.metadata),
+                    context=retained.context,
                     change_type="created",
                     observed_at=observation.observed_at,
                 )
@@ -99,6 +103,7 @@ class InMemoryObservationStore(ObservationStore):
             existing.source_version == observation.source_version
             and existing.content_hash == retained.content_hash
             and existing.is_deleted == observation.is_deleted
+            and observation_contexts_equal(existing.context, retained.context)
         )
         if unchanged:
             return IngestStatus.UNCHANGED
@@ -135,6 +140,7 @@ class InMemoryObservationStore(ObservationStore):
             attention_score=retained.attention_score,
             retention_class=retained.retention_class,
             policy_reasons=retained.policy_reasons,
+            context=retained.context,
         )
         self._observations[key] = stored
         self._revisions[existing.id].append(
@@ -144,6 +150,7 @@ class InMemoryObservationStore(ObservationStore):
                 content=retained.content,
                 content_hash=retained.content_hash,
                 metadata=dict(retained.metadata),
+                context=retained.context,
                 change_type=change_type,
                 observed_at=observation.observed_at,
             )

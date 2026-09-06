@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-09-06
+
+### Added
+
+- Public `ObservationContext` on `ObservationInput` and persisted `StoredObservation.context`.
+- Public `MemoryContextSignature` on episodic `EpisodeInput` / `StoredEpisode.encoding_context`.
+- Deterministic episode aggregation of observation context plus derived subject, entity, and source dimensions.
+- Postgres migration `009_encoding_context.sql` (`encoding_context` JSONB on observations, observation revisions, and memories).
+- Encoding-context contract tests (models, aggregation, persistence, lifecycle, mandatory retrieval-neutrality gate).
+- Example [`examples/encoding_context.py`](examples/encoding_context.py) and design note [`docs/design-encoding-context-0.16.0.md`](docs/design-encoding-context-0.16.0.md).
+
+### Changed
+
+- Observation unchanged detection includes canonical encoding-context equality; context-only updates create revisions.
+- Episode upsert unchanged detection also requires matching `encoding_context`.
+
+### Preserved
+
+- Recall, activation, admission, ranking, working-memory selection, and rendered `MemoryContext` text remain unchanged when encoding context is populated.
+- Episode grouping/segmentation continues to use observation `metadata` keys only.
+
+### Notes
+
+- Requires migration `009_encoding_context.sql` for Postgres deployments.
+- Semantic memories do not receive a fabricated encoding-context signature in `0.16.0`.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.0`).
+
 ## [0.15.12] - 2026-09-06
 
 ### Added

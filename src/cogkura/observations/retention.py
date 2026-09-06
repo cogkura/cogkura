@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
 from cogkura.exceptions import ValidationError
+from cogkura.observations.encoding_context import ObservationContext
 from cogkura.observations.hashing import content_hash, normalize_content
 from cogkura.observations.models import ObservationDecision, ObservationInput
 
@@ -31,6 +32,7 @@ class RetainedObservation:
     content: str | None
     content_hash: str
     metadata: dict[str, Any]
+    context: ObservationContext = field(default_factory=ObservationContext)
     attention_score: float = 0.5
     retention_class: str = "full"
     policy_reasons: tuple[str, ...] = ()
@@ -54,6 +56,7 @@ def apply_retention(
     """Apply retention mode transforms before persistence."""
     raw_content = observation.content
     raw_metadata = dict(observation.metadata)
+    raw_context = observation.context if observation.context is not None else ObservationContext()
     digest = content_hash(raw_content) if raw_content else content_hash("")
     attention_score, retention_class, policy_reasons = _policy_fields(decision)
 
@@ -62,6 +65,7 @@ def apply_retention(
             content=normalize_content(raw_content) if raw_content else None,
             content_hash=digest,
             metadata=raw_metadata,
+            context=raw_context,
             attention_score=attention_score,
             retention_class=retention_class,
             policy_reasons=policy_reasons,
@@ -72,6 +76,7 @@ def apply_retention(
             content=None,
             content_hash=digest,
             metadata=raw_metadata,
+            context=raw_context,
             attention_score=attention_score,
             retention_class=retention_class,
             policy_reasons=policy_reasons,
@@ -85,6 +90,7 @@ def apply_retention(
             content=normalize_content(redacted_content) if redacted_content else None,
             content_hash=content_hash(redacted_content) if redacted_content else digest,
             metadata=redacted_metadata,
+            context=raw_context,
             attention_score=attention_score,
             retention_class=retention_class,
             policy_reasons=policy_reasons,

@@ -130,4 +130,12 @@ Use `WorkingMemoryChunk.primary_identity`, `member_identities`, `serialized_text
 
 `inspect_recall()` remains the diagnostic API for admission; `prepare_context()` explains selection. Admitted candidates may be selected while capacity remains because `minimum_goal_relevance` and `minimum_selection_score` default to `0.0`.
 
+## 0.16.0 encoding context vs working memory
+
+**Encoding context** (`ObservationContext`, `MemoryContextSignature`) describes the circumstances present when an observation or episode was encoded (conversation, goal, activity, domain, and related dimensions).
+
+**Working memory** (`WorkingMemorySnapshot`, `MemoryContext`) is the bounded set of memories currently selected for model-facing presentation.
+
+These terms both use “context” but refer to different concepts. Encoding context is historical evidence on episodic traces. Working memory is transient retrieval output. In `0.16.0`, encoding context is captured and inspectable but does **not** influence recall ranking or working-memory selection.
+
 See also [`configuration.md`](configuration.md).

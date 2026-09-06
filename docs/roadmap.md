@@ -174,12 +174,22 @@
 - **0.15.10** `SEMANTIC_WITH_SUPPORT` structural primary correctness
 - **0.15.11** temporal contract verification; semantic-only support render; performance baselines; configuration/architecture docs freeze
 - **0.15.12** architecture-freeze hardening: frozen support-render contract, observational performance baseline snapshot, mandatory canonical regression fixture
+- **0.16.0** encoding-context capture on observations and episodes (retrieval-neutral)
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.16.0 — Encoding context (done)
+
+- Public `ObservationContext` on `ObservationInput`; persisted on observations and revisions.
+- Public `MemoryContextSignature` on episodic memories (`encoding_context`).
+- Deterministic aggregation during episodic encoding; Postgres migration `009_encoding_context.sql`.
+- Retrieval-neutral in `0.16.0` (no ranking, activation, admission, or working-memory changes).
+- [`docs/design-encoding-context-0.16.0.md`](design-encoding-context-0.16.0.md) and [`examples/encoding_context.py`](../../examples/encoding_context.py).
+
 ## Later
 
-- **0.16.0 — Encoding Specificity** (next): cue-context match and encoding-context reinstatement (new concept; builds on stable 0.15 retrieval/context pipeline).
+- **0.16.1 — Retrieval context matching** (next): cue-context match over stored encoding context.
+- **0.16.2 — Context reinstatement**: encoding-context influences accessibility during recall.
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

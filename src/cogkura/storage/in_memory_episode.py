@@ -10,6 +10,7 @@ from cogkura.models import (
     EpisodeInput,
     EpisodeWriteStatus,
     StoredEpisode,
+    memory_context_signatures_equal,
 )
 from cogkura.storage.base import EpisodeStore
 
@@ -35,7 +36,10 @@ class InMemoryEpisodeStore(EpisodeStore):
         fingerprint = episode.metadata["episode"]["content_fingerprint"]
         if existing is not None:
             existing_fingerprint = existing.metadata["episode"]["content_fingerprint"]
-            if existing_fingerprint == fingerprint:
+            if existing_fingerprint == fingerprint and memory_context_signatures_equal(
+                existing.encoding_context,
+                episode.encoding_context,
+            ):
                 return EpisodeWriteStatus.UNCHANGED
             stored = StoredEpisode(
                 id=existing.id,
@@ -51,6 +55,7 @@ class InMemoryEpisodeStore(EpisodeStore):
                 evidence=episode.evidence,
                 entities=episode.entities,
                 metadata=MappingProxyType(dict(episode.metadata)),
+                encoding_context=episode.encoding_context,
                 created_at=existing.created_at,
                 updated_at=now,
             )
@@ -71,6 +76,7 @@ class InMemoryEpisodeStore(EpisodeStore):
             evidence=episode.evidence,
             entities=episode.entities,
             metadata=MappingProxyType(dict(episode.metadata)),
+            encoding_context=episode.encoding_context,
             created_at=now,
             updated_at=now,
         )
@@ -132,6 +138,7 @@ class InMemoryEpisodeStore(EpisodeStore):
                 evidence=episode.evidence,
                 entities=episode.entities,
                 metadata=episode.metadata,
+                encoding_context=episode.encoding_context,
                 created_at=episode.created_at,
                 updated_at=now,
             )

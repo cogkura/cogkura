@@ -210,3 +210,14 @@ INSERT INTO cogkura.schema_migrations (version) VALUES ('001_initial');
 INSERT INTO cogkura.schema_migrations (version) VALUES ('002_episodic_memory');
 INSERT INTO cogkura.schema_migrations (version) VALUES ('003_semantic_consolidation');
 INSERT INTO cogkura.schema_migrations (version) VALUES ('004_declarative_activation');
+
+ALTER TABLE cogkura.observations
+    ADD COLUMN IF NOT EXISTS encoding_context JSONB NOT NULL DEFAULT '{}';
+
+ALTER TABLE cogkura.observation_revisions
+    ADD COLUMN IF NOT EXISTS encoding_context JSONB NOT NULL DEFAULT '{}';
+
+ALTER TABLE cogkura.memories
+    ADD COLUMN IF NOT EXISTS encoding_context JSONB NOT NULL DEFAULT '{}';
+
+INSERT INTO cogkura.schema_migrations (version) VALUES ('009_encoding_context');

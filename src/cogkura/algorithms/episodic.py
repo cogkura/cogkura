@@ -11,7 +11,13 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from cogkura.exceptions import ValidationError
-from cogkura.models import EpisodeEntity, EpisodeEvidenceInput, EpisodeInput
+from cogkura.models import (
+    EpisodeEntity,
+    EpisodeEvidenceInput,
+    EpisodeInput,
+    MemoryContextSignature,
+    merge_context_attribute_maps,
+)
 from cogkura.observations.models import StoredObservation
 
 _ENCODING_VERSION = "tulving-deterministic-v1"
@@ -111,6 +117,11 @@ class DeterministicEpisodicEncoder:
             salience_meta=salience_meta,
             encoding_version=self._encoding_version,
         )
+        encoding_context = _build_encoding_context(
+            observations,
+            entities=entities,
+            grouping_metadata_keys=self._grouping_metadata_keys,
+        )
         return EpisodeInput(
             tenant_id=first.tenant_id,
             subject_id=subject_id,
@@ -123,6 +134,7 @@ class DeterministicEpisodicEncoder:
             evidence=evidence,
             entities=entities,
             metadata=metadata,
+            encoding_context=encoding_context,
         )
 
 
@@ -384,4 +396,85 @@ def _build_metadata(
             "episode": episode_meta,
             "salience": dict(salience_meta),
         }
+    )
+
+
+_CONTEXT_METADATA_KEYS = {
+    "conversation_id": "conversation_ids",
+    "thread_id": "thread_ids",
+    "session_id": "session_ids",
+}
+
+
+def _build_encoding_context(
+    observations: Sequence[StoredObservation],
+    *,
+    entities: tuple[EpisodeEntity, ...],
+    grouping_metadata_keys: Sequence[str],
+) -> MemoryContextSignature:
+    subject_ids: list[str] = []
+    source_namespaces: list[str] = []
+    source_types: list[str] = []
+    conversation_ids: list[str] = []
+    thread_ids: list[str] = []
+    session_ids: list[str] = []
+    goals: list[str] = []
+    activities: list[str] = []
+    domains: list[str] = []
+    locations: list[str] = []
+    temporal_contexts: list[str] = []
+    attribute_values: dict[str, list[str]] = {}
+
+    for observation in observations:
+        if observation.subject_id:
+            subject_ids.append(observation.subject_id)
+        source_namespaces.append(observation.source_namespace)
+        source_types.append(observation.source_type)
+        context = observation.context
+        if context.conversation_id:
+            conversation_ids.append(context.conversation_id)
+        if context.thread_id:
+            thread_ids.append(context.thread_id)
+        if context.session_id:
+            session_ids.append(context.session_id)
+        if context.goal:
+            goals.append(context.goal)
+        if context.activity:
+            activities.append(context.activity)
+        if context.domain:
+            domains.append(context.domain)
+        if context.location:
+            locations.append(context.location)
+        temporal_contexts.extend(context.temporal_context)
+        for key, value in context.attributes.items():
+            attribute_values.setdefault(key, []).append(value)
+        for metadata_key, signature_field in _CONTEXT_METADATA_KEYS.items():
+            if metadata_key not in grouping_metadata_keys:
+                continue
+            metadata_value = observation.metadata.get(metadata_key)
+            if metadata_value is not None and str(metadata_value).strip():
+                if signature_field == "conversation_ids":
+                    conversation_ids.append(str(metadata_value))
+                elif signature_field == "thread_ids":
+                    thread_ids.append(str(metadata_value))
+                elif signature_field == "session_ids":
+                    session_ids.append(str(metadata_value))
+
+    merged_attributes = merge_context_attribute_maps({}, attribute_values)
+    return MemoryContextSignature(
+        subject_ids=tuple(subject_ids),
+        conversation_ids=tuple(conversation_ids),
+        thread_ids=tuple(thread_ids),
+        session_ids=tuple(session_ids),
+        goals=tuple(goals),
+        activities=tuple(activities),
+        domains=tuple(domains),
+        locations=tuple(locations),
+        source_namespaces=tuple(source_namespaces),
+        source_types=tuple(source_types),
+        entity_ids=tuple(
+            entity.entity_id for entity in entities if entity.role not in {"subject", "actor"}
+        ),
+        temporal_contexts=tuple(temporal_contexts),
+        attributes=merged_attributes,
     )

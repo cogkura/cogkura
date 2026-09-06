@@ -43,6 +43,7 @@ async def test_migration_files_are_ordered() -> None:
         "006_semantic_reconsolidation.sql",
         "007_learning_reinforcement.sql",
         "008_entity_relationships.sql",
+        "009_encoding_context.sql",
     ]
 
 
@@ -64,6 +65,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "006_semantic_reconsolidation",
         "007_learning_reinforcement",
         "008_entity_relationships",
+        "009_encoding_context",
     ]
 
 

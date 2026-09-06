@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -116,6 +116,167 @@ class RelationshipEdge:
             raise ValidationError("provenance must not be empty when provided.")
 
 
+def _normalise_context_text_tuple(values: Sequence[str | None]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    normalised: list[str] = []
+    for value in values:
+        if value is None:
+            continue
+        trimmed = value.strip()
+        if not trimmed or trimmed in seen:
+            continue
+        seen.add(trimmed)
+        normalised.append(trimmed)
+    return tuple(sorted(normalised))
+
+
+def _normalise_context_attribute_map(
+    attributes: Mapping[str, Sequence[str | None]],
+) -> MappingProxyType[str, tuple[str, ...]]:
+    normalised: dict[str, tuple[str, ...]] = {}
+    for key in sorted(attributes):
+        value = attributes[key]
+        if not isinstance(key, str):
+            raise ValidationError("context attribute keys must be strings.")
+        trimmed_key = key.strip()
+        if not trimmed_key:
+            raise ValidationError("context attribute keys must not be empty.")
+        values = _normalise_context_text_tuple(value)
+        if values:
+            normalised[trimmed_key] = values
+    return MappingProxyType(normalised)
+
+
+def _context_tuple_field(payload: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    value = payload.get(key, ())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return tuple(str(item) for item in value)
+    return ()
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryContextSignature:
+    """Deterministic union of contextual information encoded with an episode."""
+
+    subject_ids: tuple[str, ...] = ()
+    conversation_ids: tuple[str, ...] = ()
+    thread_ids: tuple[str, ...] = ()
+    session_ids: tuple[str, ...] = ()
+    goals: tuple[str, ...] = ()
+    activities: tuple[str, ...] = ()
+    domains: tuple[str, ...] = ()
+    locations: tuple[str, ...] = ()
+    source_namespaces: tuple[str, ...] = ()
+    source_types: tuple[str, ...] = ()
+    entity_ids: tuple[str, ...] = ()
+    concept_ids: tuple[str, ...] = ()
+    temporal_contexts: tuple[str, ...] = ()
+    attributes: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "subject_ids", _normalise_context_text_tuple(self.subject_ids))
+        object.__setattr__(
+            self, "conversation_ids", _normalise_context_text_tuple(self.conversation_ids)
+        )
+        object.__setattr__(self, "thread_ids", _normalise_context_text_tuple(self.thread_ids))
+        object.__setattr__(self, "session_ids", _normalise_context_text_tuple(self.session_ids))
+        object.__setattr__(self, "goals", _normalise_context_text_tuple(self.goals))
+        object.__setattr__(self, "activities", _normalise_context_text_tuple(self.activities))
+        object.__setattr__(self, "domains", _normalise_context_text_tuple(self.domains))
+        object.__setattr__(self, "locations", _normalise_context_text_tuple(self.locations))
+        object.__setattr__(
+            self,
+            "source_namespaces",
+            _normalise_context_text_tuple(self.source_namespaces),
+        )
+        object.__setattr__(self, "source_types", _normalise_context_text_tuple(self.source_types))
+        object.__setattr__(self, "entity_ids", _normalise_context_text_tuple(self.entity_ids))
+        object.__setattr__(self, "concept_ids", _normalise_context_text_tuple(self.concept_ids))
+        object.__setattr__(
+            self,
+            "temporal_contexts",
+            _normalise_context_text_tuple(self.temporal_contexts),
+        )
+        object.__setattr__(
+            self,
+            "attributes",
+            _normalise_context_attribute_map(self.attributes),
+        )
+
+    def is_empty(self) -> bool:
+        """Return True when no contextual dimensions are populated."""
+        return self.to_canonical_dict() == MemoryContextSignature().to_canonical_dict()
+
+    def to_canonical_dict(self) -> dict[str, Any]:
+        """Return a deterministic JSON-serialisable representation."""
+        return {
+            "subject_ids": list(self.subject_ids),
+            "conversation_ids": list(self.conversation_ids),
+            "thread_ids": list(self.thread_ids),
+            "session_ids": list(self.session_ids),
+            "goals": list(self.goals),
+            "activities": list(self.activities),
+            "domains": list(self.domains),
+            "locations": list(self.locations),
+            "source_namespaces": list(self.source_namespaces),
+            "source_types": list(self.source_types),
+            "entity_ids": list(self.entity_ids),
+            "concept_ids": list(self.concept_ids),
+            "temporal_contexts": list(self.temporal_contexts),
+            "attributes": {key: list(values) for key, values in sorted(self.attributes.items())},
+        }
+
+    @classmethod
+    def from_canonical_dict(cls, payload: Mapping[str, Any] | None) -> MemoryContextSignature:
+        """Hydrate from persisted JSON; missing payload yields empty signature."""
+        if not payload:
+            return cls()
+        raw_attributes = payload.get("attributes", {})
+        attributes: dict[str, tuple[str, ...]] = {}
+        if isinstance(raw_attributes, Mapping):
+            for key, value in raw_attributes.items():
+                if not isinstance(key, str):
+                    continue
+                if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                    attributes[key] = tuple(str(item) for item in value)
+        return cls(
+            subject_ids=_context_tuple_field(payload, "subject_ids"),
+            conversation_ids=_context_tuple_field(payload, "conversation_ids"),
+            thread_ids=_context_tuple_field(payload, "thread_ids"),
+            session_ids=_context_tuple_field(payload, "session_ids"),
+            goals=_context_tuple_field(payload, "goals"),
+            activities=_context_tuple_field(payload, "activities"),
+            domains=_context_tuple_field(payload, "domains"),
+            locations=_context_tuple_field(payload, "locations"),
+            source_namespaces=_context_tuple_field(payload, "source_namespaces"),
+            source_types=_context_tuple_field(payload, "source_types"),
+            entity_ids=_context_tuple_field(payload, "entity_ids"),
+            concept_ids=_context_tuple_field(payload, "concept_ids"),
+            temporal_contexts=_context_tuple_field(payload, "temporal_contexts"),
+            attributes=attributes,
+        )
+
+
+def memory_context_signatures_equal(
+    left: MemoryContextSignature | None,
+    right: MemoryContextSignature | None,
+) -> bool:
+    left_signature = left if left is not None else MemoryContextSignature()
+    right_signature = right if right is not None else MemoryContextSignature()
+    return left_signature.to_canonical_dict() == right_signature.to_canonical_dict()
+
+
+def merge_context_attribute_maps(
+    left: Mapping[str, Sequence[str | None]],
+    right: Mapping[str, Sequence[str | None]],
+) -> MappingProxyType[str, tuple[str, ...]]:
+    merged: dict[str, list[str | None]] = {}
+    for source in (left, right):
+        for key, values in source.items():
+            merged.setdefault(key, []).extend(values)
+    return _normalise_context_attribute_map(merged)
+
+
 @dataclass(frozen=True, slots=True)
 class EpisodeEntity:
     """An entity linked to an episodic memory."""
@@ -167,6 +328,7 @@ class EpisodeInput:
     evidence: tuple[EpisodeEvidenceInput, ...]
     entities: tuple[EpisodeEntity, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    encoding_context: MemoryContextSignature = field(default_factory=MemoryContextSignature)
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -220,6 +382,7 @@ class StoredEpisode:
     metadata: Mapping[str, Any]
     created_at: datetime
     updated_at: datetime
+    encoding_context: MemoryContextSignature = field(default_factory=MemoryContextSignature)
 
 
 @dataclass(frozen=True, slots=True)
