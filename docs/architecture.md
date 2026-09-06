@@ -4,51 +4,68 @@
 
 Cogkura is a thin cognitive layer between application data and AI reasoning.
 
-Applications keep their own persistence and model infrastructure. Customer data stays in customer-owned schemas. Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
+Applications keep their own persistence and model infrastructure. Customer data stays in customer-owned schemas. Cogkura owns observations, revisions, checkpoints, and derived memories.
 
 The public API should remain stable even as internals evolve.
 
+## 0.15 dependable-recall pipeline
+
+```text
+Observation
+    ↓
+episodic encoding + semantic consolidation (+ reconsolidation)
+    ↓
+activation + forgetting (ACT-R base-level, dynamics)
+    ↓
+semantic relevance + competition
+    ↓
+contextual association + structured relationships
+    ↓
+recall candidates (threshold + soft admission)
+    ↓
+working-memory chunks (optional grouping)
+    ↓
+coverage-aware bounded selection
+    ↓
+deterministic render (MemoryContext)
+```
+
+Responsibility boundary:
+
+```text
+application / future cogkura-ingest
+    ↓ source interpretation, entities, relationships, semantic proposals
+Cogkura Core
+    ↓ memory lifecycle + retrieval
+LLM / application reasoning
+```
+
+Core does not parse arbitrary external data. Configuration and contracts: [`configuration.md`](configuration.md).
+
+## Public API
+
+| API | Purpose |
+|-----|---------|
+| `observe` / `ingest` | Write path for observations |
+| `process` | Encode episodes and consolidate semantics at one `as_of` |
+| `recall` / `inspect_recall` | Declarative activation ranking and diagnostics |
+| `select_working_memory` / `prepare_context` | Bounded context preparation |
+| `record_context_use` | Record consumption of prepared context |
+| `apply_forgetting` / `record_access` / `learn` | Dynamics, reinforcement, feedback |
+| `list_semantic_memories` / `list_semantic_revisions` | Semantic authority and history |
+
+Typed models: `ObservationInput`, `MemoryContext`, `RecallResult`, `WorkingMemorySnapshot`, `RecallInspectionResult`.
+
 ## Layers
-
-### Public API
-
-- `Memory`: facade for observation ingestion, processing, context preparation, and recall
-- `observe(ObservationInput)` / `ingest(...)`: write path
-- `process(...)`: explicit observation-to-memory formation
-- `prepare_context(...)`: application-facing read path returning `MemoryContext`
-- `record_context_use(context)`: record consumption of prepared context
-- `recall(query, tenant_id=...)`: tenant-scoped low-level read path
-- `ObservationInput`, `StoredObservation`, `IngestionResult`, `IngestStatus`
-- `MemoryContext`, `MemoryProcessingResult`, `RecallResult`
-
-These models are typed and validated so behavior stays explicit.
 
 ### Observation pipeline
 
-1. Source connector reads customer records (read-only)
-2. Application mapper converts records to `ObservationInput`
-3. Policy evaluates attention and acceptance
-4. Retention mode transforms content before storage
-5. Observation store persists with revision history
-6. Checkpoint store advances only after successful batches
-
-### Storage protocols
-
-[`src/cogkura/storage/base.py`](../src/cogkura/storage/base.py):
-
-- `ObservationStore`: normalized observations + revisions (`ingest`, `get_by_source`, `list`, `clear`)
-- `InMemoryObservationStore`: default backend for local use and tests
-- `CheckpointStore`: per-tenant connector checkpoints
-
-PostgreSQL implementations live in [`src/cogkura/storage/postgres.py`](../src/cogkura/storage/postgres.py) behind the optional `cogkura[postgres]` extra.
-
-Custom stores can satisfy the same protocols without requiring PostgreSQL.
-
-### Source connectors
-
-[`SourceConnector`](../src/cogkura/sources/base.py) protocol with `PostgresTableSource` as the first implementation.
-
-Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detected; soft-delete columns are the supported path. When `soft_delete_column` is configured with an explicit column list, that column is always included in the SELECT so mappers can set `is_deleted`.
+1. Application mapper converts source records to `ObservationInput`
+2. Policy evaluates attention and acceptance
+3. Retention mode transforms content before storage
+4. Observation store persists with revision history
+5. Entity relationships from `metadata["relationships"]` persist on `observe()`
+6. Checkpoint store advances only after successful ingest batches
 
 ### Cognitive algorithms
 
@@ -56,26 +73,30 @@ Connectors use compound `(updated_at, id)` cursors. Hard deletes are not detecte
 
 - `episodic.py` — deterministic episode encoding
 - `semantic.py` — semantic consolidation
-- `activation.py` — ACT-R declarative activation (base-level, partial matching, ranking)
-- `spreading.py` — bounded entity–memory spreading activation
-- `forgetting.py` — Ebbinghaus-inspired retention lifecycle from base-level only
+- `reconsolidation.py` — cardinality-one temporal reconciliation
+- `activation.py` — ACT-R declarative activation, admission, relevance
+- `spreading.py` — bounded spreading activation
+- `forgetting.py` — retention lifecycle from base-level
+- `working_memory.py` — chunking, selection, render serialization
+- `learning.py` / `metamemory.py` — feedback and monitoring
 
-### Retrieval
+### Storage protocols
 
-`recall()` ranks episodic and semantic memories with ACT-R declarative activation (base-level, spreading, partial matching). `valid_at` filters semantic revision windows and episodes (`started_at <= valid_at`). `encode_episodes()` and `consolidate_semantics()` accept optional `as_of` for simulated replay timestamps. `FORGOTTEN` memories are excluded by default (`include_forgotten=True` to opt in). Structured `RetrievalCue.entity_ids` enable associative retrieval. `record_access()` reinforces recalled memories and reactivates forgotten dynamics. `apply_forgetting()` evaluates lifecycle state and compacts old activation references.
+[`src/cogkura/storage/base.py`](../src/cogkura/storage/base.py): observations, episodes, semantics, activation references, dynamics, learning, entity relationships. PostgreSQL implementations live behind `cogkura[postgres]`.
 
-### Embeddings and LLM integrations
+### Retrieval and context
 
-Embedding providers and LLM providers are planned integration points, not implemented features in `0.1.0`.
-
-Cogkura should orchestrate memory behavior without forcing specific providers.
+- `recall()` ranks episodic + semantic memories by activation; soft admission bypasses threshold only.
+- `valid_at` selects semantic validity time; `as_of` is cognitive evaluation time.
+- `prepare_context()` runs recall once, selects bounded working-memory chunks, and returns metamemory assessment.
+- Chunks are ephemeral; SUPPORT derivations provide provenance; ASSOCIATION paths are recall-time bridges only.
 
 ## Deployment models
 
 1. Same database, separate `cogkura` schema
 2. Separate source and memory databases (canonical Docker example)
-3. Custom storage via `ObservationStore` / `CheckpointStore` protocols
-4. In-memory observation store (default `Memory()` for local use)
+3. Custom storage via store protocols
+4. In-memory backends (default `Memory()` for local use and tests)
 
 ## Package layout
 
@@ -88,24 +109,23 @@ src/cogkura/
   storage/
   migrations/postgres/
   algorithms/
+tests/
+examples/
+docs/
 ```
 
-## Current implementation boundary
+## Current implementation boundary (0.15.11)
 
-Implemented now:
+Implemented:
 
-- public observation API (`observe`, `ingest`);
-- application integration API (`process`, `prepare_context`, `record_context_use`, `MemoryContext`);
-- declarative activation API (`recall`, `record_access`, `apply_forgetting`);
-- episodic encoding API (`encode_episodes`, `list_episodes`);
-- semantic consolidation API (`consolidate_semantics`, `list_semantic_memories`);
-- observation pipeline, policies, and retention modes;
-- storage protocols with in-memory and PostgreSQL backends;
-- `DeterministicEpisodicEncoder`, `EpisodeStore`, `MetadataSemanticExtractor`, `SemanticMemoryStore`, `ACTRDeclarativeActivator`, `DeterministicSpreadingActivator`, `EbbinghausForgettingEvaluator`, `ActivationStore`, `MemoryDynamicsStore`;
-- `PostgresTableSource` and connector checkpoints;
-- ACT-R declarative recall with spreading activation and forgetting dynamics over episodic + semantic memories;
-- Docker example, tests, and documentation.
+- observation ingestion and Postgres connectors
+- episodic and semantic memory with reconsolidation
+- ACT-R activation, spreading, forgetting, learning
+- gated admission, evidence-linked relevance, contextual association, structured relationships
+- working-memory chunking with semantic structural primary (0.15.10) and semantic-only support render (0.15.11)
+- `prepare_context` / `MemoryContext` application boundary
+- metamemory assessment and recall inspection
 
-Planned later:
+Next major milestone: **0.16 Encoding Specificity** (cue-context match; not started in 0.15.x).
 
-- additional source connectors and provider interfaces.
+Planned later: additional connectors, embedding/LLM provider interfaces, benchmark suites in separate packages.

@@ -34,7 +34,17 @@ Structured `valid_from` / `valid_until` may appear on `semantic_facts` entries (
 | Unspecified ONE competitors with ordered evidence chronology | `SUPERSEDES` |
 | Overlap, tied evidence, or unknown chronology for ONE competitors | `CONFLICTS` |
 
-Supersession closes the predecessor interval (`valid_until = successor.valid_from`), marks the predecessor `SUPERSEDED`, and preserves its confidence.
+Supersession closes the predecessor interval (`valid_until = successor.valid_from` or `last_supported_at` when windows were unspecified), marks the predecessor `SUPERSEDED`, and preserves its confidence.
+
+## Implicit vs explicit temporal metadata (0.15.11)
+
+Applications may supply world validity on `semantic_facts` (`valid_from`, `valid_until`). When **both** competitors omit explicit windows, Core uses **evidence chronology** (`last_supported_at`, then `first_supported_at`) for cardinality-one supersession. That is implicit state replacement: a later authoritative observation supersedes the earlier value without the application closing intervals manually.
+
+When the application **does** supply explicit windows, those windows are authoritative. Open-ended overlapping intervals (for example both values with `valid_from` set and no `valid_until`) yield `CONFLICTS`, not automatic closure of the predecessor. Core does **not** infer that a later `valid_from` should close an earlier open window.
+
+`confidence` on a semantic fact affects consolidation strength, not supersession authority. A weaker-confidence later fact still supersedes on later evidence chronology when windows are unspecified.
+
+Neutral contract tests: [`tests/test_cardinality_one_temporal_contract.py`](../tests/test_cardinality_one_temporal_contract.py).
 
 ## Public API
 

@@ -115,3 +115,13 @@ Research basis: Baddeley’s bounded workspace and Miller’s chunking insight�
 ## 0.15.10 chunk primary correctness
 
 `0.15.10` fixes a correctness bug where `SEMANTIC_WITH_SUPPORT` serialization assumed `members[0]` was always the semantic. Relevance ordering may legitimately place a supporting episode first; structural primary is now resolved at chunk construction and used by the serializer. Member relevance order remains independent and is still used for diagnostics, trimming, and display.
+
+## 0.15.11 support serialization precision
+
+`SEMANTIC_WITH_SUPPORT` chunks with structured predicate and object now serialize the **semantic statement only** by default. Supporting episodes remain chunk members for provenance, inspection, and `record_context_use`; only rendered context text is omitted when the semantic already carries the structured value.
+
+Chunk membership is separate from chunk serialization. Token-budget trimming may still drop members from `included_members`; that path is unrelated to support-text omission.
+
+`inspect_recall()` remains the diagnostic API for admission; `prepare_context()` explains selection. Admitted candidates may be selected while capacity remains because `minimum_goal_relevance` and `minimum_selection_score` default to `0.0`.
+
+See also [`configuration.md`](configuration.md).

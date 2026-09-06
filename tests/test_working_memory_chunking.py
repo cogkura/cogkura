@@ -840,7 +840,7 @@ def test_semantic_with_support_episode_outranks_semantic() -> None:
         memory_kind=MemoryKind.SEMANTIC,
         memory_key="jacket-size",
     )
-    assert chunk_item.chunk.serialized_text
+    assert chunk_item.chunk.serialized_text == semantic.statement
     ordered_keys = [recall.memory.memory_key for recall in chunk_item.member_recalls]
     assert ordered_keys[0] == "size-update"
     assert "jacket-size" in ordered_keys
@@ -874,6 +874,50 @@ def test_semantic_with_support_semantic_first_unchanged() -> None:
     assert chunk_item.chunk is not None
     assert chunk_item.chunk.primary_identity.memory_key == "jacket-size"
     assert chunk_item.chunk.serialized_text == semantic.statement
+
+
+def test_semantic_with_support_serializes_semantic_only_when_structured() -> None:
+    semantic = _semantic(
+        semantic_id="id-light",
+        memory_key="lightweight",
+        statement="Customer prefers lightweight outerwear.",
+        predicate="outerwear_weight_preference",
+        object_value="lightweight",
+        slot_key="slot:outerwear_weight_preference",
+        cardinality=SemanticCardinality.ONE,
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-light",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        ),
+    )
+    support = _episode(
+        episode_id="ep-light",
+        memory_key="light-support",
+        statement="Customer bought a lightweight product in size L.",
+        observation_id="obs-light",
+    )
+    snapshot = _select(
+        [
+            _recall(semantic, score=0.85, relevance_tier=RelevanceTier.DIRECT_SEMANTIC),
+            _recall(support, score=0.7, relevance_tier=RelevanceTier.EVIDENCE_ASSOCIATION),
+        ],
+        goal="lightweight outerwear",
+        config=WorkingMemoryConfig(max_items=4),
+    )
+    chunk_item = next(
+        item
+        for item in snapshot.items
+        if item.chunk and item.chunk.chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+    )
+    assert chunk_item.chunk is not None
+    assert chunk_item.chunk.serialized_text == semantic.statement
+    assert "size L" not in chunk_item.chunk.serialized_text
+    assert len(chunk_item.member_recalls) == 2
+    member_keys = {recall.memory.memory_key for recall in chunk_item.member_recalls}
+    assert member_keys == {"lightweight", "light-support"}
 
 
 def test_semantic_with_support_multiple_episodes_primary_remains_semantic() -> None:
@@ -1048,6 +1092,51 @@ async def test_short_cue_prepare_context_with_outranking_support() -> None:
     )
     rendered = context.render()
     assert isinstance(rendered, str)
+    assert "Actually" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_prepare_context_semantic_with_support_omits_support_text() -> None:
+    memory = _memory()
+    memory._working_memory_config = WorkingMemoryConfig(max_items=4, candidate_pool_size=20)
+    t_pref = _T - timedelta(days=30)
+    await memory.observe(
+        ObservationInput(
+            tenant_id=_TENANT,
+            subject_id=_SUBJECT,
+            actor_id=_SUBJECT,
+            source_namespace="chat.messages",
+            source_record_id="pref-light",
+            event_type="purchase",
+            content="Customer purchased a lightweight windbreaker in size L.",
+            observed_at=t_pref,
+            metadata={
+                "conversation_id": "conv-pref",
+                "entity_ids": [_SUBJECT],
+                "semantic_facts": [
+                    {
+                        "predicate": "outerwear_weight_preference",
+                        "object_value": "lightweight",
+                        "cardinality": "one",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            },
+        )
+    )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=t_pref)
+    context = await memory.prepare_context(
+        "Recommend lightweight outerwear.",
+        tenant_id=_TENANT,
+        subject_id=_SUBJECT,
+        as_of=_T,
+    )
+    rendered = context.render()
+    assert "lightweight" in rendered.lower()
+    assert "size L" not in rendered
+    assert "windbreaker" not in rendered.lower()
+    assert len(context.recall_results) >= 1
 
 
 def test_episodic_chunk_unaffected_by_semantic_primary_rules() -> None:

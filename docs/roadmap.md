@@ -95,6 +95,22 @@
 - [`docs/application-integration.md`](application-integration.md) and [`examples/application_context.py`](../../examples/application_context.py).
 - [`docs/design-application-integration-memory-context-0.15.0.md`](design-application-integration-memory-context-0.15.0.md).
 
+## 0.15.1–0.15.11 — Dependable recall line (done)
+
+- **0.15.1** evidence-chronology traces; `inspect_recall()`
+- **0.15.2** lexical slot matching; bounded soft admission
+- **0.15.3** cardinality-one evidence reconciliation; `SEMANTIC_CURRENT_ADMISSION`
+- **0.15.4** `valid_at` validity clock; current snapshot mode
+- **0.15.5** canonical retrieval features; evidence-to-evidence association
+- **0.15.6** cardinality-aware recall identity; relevance-tier competition
+- **0.15.7** contextual association (seed/bridge hops)
+- **0.15.8** structured entity relationships
+- **0.15.9** working-memory chunking; coverage-aware selection
+- **0.15.10** `SEMANTIC_WITH_SUPPORT` structural primary correctness
+- **0.15.11** temporal contract verification; semantic-only support render; performance baselines; configuration/architecture docs freeze
+
+See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
+
 ## 0.14.4 - Retrieval diagnostics and SUPPORT provenance (done)
 
 - `RecallResult.diagnostics` exposes accessibility vs rank activation, text coverage, cue fit, temporal mode, structured fit, and eligibility diagnostics.
@@ -149,6 +165,7 @@
 
 ## Later
 
+- **0.16.0 — Encoding Specificity**: cue-context match and encoding-context reinstatement (new concept; builds on stable 0.15 retrieval/context pipeline).
 - `0.9`: learning / reinforcement (done);
 - `0.10`: metamemory / memory monitoring (done);
 - `0.11`: ranking, simulated time, and current-state recall (done);

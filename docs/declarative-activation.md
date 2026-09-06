@@ -207,6 +207,12 @@ Re-run CogKuraBench/Demo externally: expect ~4/5 and ~3/5 until those fixtures s
 - One-hop associative reach links cue-matched episode entities to semantics that share product/entity identifiers (including structured `object_value` prefixes).
 - Evidence-linked association determines which memories may matter; it does not decide how they should affect the answer.
 
+## 0.15.11 stabilisation guardrails
+
+- No change to `SEMANTIC_CURRENT_ADMISSION`, relationship hop limits, or relevance thresholds in this release.
+- Cardinality-one implicit supersession and explicit overlapping `CONFLICTS` behaviour are frozen; see [`reconsolidation.md`](reconsolidation.md).
+- Working-memory `SEMANTIC_WITH_SUPPORT` render omits support episode text when structured predicate/object are present; see [`working-memory.md`](working-memory.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

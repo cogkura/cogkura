@@ -879,6 +879,13 @@ def _serialize_semantic_chunk(
     if not episode_members:
         return statement
 
+    if (
+        chunk_type is WorkingMemoryChunkType.SEMANTIC_WITH_SUPPORT
+        and memory.predicate.strip()
+        and memory.object_value.strip()
+    ):
+        return statement
+
     episode = episode_members[0].recall.memory
     assert isinstance(episode, StoredEpisode)
     episode_tokens = _tokenize(episode.statement)

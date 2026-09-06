@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.11] - 2026-09-06
+
+### Added
+
+- Cardinality-one temporal contract tests documenting implicit supersession vs explicit overlapping validity (`tests/test_cardinality_one_temporal_contract.py`).
+- Reproducible `prepare_context` performance baselines (`tests/test_prepare_context_benchmarks.py`) and `scripts/benchmark_release.sh`.
+- Canonical 0.15 architecture regression fixture (`tests/test_015_architecture_regression.py`).
+- [`docs/configuration.md`](docs/configuration.md) and updated [`docs/architecture.md`](docs/architecture.md) for the 0.15 pipeline and public contracts.
+
+### Changed
+
+- `SEMANTIC_WITH_SUPPORT` chunks with structured predicate/object serialize semantic statement text only; support episodes remain attached for provenance and `record_context_use`.
+- [`docs/reconsolidation.md`](docs/reconsolidation.md) clarifies implicit evidence-chronology supersession vs explicit application validity windows.
+
 ## [0.15.10] - 2026-09-03
 
 ### Fixed
