@@ -175,8 +175,17 @@
 - **0.15.11** temporal contract verification; semantic-only support render; performance baselines; configuration/architecture docs freeze
 - **0.15.12** architecture-freeze hardening: frozen support-render contract, observational performance baseline snapshot, mandatory canonical regression fixture
 - **0.16.0** encoding-context capture on observations and episodes (retrieval-neutral)
+- **0.16.1** retrieval-context matching diagnostics (retrieval-neutral)
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
+
+## 0.16.1 — Retrieval context matching (done)
+
+- Public `RetrievalContext` on recall APIs and optional `RetrievalCue.retrieval_context`.
+- `DeterministicContextMatcher` compares retrieval cues to episodic `encoding_context`.
+- Ephemeral `ContextMatch` on `RetrievalDiagnostics`; no storage migration.
+- Retrieval-neutral in `0.16.1` (matching calculated after ranking, not used for activation or selection).
+- [`docs/design-retrieval-context-0.16.1.md`](design-retrieval-context-0.16.1.md) and [`examples/retrieval_context.py`](../../examples/retrieval_context.py).
 
 ## 0.16.0 — Encoding context (done)
 
@@ -188,7 +197,6 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 
 ## Later
 
-- **0.16.1 — Retrieval context matching** (next): cue-context match over stored encoding context.
 - **0.16.2 — Context reinstatement**: encoding-context influences accessibility during recall.
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;

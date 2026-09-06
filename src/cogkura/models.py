@@ -8,9 +8,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cogkura.exceptions import ValidationError
+
+if TYPE_CHECKING:
+    from cogkura.observations.encoding_context import RetrievalContext
 
 _DEFAULT_RELATIONSHIP_TYPE_WEIGHTS: Mapping[str, float] = MappingProxyType(
     {
@@ -1084,9 +1087,13 @@ class RetrievalCue:
     predicate: str | None = None
     object_value: str | None = None
     qualifiers: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    retrieval_context: RetrievalContext | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+        populated_retrieval_context = (
+            self.retrieval_context is not None and not self.retrieval_context.is_empty()
+        )
         if not any(
             (
                 self.text and self.text.strip(),
@@ -1095,9 +1102,64 @@ class RetrievalCue:
                 self.predicate and self.predicate.strip(),
                 self.object_value and self.object_value.strip(),
                 self.qualifiers,
+                populated_retrieval_context,
             )
         ):
             raise ValidationError("Retrieval cue must contain at least one field.")
+
+
+class ContextMatchState(StrEnum):
+    """Per-dimension context comparison state."""
+
+    MATCH = "match"
+    PARTIAL_MATCH = "partial_match"
+    MISMATCH = "mismatch"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class ContextDimensionMatch:
+    """Diagnostic comparison for one contextual dimension."""
+
+    dimension: str
+    state: ContextMatchState
+    score: float | None = None
+    cue_values: tuple[str, ...] = ()
+    memory_values: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.dimension.strip():
+            raise ValidationError("dimension must not be empty.")
+        if self.score is not None and not 0.0 <= self.score <= 1.0:
+            raise ValidationError("score must be between 0.0 and 1.0 when provided.")
+
+
+@dataclass(frozen=True, slots=True)
+class ContextMatch:
+    """Ephemeral comparison between retrieval context and encoded episodic context."""
+
+    dimensions: tuple[ContextDimensionMatch, ...]
+    attribute_dimensions: tuple[ContextDimensionMatch, ...] = ()
+    score: float | None = None
+    comparable_count: int = 0
+    cue_dimension_count: int = 0
+    cue_coverage: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.comparable_count < 0:
+            raise ValidationError("comparable_count must not be negative.")
+        if self.cue_dimension_count < 0:
+            raise ValidationError("cue_dimension_count must not be negative.")
+        if self.comparable_count > self.cue_dimension_count:
+            raise ValidationError("comparable_count must not exceed cue_dimension_count.")
+        if not 0.0 <= self.cue_coverage <= 1.0:
+            raise ValidationError("cue_coverage must be between 0.0 and 1.0.")
+        if self.score is not None and not 0.0 <= self.score <= 1.0:
+            raise ValidationError("score must be between 0.0 and 1.0 when provided.")
+        if self.comparable_count == 0 and self.score is not None:
+            raise ValidationError("score must be None when comparable_count is zero.")
+        if self.cue_dimension_count == 0 and self.cue_coverage != 0.0:
+            raise ValidationError("cue_coverage must be 0.0 when cue_dimension_count is zero.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1437,6 +1499,7 @@ class RetrievalDiagnostics:
     collapsed_into: str | None = None
     canonical_object_value: str | None = None
     cardinality: str | None = None
+    context_match: ContextMatch | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1648,6 +1711,7 @@ class RecallInspectionResult:
     association_paths_used: int = 0
     relationship_seed_count: int = 0
     relationship_paths_used: int = 0
+    retrieval_context: RetrievalContext | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():

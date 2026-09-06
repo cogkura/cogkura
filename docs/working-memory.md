@@ -134,8 +134,10 @@ Use `WorkingMemoryChunk.primary_identity`, `member_identities`, `serialized_text
 
 **Encoding context** (`ObservationContext`, `MemoryContextSignature`) describes the circumstances present when an observation or episode was encoded (conversation, goal, activity, domain, and related dimensions).
 
+**Retrieval context** (`RetrievalContext`) describes structured cues supplied with a recall request. In `0.16.1`, Cogkura compares retrieval context to stored encoding context and exposes `ContextMatch` on recall diagnostics. This is **not** working memory and does not change selection or rendered output.
+
 **Working memory** (`WorkingMemorySnapshot`, `MemoryContext`) is the bounded set of memories currently selected for model-facing presentation.
 
-These terms both use “context” but refer to different concepts. Encoding context is historical evidence on episodic traces. Working memory is transient retrieval output. In `0.16.0`, encoding context is captured and inspectable but does **not** influence recall ranking or working-memory selection.
+These terms all use “context” but refer to different concepts. Encoding context is historical evidence on episodic traces. Retrieval context is a request-time cue overlay. Working memory is transient retrieval output. Through `0.16.1`, encoding and retrieval context are captured or matched for inspection but do **not** influence recall ranking or working-memory selection.
 
 See also [`configuration.md`](configuration.md).

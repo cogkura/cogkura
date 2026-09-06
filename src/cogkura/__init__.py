@@ -5,6 +5,10 @@ from cogkura.algorithms.activation import (
     DeclarativeActivator,
     InspectableDeclarativeActivator,
 )
+from cogkura.algorithms.context_matching import (
+    ContextMatcher,
+    DeterministicContextMatcher,
+)
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.learning import DeterministicLearningProcessor, LearningProcessor
 from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMonitor
@@ -34,6 +38,9 @@ from cogkura.models import (
     AssociationPath,
     CognitiveReferenceTrace,
     CognitiveTraceOrigin,
+    ContextDimensionMatch,
+    ContextMatch,
+    ContextMatchState,
     EntityRelationshipInput,
     EpisodeEncodingResult,
     EpisodeEntity,
@@ -107,6 +114,7 @@ from cogkura.observations import (
     ObservationDecision,
     ObservationInput,
     ObservationPolicy,
+    RetrievalContext,
     StoredObservation,
 )
 
@@ -133,6 +141,11 @@ __all__ = [
     "EpisodeEntity",
     "EpisodeEvidenceInput",
     "EpisodeInput",
+    "ContextDimensionMatch",
+    "ContextMatch",
+    "ContextMatchState",
+    "ContextMatcher",
+    "DeterministicContextMatcher",
     "EntityRelationshipInput",
     "EpisodeWriteStatus",
     "EpisodicEncoder",
@@ -172,6 +185,7 @@ __all__ = [
     "RecallInspectionUnsupportedError",
     "RecallResult",
     "RelationshipEdge",
+    "RetrievalContext",
     "RetrievalDiagnostics",
     "RetrievalEligibility",
     "RetrievalCue",
@@ -212,4 +226,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.16.0"
+__version__ = "0.16.1"

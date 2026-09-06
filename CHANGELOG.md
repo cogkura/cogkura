@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-09-06
+
+### Added
+
+- Public `RetrievalContext` on retrieval APIs and optional `RetrievalCue.retrieval_context`.
+- `ContextMatchState`, `ContextDimensionMatch`, `ContextMatch`, and `DeterministicContextMatcher` for exact cue–trace comparison.
+- Ephemeral `RetrievalDiagnostics.context_match` attached after declarative ranking; `RecallInspectionResult.retrieval_context` for inspection.
+- Optional `retrieval_context=` on `recall`, `inspect_recall`, `select_working_memory`, `prepare_context`, and `assess_memory`.
+- Contract and neutrality tests (`tests/test_retrieval_context_models.py`, `tests/test_context_matching.py`, `tests/test_016_1_retrieval_context_neutrality.py`).
+- Example [`examples/retrieval_context.py`](examples/retrieval_context.py) and design note [`docs/design-retrieval-context-0.16.1.md`](docs/design-retrieval-context-0.16.1.md).
+
+### Preserved
+
+- Recall, activation, admission, ranking, working-memory selection, and rendered `MemoryContext` text remain unchanged when retrieval context is populated.
+- No storage migration; context matches are not persisted.
+
+### Notes
+
+- Context matching is episodic only; semantic candidates keep `context_match=None`.
+- External CogKuraBench workloads should remain equivalent aside from additive diagnostic fields.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.1`).
+
 ## [0.16.0] - 2026-09-06
 
 ### Added

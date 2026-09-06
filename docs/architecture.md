@@ -109,9 +109,19 @@ Episodic encoding
 StoredEpisode.encoding_context (MemoryContextSignature)
 ```
 
+**Retrieval context (0.16.1):** applications may also supply `RetrievalContext` on recall APIs. Cogkura compares it to stored encoding context via `DeterministicContextMatcher` and attaches ephemeral `ContextMatch` diagnostics after ranking. Matching does **not** feed activation, admission, ranking, or working-memory selection in `0.16.1`.
+
+```text
+RetrievalCue + optional RetrievalContext
+    ↓
+Declarative activation / ranking (unchanged)
+    ↓
+ContextMatcher → ContextMatch (diagnostics only)
+```
+
 Applications supply structured context when it is already available (conversation, goal, activity, domain, and so on). Cogkura does not infer context from natural-language observation text.
 
-`0.16.0` captures and persists encoding context only. Context reinstatement and context-dependent recall are planned for later `0.16.x` releases.
+`0.16.0` captures and persists encoding context only. **`0.16.1`** adds retrieval-context matching diagnostics (`RetrievalContext` → `ContextMatch`) that are calculated after ranking but still do not change recall behaviour. Context reinstatement that influences accessibility is planned for **`0.16.2`**.
 
 Prefer coarse contextual identifiers for `location` when possible; the core library remains agnostic but applications should minimise sensitive detail.
 
@@ -155,6 +165,8 @@ Implemented:
 
 **Encoding-context contract (0.16.0):** encoding context is part of the episodic memory trace and is visible via `list_episodes()` / `inspect_recall()`. It does not alter recall ranking, activation, admission, or working-memory selection in this release.
 
-Next major milestones: **0.16.1 retrieval context matching**, **0.16.2 context reinstatement**.
+**Retrieval-context contract (0.16.1):** retrieval context is supplied structurally on recall APIs; `ContextMatch` is inspectable on `RetrievalDiagnostics` but does not alter recall ranking, activation, admission, or working-memory selection in this release.
+
+Next major milestone: **0.16.2 context reinstatement**.
 
 Planned later: additional connectors, embedding/LLM provider interfaces, benchmark suites in separate packages.

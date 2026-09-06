@@ -16,6 +16,10 @@ from cogkura.algorithms.activation import (
     build_episode_support_provenance_index,
 )
 from cogkura.algorithms.cognitive_traces import build_activation_candidates
+from cogkura.algorithms.context_matching import (
+    ContextMatcher,
+    DeterministicContextMatcher,
+)
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
 from cogkura.algorithms.learning import (
@@ -86,6 +90,7 @@ from cogkura.models import (
     WorkingMemoryConfig,
     WorkingMemorySnapshot,
 )
+from cogkura.observations.encoding_context import RetrievalContext
 from cogkura.observations.models import IngestionResult, IngestStatus, ObservationInput
 from cogkura.observations.pipeline import ObservationPipeline
 from cogkura.observations.policies import DefaultObservationPolicy, ObservationPolicy
@@ -158,6 +163,7 @@ class Memory:
         memory_monitor: MemoryMonitor | None = None,
         metamemory_config: MetamemoryConfig | None = None,
         token_estimator: TokenEstimator | None = None,
+        context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
         retention_mode: ObservationRetentionMode = ObservationRetentionMode.FULL,
     ) -> None:
@@ -239,6 +245,9 @@ class Memory:
         )
         self._token_estimator = (
             token_estimator if token_estimator is not None else ApproximateTokenEstimator()
+        )
+        self._context_matcher = (
+            context_matcher if context_matcher is not None else DeterministicContextMatcher()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -386,6 +395,7 @@ class Memory:
         *,
         tenant_id: str,
         subject_id: str | None = None,
+        retrieval_context: RetrievalContext | None = None,
         limit: int = 5,
         as_of: datetime | None = None,
         valid_at: datetime | None = None,
@@ -400,7 +410,7 @@ class Memory:
         if valid_at is not None and valid_at.tzinfo is None:
             raise ValidationError("valid_at must be timezone-aware.")
 
-        cue = _normalise_cue(query, subject_id=subject_id)
+        cue = _normalise_cue(query, subject_id=subject_id, retrieval_context=retrieval_context)
         evaluation_time = _evaluation_time(as_of)
         return await self._rank_declarative_results(
             cue=cue,
@@ -419,6 +429,7 @@ class Memory:
         *,
         tenant_id: str,
         subject_id: str | None = None,
+        retrieval_context: RetrievalContext | None = None,
         limit: int = 5,
         as_of: datetime | None = None,
         valid_at: datetime | None = None,
@@ -444,7 +455,7 @@ class Memory:
         if candidate_cap <= 0:
             raise ValidationError("max_candidates must be greater than zero.")
 
-        cue = _normalise_cue(query, subject_id=subject_id)
+        cue = _normalise_cue(query, subject_id=subject_id, retrieval_context=retrieval_context)
         evaluation_time = _evaluation_time(as_of)
         episodes, semantic_memories = await asyncio.gather(
             self._episode_store.list(
@@ -541,10 +552,13 @@ class Memory:
             entity_relationships=tuple(entity_relationships),
         )
         if not forgotten_identities:
-            return replace(
-                inspection,
-                truncated=truncated,
-                considered_count=len(pre_forgetting),
+            return self._attach_context_matches_to_inspection(
+                replace(
+                    inspection,
+                    truncated=truncated,
+                    considered_count=len(pre_forgetting),
+                ),
+                cue,
             )
 
         forgotten_candidates: list[RecallInspectionCandidate] = []
@@ -576,11 +590,14 @@ class Memory:
                     ),
                 )
             )
-        return replace(
-            inspection,
-            rejected=(*forgotten_candidates, *inspection.rejected),
-            truncated=truncated,
-            considered_count=len(pre_forgetting),
+        return self._attach_context_matches_to_inspection(
+            replace(
+                inspection,
+                rejected=(*forgotten_candidates, *inspection.rejected),
+                truncated=truncated,
+                considered_count=len(pre_forgetting),
+            ),
+            cue,
         )
 
     async def _rank_declarative_results(
@@ -666,7 +683,7 @@ class Memory:
             ),
         )
         entity_relationships = await self._entity_relationship_store.list(tenant_id=tenant_id)
-        return self._declarative_activator.rank(
+        ranked = self._declarative_activator.rank(
             candidates=candidates,
             cue=cue,
             references=references,
@@ -680,6 +697,7 @@ class Memory:
             entity_relationships=tuple(entity_relationships),
             subject_id=subject_id,
         )
+        return self._attach_context_matches_to_results(ranked, cue)
 
     async def select_working_memory(
         self,
@@ -688,6 +706,7 @@ class Memory:
         tenant_id: str,
         subject_id: str | None = None,
         goal: str | RetrievalCue | None = None,
+        retrieval_context: RetrievalContext | None = None,
         previous: WorkingMemorySnapshot | None = None,
         prompt_budget_tokens: int | None = None,
         as_of: datetime | None = None,
@@ -707,6 +726,7 @@ class Memory:
             tenant_id=tenant_id,
             subject_id=subject_id,
             goal=goal,
+            retrieval_context=retrieval_context,
             as_of=as_of,
             valid_at=valid_at,
             semantic_statuses=semantic_statuses,
@@ -729,6 +749,7 @@ class Memory:
         tenant_id: str,
         subject_id: str | None = None,
         goal: str | RetrievalCue | None = None,
+        retrieval_context: RetrievalContext | None = None,
         as_of: datetime | None = None,
         valid_at: datetime | None = None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None = None,
@@ -748,6 +769,7 @@ class Memory:
             tenant_id=tenant_id,
             subject_id=subject_id,
             goal=goal,
+            retrieval_context=retrieval_context,
             as_of=as_of,
             valid_at=valid_at,
             semantic_statuses=semantic_statuses,
@@ -768,6 +790,7 @@ class Memory:
         tenant_id: str,
         subject_id: str | None = None,
         goal: str | RetrievalCue | None = None,
+        retrieval_context: RetrievalContext | None = None,
         previous: WorkingMemorySnapshot | None = None,
         prompt_budget_tokens: int | None = None,
         as_of: datetime | None = None,
@@ -793,6 +816,7 @@ class Memory:
             tenant_id=tenant_id,
             subject_id=subject_id,
             goal=goal,
+            retrieval_context=retrieval_context,
             as_of=as_of,
             valid_at=valid_at,
             semantic_statuses=semantic_statuses,
@@ -1398,13 +1422,16 @@ class Memory:
         tenant_id: str,
         subject_id: str | None,
         goal: str | RetrievalCue | None,
+        retrieval_context: RetrievalContext | None = None,
         as_of: datetime | None,
         valid_at: datetime | None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None,
         include_forgotten: bool,
         pool_limit: int,
     ) -> _PreparedRetrieval:
-        query_cue = _normalise_cue(query, subject_id=subject_id)
+        query_cue = _normalise_cue(
+            query, subject_id=subject_id, retrieval_context=retrieval_context
+        )
         goal_cue = _normalize_goal_cue(goal, query_cue)
         evaluation_time = _evaluation_time(as_of)
         results = await self._rank_declarative_results(
@@ -1488,6 +1515,54 @@ class Memory:
             activation_config=self._activation_config,
             learning_utilities=prepared.learning_utilities,
             learning_states=prepared.learning_states,
+        )
+
+    def _attach_context_matches_to_results(
+        self,
+        results: Sequence[RecallResult],
+        cue: RetrievalCue,
+    ) -> list[RecallResult]:
+        retrieval_context = _effective_retrieval_context(cue)
+        if retrieval_context is None:
+            return list(results)
+        return [
+            _context_match_for_result(
+                context_matcher=self._context_matcher,
+                retrieval_context=retrieval_context,
+                result=result,
+            )
+            for result in results
+        ]
+
+    def _attach_context_matches_to_inspection(
+        self,
+        inspection: RecallInspectionResult,
+        cue: RetrievalCue,
+    ) -> RecallInspectionResult:
+        retrieval_context = _effective_retrieval_context(cue)
+        if retrieval_context is None:
+            return inspection
+        returned = tuple(
+            _context_match_for_inspection_candidate(
+                context_matcher=self._context_matcher,
+                retrieval_context=retrieval_context,
+                candidate=candidate,
+            )
+            for candidate in inspection.returned
+        )
+        rejected = tuple(
+            _context_match_for_inspection_candidate(
+                context_matcher=self._context_matcher,
+                retrieval_context=retrieval_context,
+                candidate=candidate,
+            )
+            for candidate in inspection.rejected
+        )
+        return replace(
+            inspection,
+            returned=returned,
+            rejected=rejected,
+            retrieval_context=retrieval_context,
         )
 
     async def _filter_recallable_candidates(
@@ -1656,22 +1731,82 @@ def _normalize_goal_cue(
     return RetrievalCue(text=goal)
 
 
-def _normalise_cue(query: str | RetrievalCue, *, subject_id: str | None) -> RetrievalCue:
+def _normalise_cue(
+    query: str | RetrievalCue,
+    *,
+    subject_id: str | None,
+    retrieval_context: RetrievalContext | None = None,
+) -> RetrievalCue:
     if isinstance(query, RetrievalCue):
-        if subject_id is not None and query.subject_id is None:
-            return RetrievalCue(
-                text=query.text,
+        cue = query
+        if subject_id is not None and cue.subject_id is None:
+            cue = RetrievalCue(
+                text=cue.text,
                 subject_id=subject_id,
-                entity_ids=query.entity_ids,
-                predicate=query.predicate,
-                object_value=query.object_value,
-                qualifiers=query.qualifiers,
+                entity_ids=cue.entity_ids,
+                predicate=cue.predicate,
+                object_value=cue.object_value,
+                qualifiers=cue.qualifiers,
+                retrieval_context=cue.retrieval_context,
             )
-        return query
+        if retrieval_context is not None and (
+            cue.retrieval_context is None or cue.retrieval_context.is_empty()
+        ):
+            return replace(cue, retrieval_context=retrieval_context)
+        return cue
     stripped = query.strip()
     if not stripped and not (subject_id and subject_id.strip()):
         raise ValidationError("Query must not be empty.")
-    return RetrievalCue(text=stripped or None, subject_id=subject_id)
+    return RetrievalCue(
+        text=stripped or None,
+        subject_id=subject_id,
+        retrieval_context=retrieval_context,
+    )
+
+
+def _effective_retrieval_context(cue: RetrievalCue) -> RetrievalContext | None:
+    if cue.retrieval_context is None or cue.retrieval_context.is_empty():
+        return None
+    return cue.retrieval_context
+
+
+def _context_match_for_result(
+    *,
+    context_matcher: ContextMatcher,
+    retrieval_context: RetrievalContext,
+    result: RecallResult,
+) -> RecallResult:
+    if result.diagnostics is None:
+        return result
+    if isinstance(result.memory, StoredEpisode):
+        context_match = context_matcher.match(retrieval_context, result.memory.encoding_context)
+    else:
+        context_match = None
+    return replace(
+        result,
+        diagnostics=replace(result.diagnostics, context_match=context_match),
+    )
+
+
+def _context_match_for_inspection_candidate(
+    *,
+    context_matcher: ContextMatcher,
+    retrieval_context: RetrievalContext,
+    candidate: RecallInspectionCandidate,
+) -> RecallInspectionCandidate:
+    if candidate.diagnostics is None:
+        return candidate
+    if isinstance(candidate.memory, StoredEpisode):
+        context_match = context_matcher.match(
+            retrieval_context,
+            candidate.memory.encoding_context,
+        )
+    else:
+        context_match = None
+    return replace(
+        candidate,
+        diagnostics=replace(candidate.diagnostics, context_match=context_match),
+    )
 
 
 def _memory_key_from_result(result: RecallResult) -> str:
