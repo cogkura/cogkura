@@ -551,6 +551,7 @@ class Memory:
             episode_slot_index=episode_slot_index,
             entity_relationships=tuple(entity_relationships),
             episode_by_id={episode.id: episode for episode in episodes},
+            context_underspecified_margin=self._metamemory_config.context_underspecified_margin,
         )
         if not forgotten_identities:
             return _with_inspection_retrieval_context(

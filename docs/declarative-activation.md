@@ -251,6 +251,17 @@ R_j = M_j \times V_j \qquad R_s = \frac{\sum_j R_j}{K} \qquad C_s = \lambda_{sem
 
 No `RetrievalContext` (or empty cue / semantic `weight=0`) reproduces `0.16.2` semantic retrieval behaviour.
 
+## 0.16.4 context observability
+
+After existing scoring, `inspect_recall` attaches retrieval-level contextual diagnostics without re-scoring or changing `rank()`:
+
+- `RecallInspectionResult.context`: `RetrievalContextDiagnostics` (`context_not_provided`, `context_unavailable`, `context_underspecified`, `context_sufficient`)
+- Per-candidate: `crossed_activation_threshold_due_to_context`, `rank_before_context`, `rank_after_context`, `context_rank_delta`
+- Pre-context rank orders the discrimination set by `activation_before_context`; post-context rank uses final `activation`
+- `MemoryAssessment.context` uses the same classifier over the narrower threshold-qualified recall pool from `assess_memory`
+
+Observability does not change activation, admission, working-memory selection, or `MemoryContext.render()`.
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

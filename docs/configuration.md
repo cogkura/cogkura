@@ -1,4 +1,4 @@
-# Configuration reference (0.16.2)
+# Configuration reference (0.16.x)
 
 Cogkura exposes two primary configuration dataclasses on `Memory(...)`: `ActivationConfig` and `WorkingMemoryConfig`. Defaults are defined in [`src/cogkura/models.py`](../src/cogkura/models.py).
 
@@ -61,6 +61,14 @@ Application integration:
 | `minimum_goal_relevance` | n/a | WM only — see below |
 
 See [`docs/declarative-activation.md`](declarative-activation.md) for the full activation surface.
+
+### Metamemory (`MetamemoryConfig`)
+
+| Knob | Default | Role |
+|------|---------|------|
+| `context_underspecified_margin` | `0.0` | Inspect/metamemory classification only: top-two context-strength margin at or below this value → `context_underspecified` when ≥2 comparable candidates match (`0.0` = exact ties) |
+
+Contextual metamemory is observational. It does not change activation, ranking, or working-memory selection. Canonical discrimination is `inspect_recall`; `assess_memory.context` uses the narrower recall pool.
 
 ### Working memory (`WorkingMemoryConfig`)
 

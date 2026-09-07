@@ -1276,6 +1276,66 @@ class SemanticSupportContextEvidence:
             raise ValidationError("reason must not be applied when support context is not applied.")
 
 
+class RetrievalContextState(StrEnum):
+    """Retrieval-level contextual metamemory state."""
+
+    CONTEXT_NOT_PROVIDED = "context_not_provided"
+    CONTEXT_UNAVAILABLE = "context_unavailable"
+    CONTEXT_UNDERSPECIFIED = "context_underspecified"
+    CONTEXT_SUFFICIENT = "context_sufficient"
+
+
+class ContextObservabilityReason(StrEnum):
+    """Structured reason codes for contextual observability."""
+
+    NO_RETRIEVAL_CONTEXT = "no_retrieval_context"
+    NO_COMPARABLE_CONTEXT = "no_comparable_context"
+    MULTIPLE_TOP_CONTEXT_MATCHES = "multiple_top_context_matches"
+    LOW_CONTEXT_MARGIN = "low_context_margin"
+    PARTIAL_CONTEXT_CONFLICT = "partial_context_conflict"
+    CONTEXT_RESTORED_THRESHOLD = "context_restored_threshold"
+    CONTEXT_CHANGED_RANK = "context_changed_rank"
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalContextDiagnostics:
+    """Retrieval-level contextual observability summary."""
+
+    state: RetrievalContextState
+    provided_dimension_count: int
+    cue_specificity: float | None
+    comparable_candidate_count: int
+    matching_candidate_count: int
+    top_context_strength: float | None
+    second_context_strength: float | None
+    context_margin: float | None
+    top_candidate_ids: tuple[str, ...]
+    reasons: tuple[ContextObservabilityReason, ...]
+    underspecified_margin: float
+
+    def __post_init__(self) -> None:
+        if self.provided_dimension_count < 0:
+            raise ValidationError("provided_dimension_count must not be negative.")
+        if self.comparable_candidate_count < 0:
+            raise ValidationError("comparable_candidate_count must not be negative.")
+        if self.matching_candidate_count < 0:
+            raise ValidationError("matching_candidate_count must not be negative.")
+        if self.cue_specificity is not None and not 0.0 <= self.cue_specificity <= 1.0:
+            raise ValidationError("cue_specificity must be between 0.0 and 1.0 when provided.")
+        for label, value in (
+            ("top_context_strength", self.top_context_strength),
+            ("second_context_strength", self.second_context_strength),
+            ("context_margin", self.context_margin),
+        ):
+            if value is not None and (not math.isfinite(value) or not 0.0 <= value <= 1.0):
+                raise ValidationError(f"{label} must be between 0.0 and 1.0 when provided.")
+        if not 0.0 <= self.underspecified_margin <= 1.0:
+            raise ValidationError("underspecified_margin must be between 0.0 and 1.0.")
+        for candidate_id in self.top_candidate_ids:
+            if not candidate_id.strip():
+                raise ValidationError("top_candidate_ids must not contain empty values.")
+
+
 @dataclass(frozen=True, slots=True)
 class ActivationConfig:
     """Configuration for ACT-R declarative activation."""
@@ -1627,6 +1687,7 @@ class RetrievalDiagnostics:
     context_reinstatement: ContextReinstatement | None = None
     activation_before_context: float | None = None
     support_context: SemanticSupportContextEvidence | None = None
+    crossed_activation_threshold_due_to_context: bool = False
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1802,6 +1863,9 @@ class RecallInspectionCandidate:
     stored_traces: tuple[ActivationReferenceTrace, ...]
     retention_state: MemoryRetentionState | None = None
     rank: int | None = None
+    rank_before_context: int | None = None
+    rank_after_context: int | None = None
+    context_rank_delta: int | None = None
     diagnostics: RetrievalDiagnostics | None = None
     reason: str | None = None
     association_role: str | None = None
@@ -1839,6 +1903,7 @@ class RecallInspectionResult:
     relationship_seed_count: int = 0
     relationship_paths_used: int = 0
     retrieval_context: RetrievalContext | None = None
+    context: RetrievalContextDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -2539,6 +2604,7 @@ class MetamemoryConfig:
     stale_evidence_threshold: float = 0.25
     missing_knowledge_coverage_threshold: float = 0.35
     missing_knowledge_strength_threshold: float = 0.45
+    context_underspecified_margin: float = 0.0
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -2558,6 +2624,7 @@ class MetamemoryConfig:
             ("stale_evidence_threshold", self.stale_evidence_threshold),
             ("missing_knowledge_coverage_threshold", self.missing_knowledge_coverage_threshold),
             ("missing_knowledge_strength_threshold", self.missing_knowledge_strength_threshold),
+            ("context_underspecified_margin", self.context_underspecified_margin),
         ):
             if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
                 raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
@@ -2703,6 +2770,7 @@ class MemoryAssessment:
     incorrect_feedback_count: int
     newest_evidence_at: datetime | None
     oldest_evidence_at: datetime | None
+    context: RetrievalContextDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():

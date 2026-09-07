@@ -9,6 +9,10 @@ from cogkura.algorithms.context_matching import (
     ContextMatcher,
     DeterministicContextMatcher,
 )
+from cogkura.algorithms.context_observability import (
+    DeterministicRetrievalContextPolicy,
+    RetrievalContextPolicy,
+)
 from cogkura.algorithms.context_reinstatement import (
     ContextReinstatementPolicy,
     DeterministicContextReinstatementPolicy,
@@ -49,6 +53,7 @@ from cogkura.models import (
     ContextDimensionMatch,
     ContextMatch,
     ContextMatchState,
+    ContextObservabilityReason,
     ContextReinstatement,
     ContextReinstatementReason,
     EntityRelationshipInput,
@@ -82,6 +87,8 @@ from cogkura.models import (
     RecallInspectionResult,
     RecallResult,
     RelationshipEdge,
+    RetrievalContextDiagnostics,
+    RetrievalContextState,
     RetrievalCue,
     RetrievalDiagnostics,
     RetrievalEligibility,
@@ -157,12 +164,14 @@ __all__ = [
     "ContextDimensionMatch",
     "ContextMatch",
     "ContextMatchState",
+    "ContextObservabilityReason",
     "ContextReinstatement",
     "ContextReinstatementPolicy",
     "ContextReinstatementReason",
     "ContextMatcher",
     "DeterministicContextMatcher",
     "DeterministicContextReinstatementPolicy",
+    "DeterministicRetrievalContextPolicy",
     "DeterministicSemanticSupportContextPolicy",
     "EntityRelationshipInput",
     "EpisodeWriteStatus",
@@ -204,6 +213,9 @@ __all__ = [
     "RecallResult",
     "RelationshipEdge",
     "RetrievalContext",
+    "RetrievalContextDiagnostics",
+    "RetrievalContextPolicy",
+    "RetrievalContextState",
     "RetrievalDiagnostics",
     "RetrievalEligibility",
     "RetrievalCue",
@@ -248,4 +260,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.16.3"
+__version__ = "0.16.4"

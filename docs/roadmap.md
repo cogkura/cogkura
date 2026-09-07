@@ -178,8 +178,16 @@
 - **0.16.1** retrieval-context matching diagnostics (retrieval-neutral)
 - **0.16.2** context reinstatement on episodic activation (accessibility, not relevance)
 - **0.16.3** semantic support-context propagation on declarative activation (accessibility, not relevance)
+- **0.16.4** context observability and contextual metamemory (inspect explains 0.16.0–0.16.3 evidence; retrieval unchanged)
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
+
+## 0.16.4 — Context observability and metamemory (done)
+
+- `inspect_recall` exposes retrieval-level `RetrievalContextDiagnostics` plus per-candidate threshold-crossing and pre/post context ranks.
+- `MemoryAssessment.context` is additive; existing flags/signals unchanged. Canonical underspecification is inspect, not assess.
+- No-context and populated-context retrieval behaviour matches `0.16.3` for identical inputs.
+- [`docs/design-context-observability-0.16.4.md`](design-context-observability-0.16.4.md) and calibration [`docs/findings/0.16.4-context-observability.md`](findings/0.16.4-context-observability.md).
 
 ## 0.16.3 — Semantic support-context propagation (done)
 

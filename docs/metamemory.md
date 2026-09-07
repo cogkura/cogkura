@@ -62,4 +62,12 @@ Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`
 - Provenance diversity counts observation traces, not independent external sources.
 - No persistence or PostgreSQL migration for assessments.
 
+## Contextual metamemory (`0.16.4`)
+
+`MemoryAssessment.context` carries additive `RetrievalContextDiagnostics` derived from the same recall pool used for flags and signals. It reports whether supplied retrieval context is absent, unavailable on stored traces, underspecified among plausible candidates, or sufficient — without changing existing flags or `MetamemorySignals`.
+
+**Canonical surface:** `inspect_recall().context` over the full inspect discrimination set. `assess_memory().context` uses the narrower threshold-qualified pool and may differ when borderline candidates are excluded from recall.
+
+Contextual assessment is knowledge about retrieval evidence, not memory content. It must not be confused with slot/entity `_metamemory_match_context` or fed into `MemoryContext.render()`.
+
 See [`examples/metamemory.py`](../../examples/metamemory.py).

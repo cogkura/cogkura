@@ -1,4 +1,4 @@
-"""Retrieval-context example for Cogkura 0.16.3."""
+"""Retrieval-context example for Cogkura 0.16.4."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
@@ -98,6 +98,12 @@ async def main() -> None:
         retrieval_context=retrieval_context,
     )
     print(f"Retrieval context supplied: {inspection.retrieval_context is not None}")
+    if inspection.context is not None:
+        print(
+            f"Inspect context state={inspection.context.state.value} "
+            f"margin={inspection.context.context_margin} "
+            f"reasons={[reason.value for reason in inspection.context.reasons]}"
+        )
     for candidate in inspection.returned:
         if candidate.diagnostics and candidate.diagnostics.context_reinstatement:
             rest = candidate.diagnostics.context_reinstatement

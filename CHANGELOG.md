@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.4] - 2026-09-07
+
+### Added
+
+- `RetrievalContextState`, `ContextObservabilityReason`, and `RetrievalContextDiagnostics` for retrieval-level contextual observability on `inspect_recall` and `MemoryAssessment.context`.
+- `DeterministicRetrievalContextPolicy` with discrimination-set ranks, threshold-crossing attribution, and underspecification classification (`context_not_provided`, `context_unavailable`, `context_underspecified`, `context_sufficient`).
+- `MetamemoryConfig.context_underspecified_margin` (0–1, default `0.0`; classification only).
+- Inspect-only fields: `RetrievalDiagnostics.crossed_activation_threshold_due_to_context`, `RecallInspectionCandidate.rank_before_context` / `rank_after_context` / `context_rank_delta`, and `RecallInspectionResult.context`.
+- Unit and behaviour tests (`tests/test_context_observability.py`, `tests/test_016_4_context_observability.py`).
+- Design note [`docs/design-context-observability-0.16.4.md`](docs/design-context-observability-0.16.4.md) and calibration findings [`docs/findings/0.16.4-context-observability.md`](docs/findings/0.16.4-context-observability.md).
+
+### Changed
+
+- `Memory.inspect_recall` post-pass attaches contextual diagnostics after existing scoring; `Memory.assess_memory` fills additive `MemoryAssessment.context` from its recall pool.
+- Extended [`examples/retrieval_context.py`](examples/retrieval_context.py) to print inspect `context.state` and margin.
+
+### Preserved
+
+- No storage migration; contextual metamemory is observational only.
+- `rank()` scoring, recall identities/scores/dispositions, working-memory selection, `prepare_context().render()`, and `record_context_use` flattening unchanged for identical inputs.
+- No new `MemoryAssessmentFlag` values; existing flags and `MetamemorySignals` semantics unchanged.
+- `prepare_context().assessment == assess_memory(...)` equality preserved.
+
+### Notes
+
+- Canonical contextual discrimination is `inspect_recall`; `assess_memory.context` uses the narrower threshold-qualified recall pool.
+- Default `context_underspecified_margin=0.0` is in-repo engineering calibration (exact ties), not a cognitive-science constant.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.4`).
+
 ## [0.16.3] - 2026-09-07
 
 ### Added

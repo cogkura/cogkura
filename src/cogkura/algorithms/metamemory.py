@@ -19,6 +19,7 @@ from cogkura.algorithms.activation import (
     activation_candidate_from_episode,
     activation_candidate_from_semantic,
 )
+from cogkura.algorithms.context_observability import DeterministicRetrievalContextPolicy
 from cogkura.algorithms.forgetting import retention_score_from_base_level
 from cogkura.algorithms.learning import learning_context_key, learning_counts_by_identity
 from cogkura.algorithms.relevance import calculate_cue_coverage, calculate_cue_relevance
@@ -87,6 +88,10 @@ class MemoryMonitor(Protocol):
 class DeterministicMemoryMonitor:
     """Pure deterministic metamemory monitor over recall candidates."""
 
+    _retrieval_context_policy: DeterministicRetrievalContextPolicy = (
+        DeterministicRetrievalContextPolicy()
+    )
+
     def assess(
         self,
         *,
@@ -137,6 +142,11 @@ class DeterministicMemoryMonitor:
                 incorrect_feedback_count=0,
                 newest_evidence_at=None,
                 oldest_evidence_at=None,
+                context=self._retrieval_context_policy.evaluate_recall_pool(
+                    retrieval_context=query.retrieval_context,
+                    candidates=(),
+                    underspecified_margin=config.context_underspecified_margin,
+                ),
             )
 
         item_diagnostics = [
@@ -282,6 +292,11 @@ class DeterministicMemoryMonitor:
             incorrect_feedback_count=incorrect_feedback_count,
             newest_evidence_at=newest_evidence_at,
             oldest_evidence_at=oldest_evidence_at,
+            context=self._retrieval_context_policy.evaluate_recall_pool(
+                retrieval_context=query.retrieval_context,
+                candidates=candidates,
+                underspecified_margin=config.context_underspecified_margin,
+            ),
         )
 
 

@@ -18,6 +18,11 @@ from cogkura.algorithms.cognitive_traces import (
     derive_semantic_cognitive_traces,
 )
 from cogkura.algorithms.context_matching import ContextMatcher, DeterministicContextMatcher
+from cogkura.algorithms.context_observability import (
+    DeterministicRetrievalContextPolicy,
+    apply_inspection_context_attribution,
+    with_threshold_crossing,
+)
 from cogkura.algorithms.context_reinstatement import (
     ContextReinstatementPolicy,
     DeterministicContextReinstatementPolicy,
@@ -226,6 +231,7 @@ class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
         episode_slot_index: Mapping[str, str] | None = None,
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
+        context_underspecified_margin: float = 0.0,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return inspection dispositions."""
 
@@ -401,6 +407,7 @@ class ACTRDeclarativeActivator:
         context_matcher: ContextMatcher | None = None,
         reinstatement_policy: ContextReinstatementPolicy | None = None,
         semantic_support_context_policy: SemanticSupportContextPolicy | None = None,
+        retrieval_context_policy: DeterministicRetrievalContextPolicy | None = None,
     ) -> None:
         self._spreading_activator = spreading_activator or DeterministicSpreadingActivator()
         self._context_matcher = context_matcher or DeterministicContextMatcher()
@@ -409,6 +416,9 @@ class ACTRDeclarativeActivator:
         )
         self._semantic_support_context_policy = (
             semantic_support_context_policy or DeterministicSemanticSupportContextPolicy()
+        )
+        self._retrieval_context_policy = (
+            retrieval_context_policy or DeterministicRetrievalContextPolicy()
         )
 
     def rank(
@@ -623,6 +633,7 @@ class ACTRDeclarativeActivator:
         episode_slot_index: Mapping[str, str] | None = None,
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
+        context_underspecified_margin: float = 0.0,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
         candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
@@ -903,6 +914,30 @@ class ACTRDeclarativeActivator:
             else:
                 rejected_candidates.append(inspection)
 
+        all_candidates = tuple([*returned_candidates, *rejected_candidates])
+        attributed = apply_inspection_context_attribution(
+            all_candidates,
+            retrieval_threshold=config.retrieval_threshold,
+        )
+        returned_candidates = sorted(
+            [
+                candidate
+                for candidate in attributed
+                if candidate.disposition is RecallInspectionDisposition.RETURNED
+            ],
+            key=lambda item: item.rank or 0,
+        )
+        rejected_candidates = [
+            candidate
+            for candidate in attributed
+            if candidate.disposition is not RecallInspectionDisposition.RETURNED
+        ]
+        context_diagnostics = self._retrieval_context_policy.evaluate(
+            retrieval_context=cue.retrieval_context,
+            candidates=attributed,
+            underspecified_margin=context_underspecified_margin,
+        )
+
         return RecallInspectionResult(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -917,6 +952,7 @@ class ACTRDeclarativeActivator:
             association_paths_used=relevance_context.association_paths_used,
             relationship_seed_count=relevance_context.relationship_seed_count,
             relationship_paths_used=relevance_context.relationship_paths_used,
+            context=context_diagnostics,
         )
 
 
@@ -1301,6 +1337,11 @@ def _score_candidate(
         context_reinstatement=context_reinstatement,
         activation_before_context=activation_before_context,
         support_context=support_context,
+    )
+    diagnostics = with_threshold_crossing(
+        diagnostics,
+        retrieval_threshold=config.retrieval_threshold,
+        activation_after_context=activation,
     )
     reason = _build_reason(
         activation=activation,
