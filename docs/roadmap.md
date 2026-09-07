@@ -179,8 +179,18 @@
 - **0.16.2** context reinstatement on episodic activation (accessibility, not relevance)
 - **0.16.3** semantic support-context propagation on declarative activation (accessibility, not relevance)
 - **0.16.4** context observability and contextual metamemory (inspect explains 0.16.0–0.16.3 evidence; retrieval unchanged)
+- **0.16.5** context hardening and architecture freeze (`CONTEXT_CONFLICT`, semantic support diagnostic semantics, `concept_ids` contract, consolidated invariants)
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
+
+## 0.16.5 — Context hardening and architecture freeze (done)
+
+- `CONTEXT_CONFLICT` metamemory when comparable evidence has zero positive matches; `NO_CONTEXTUAL_MATCH` reason code.
+- Semantic support diagnostics distinguish `NO_RETRIEVAL_CONTEXT`, `NO_COMPARABLE_CONTEXT`, and `NOT_EVALUATED`; no-context no longer marks supports unavailable.
+- Mixed semantic support conflict observable via `PARTIAL_CONTEXT_CONFLICT` without changing `Rₛ`.
+- `MemoryContextSignature.concept_ids` reserved (`()` on default encoder); weight documentation reconciled with defaults `0.50` / `0.25`.
+- Architecture-freeze suite [`tests/test_contextual_memory_architecture_freeze.py`](../tests/test_contextual_memory_architecture_freeze.py).
+- [`docs/design-context-hardening-0.16.5.md`](design-context-hardening-0.16.5.md) and findings [`docs/findings/0.16.5-context-hardening.md`](findings/0.16.5-context-hardening.md).
 
 ## 0.16.4 — Context observability and metamemory (done)
 

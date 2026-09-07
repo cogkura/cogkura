@@ -110,7 +110,7 @@ class DeterministicSemanticSupportContextPolicy:
             return _empty_evidence(
                 support_ids=support_ids,
                 weight=weight,
-                reason=SemanticSupportContextReason.NO_RETRIEVAL_CONTEXT,
+                reason=SemanticSupportContextReason.NOT_EVALUATED,
             )
 
         items: list[SemanticSupportContextItem] = []
@@ -163,6 +163,23 @@ class DeterministicSemanticSupportContextPolicy:
         )
         semantic_strength = sum(strengths) / support_count if support_count else 0.0
 
+        if comparable_count == 0:
+            return SemanticSupportContextEvidence(
+                support_count=support_count,
+                comparable_support_count=0,
+                unavailable_support_count=unavailable_count,
+                matching_support_count=0,
+                conflicting_support_count=conflicting_count,
+                support_coverage=support_coverage,
+                mean_reinstatement_strength=mean_strength,
+                strength=semantic_strength,
+                weight=weight,
+                activation_contribution=0.0,
+                applied=False,
+                reason=SemanticSupportContextReason.NO_COMPARABLE_CONTEXT,
+                supports=tuple(items),
+            )
+
         if weight == 0.0:
             return SemanticSupportContextEvidence(
                 support_count=support_count,
@@ -201,6 +218,16 @@ class DeterministicSemanticSupportContextPolicy:
         )
 
 
+def _unavailable_support_count_for_reason(
+    *,
+    support_ids: tuple[str, ...],
+    reason: SemanticSupportContextReason,
+) -> int:
+    if reason is SemanticSupportContextReason.NO_COMPARABLE_CONTEXT:
+        return len(support_ids)
+    return 0
+
+
 def _empty_evidence(
     *,
     support_ids: tuple[str, ...],
@@ -210,7 +237,10 @@ def _empty_evidence(
     return SemanticSupportContextEvidence(
         support_count=len(support_ids),
         comparable_support_count=0,
-        unavailable_support_count=len(support_ids) if support_ids else 0,
+        unavailable_support_count=_unavailable_support_count_for_reason(
+            support_ids=support_ids,
+            reason=reason,
+        ),
         matching_support_count=0,
         conflicting_support_count=0,
         support_coverage=0.0,

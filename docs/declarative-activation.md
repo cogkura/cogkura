@@ -251,16 +251,18 @@ R_j = M_j \times V_j \qquad R_s = \frac{\sum_j R_j}{K} \qquad C_s = \lambda_{sem
 
 No `RetrievalContext` (or empty cue / semantic `weight=0`) reproduces `0.16.2` semantic retrieval behaviour.
 
-## 0.16.4 context observability
+## 0.16.4–0.16.5 context observability
 
 After existing scoring, `inspect_recall` attaches retrieval-level contextual diagnostics without re-scoring or changing `rank()`:
 
-- `RecallInspectionResult.context`: `RetrievalContextDiagnostics` (`context_not_provided`, `context_unavailable`, `context_underspecified`, `context_sufficient`)
+- `RecallInspectionResult.context`: `RetrievalContextDiagnostics` (`context_not_provided`, `context_unavailable`, `context_conflict`, `context_underspecified`, `context_sufficient`)
+- Reason codes include `no_contextual_match` when comparable evidence has zero positive matches (`0.16.5`)
 - Per-candidate: `crossed_activation_threshold_due_to_context`, `rank_before_context`, `rank_after_context`, `context_rank_delta`
+- Semantic `support_context` exposes `matching_support_count`, `conflicting_support_count`, and distinct `NO_RETRIEVAL_CONTEXT` / `NO_COMPARABLE_CONTEXT` / `NOT_EVALUATED` reasons (`0.16.5`)
 - Pre-context rank orders the discrimination set by `activation_before_context`; post-context rank uses final `activation`
 - `MemoryAssessment.context` uses the same classifier over the narrower threshold-qualified recall pool from `assess_memory`
 
-Observability does not change activation, admission, working-memory selection, or `MemoryContext.render()`.
+Observability does not change activation, admission, working-memory selection, or `MemoryContext.render()`. Following `0.16.5`, contextual-memory contracts are architecture-frozen.
 
 ## Storage
 

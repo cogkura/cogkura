@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.5] - 2026-09-07
+
+### Added
+
+- `RetrievalContextState.CONTEXT_CONFLICT` and `ContextObservabilityReason.NO_CONTEXTUAL_MATCH` for comparable contextual evidence with zero positive matches.
+- `SemanticSupportContextReason.NO_COMPARABLE_CONTEXT` and `NOT_EVALUATED` distinguishing unavailable support, absent retrieval context, and unevaluated internal evidence.
+- Consolidated architecture-freeze suite [`tests/test_contextual_memory_architecture_freeze.py`](tests/test_contextual_memory_architecture_freeze.py) and behaviour tests [`tests/test_016_5_context_hardening.py`](tests/test_016_5_context_hardening.py).
+- Design note [`docs/design-context-hardening-0.16.5.md`](docs/design-context-hardening-0.16.5.md) and findings [`docs/findings/0.16.5-context-hardening.md`](docs/findings/0.16.5-context-hardening.md).
+
+### Changed
+
+- Frozen retrieval-level metamemory decision tree: not provided → unavailable → conflict → underspecified → sufficient.
+- Semantic mixed-support partial conflict observable via existing `PARTIAL_CONTEXT_CONFLICT` when `matching_support_count > 0` and `conflicting_support_count > 0`.
+- No retrieval context no longer counts semantic supports as unavailable (`unavailable_support_count=0`, reason `NO_RETRIEVAL_CONTEXT`).
+- Reconciled episodic/semantic weight documentation with implemented defaults (`0.50` / `0.25`).
+- Consolidated **Encoding Specificity and Contextual Memory** section in [`docs/architecture.md`](docs/architecture.md).
+
+### Preserved
+
+- No storage migration; hardening is observational and contractual only.
+- `rank()` scoring, reinstatement formulae, semantic propagation, working-memory selection, and `prepare_context().render()` unchanged for identical inputs.
+- Positive-only context: mismatch and unavailable remain zero bonus; no contextual penalty.
+- `MemoryContextSignature.concept_ids` remains `()` for the default encoder (reserved field; no text inference).
+
+### Notes
+
+- Following `0.16.5`, the 0.16 contextual-memory architecture is frozen; behavioural changes require explicit design.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.5`).
+
 ## [0.16.4] - 2026-09-07
 
 ### Added

@@ -33,6 +33,8 @@ from cogkura.models import (
     RecallInspectionDisposition,
     RetrievalContextState,
     RetrievalDiagnostics,
+    SemanticSupportContextEvidence,
+    SemanticSupportContextReason,
     StoredEpisode,
 )
 from cogkura.observations.encoding_context import RetrievalContext
@@ -47,6 +49,7 @@ def _diagnostics(
     activation: float = 0.0,
     context_reinstatement: ContextReinstatement | None = None,
     context_match: ContextMatch | None = None,
+    support_context: SemanticSupportContextEvidence | None = None,
     crossed: bool = False,
 ) -> RetrievalDiagnostics:
     return RetrievalDiagnostics(
@@ -59,6 +62,7 @@ def _diagnostics(
         temporal_mode="neutral",
         context_match=context_match,
         context_reinstatement=context_reinstatement,
+        support_context=support_context,
         activation_before_context=activation_before_context,
         crossed_activation_threshold_due_to_context=crossed,
     )
@@ -405,6 +409,118 @@ def test_evaluate_underspecified_tie_and_sufficient_margin() -> None:
     assert sufficient.context_margin == pytest.approx(1.0)
 
 
+def test_evaluate_context_conflict_single_zero_match() -> None:
+    zero_match = _POLICY.evaluate(
+        retrieval_context=RetrievalContext(domain="payments-api"),
+        candidates=(
+            _candidate(
+                memory_key="analytics",
+                disposition=RecallInspectionDisposition.RETURNED,
+                activation=0.5,
+                diagnostics=_diagnostics(
+                    activation=0.5,
+                    context_reinstatement=_reinstatement(
+                        strength=0.0,
+                        activation_contribution=0.0,
+                        applied=False,
+                        reason=ContextReinstatementReason.ZERO_MATCH,
+                        match_score=0.0,
+                    ),
+                    context_match=_match(score=0.0),
+                ),
+                rank=1,
+            ),
+        ),
+        underspecified_margin=0.0,
+    )
+    assert zero_match.state is RetrievalContextState.CONTEXT_CONFLICT
+    assert ContextObservabilityReason.NO_CONTEXTUAL_MATCH in zero_match.reasons
+
+
+def test_evaluate_context_conflict_all_zero_matches() -> None:
+    zero_reinstatement = _reinstatement(
+        strength=0.0,
+        activation_contribution=0.0,
+        applied=False,
+        reason=ContextReinstatementReason.ZERO_MATCH,
+        match_score=0.0,
+    )
+    conflict = _POLICY.evaluate(
+        retrieval_context=RetrievalContext(domain="payments-api"),
+        candidates=(
+            _candidate(
+                memory_key="analytics",
+                disposition=RecallInspectionDisposition.RETURNED,
+                activation=0.6,
+                diagnostics=_diagnostics(
+                    activation=0.6,
+                    context_reinstatement=zero_reinstatement,
+                    context_match=_match(score=0.0),
+                ),
+                rank=1,
+            ),
+            _candidate(
+                memory_key="auth",
+                disposition=RecallInspectionDisposition.RETURNED,
+                activation=0.5,
+                diagnostics=_diagnostics(
+                    activation=0.5,
+                    context_reinstatement=zero_reinstatement,
+                    context_match=_match(score=0.0),
+                ),
+                rank=2,
+            ),
+        ),
+        underspecified_margin=0.0,
+    )
+    assert conflict.state is RetrievalContextState.CONTEXT_CONFLICT
+    assert ContextObservabilityReason.NO_CONTEXTUAL_MATCH in conflict.reasons
+
+
+def test_evaluate_not_conflict_when_positive_match_exists() -> None:
+    reinstatement = _reinstatement(
+        strength=1.0,
+        activation_contribution=0.5,
+        applied=True,
+        reason=ContextReinstatementReason.APPLIED,
+    )
+    result = _POLICY.evaluate(
+        retrieval_context=RetrievalContext(domain="payments-api"),
+        candidates=(
+            _candidate(
+                memory_key="payments",
+                disposition=RecallInspectionDisposition.RETURNED,
+                activation=1.0,
+                diagnostics=_diagnostics(
+                    activation=1.0,
+                    context_reinstatement=reinstatement,
+                    context_match=_match(score=1.0),
+                ),
+                rank=1,
+            ),
+            _candidate(
+                memory_key="analytics",
+                disposition=RecallInspectionDisposition.RETURNED,
+                activation=0.5,
+                diagnostics=_diagnostics(
+                    activation=0.5,
+                    context_reinstatement=_reinstatement(
+                        strength=0.0,
+                        activation_contribution=0.0,
+                        applied=False,
+                        reason=ContextReinstatementReason.ZERO_MATCH,
+                        match_score=0.0,
+                    ),
+                    context_match=_match(score=0.0),
+                ),
+                rank=2,
+            ),
+        ),
+        underspecified_margin=0.0,
+    )
+    assert result.state is not RetrievalContextState.CONTEXT_CONFLICT
+
+
 def test_candidate_has_partial_context_conflict() -> None:
     mixed = ContextMatch(
         dimensions=(
@@ -426,4 +542,24 @@ def test_candidate_has_partial_context_conflict() -> None:
         cue_coverage=1.0,
     )
     diagnostics = _diagnostics(context_match=mixed)
+    assert candidate_has_partial_context_conflict(diagnostics) is True
+
+
+def test_candidate_has_partial_context_conflict_from_semantic_support() -> None:
+    diagnostics = _diagnostics(
+        support_context=SemanticSupportContextEvidence(
+            support_count=3,
+            comparable_support_count=3,
+            unavailable_support_count=0,
+            matching_support_count=2,
+            conflicting_support_count=1,
+            support_coverage=1.0,
+            mean_reinstatement_strength=0.5,
+            strength=0.375,
+            weight=0.25,
+            activation_contribution=0.09375,
+            applied=True,
+            reason=SemanticSupportContextReason.APPLIED,
+        )
+    )
     assert candidate_has_partial_context_conflict(diagnostics) is True

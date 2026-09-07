@@ -25,8 +25,8 @@ candidate → returned → admitted → recalled → chunked → selected → re
 | Knob | Default | Role |
 |------|---------|------|
 | `retrieval_threshold` | `-3.0` | ACT-R floor for declarative recall |
-| `context_reinstatement_weight` | `0.50` | Bounded episodic boost from retrieval-context match (`0` disables contribution) |
-| `semantic_context_reinstatement_weight` | `0.25` | Bounded semantic boost from SUPPORT episode encoding contexts (`0` disables contribution) |
+| `context_reinstatement_weight` | `0.50` | Bounded episodic boost (`0.25` smallest tested effect; `0.50` operational default) |
+| `semantic_context_reinstatement_weight` | `0.25` | Bounded semantic boost relative to episodic default (`0` disables contribution) |
 | `max_items` | `8` | Maximum **chunks** when chunking is enabled |
 | `max_prompt_tokens` | `2048` | Working-memory token budget |
 | `enable_chunking` | `true` | Chunk-based selection vs item-level |
@@ -36,6 +36,8 @@ Application integration:
 
 - `prepare_context(..., prompt_budget_tokens=...)` overrides WM token budget per call.
 - `recall(..., valid_at=..., as_of=...)` sets validity time vs cognitive evaluation time.
+
+Both context weights are **engineering calibration parameters** within Cogkura's activation model, not cognitive-science constants. See [`findings/0.16.2-context-reinstatement-calibration.md`](findings/0.16.2-context-reinstatement-calibration.md) and [`findings/0.16.3-semantic-context-calibration.md`](findings/0.16.3-semantic-context-calibration.md).
 
 ## Advanced public knobs
 

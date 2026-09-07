@@ -72,6 +72,7 @@ def test_single_observation_populates_encoding_context() -> None:
     assert signature.source_types == ("discussion",)
     assert signature.entity_ids == ("payments-api", "redis")
     assert signature.temporal_contexts == ("queue-redesign",)
+    assert signature.concept_ids == ()
 
 
 def test_multiple_observations_union_goals() -> None:

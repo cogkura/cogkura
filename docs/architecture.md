@@ -91,42 +91,64 @@ Typed models: `ObservationInput`, `ObservationContext`, `MemoryContextSignature`
 - `prepare_context()` runs recall once, selects bounded working-memory chunks, and returns metamemory assessment.
 - Chunks are ephemeral; SUPPORT derivations provide provenance; ASSOCIATION paths are recall-time bridges only.
 
-## Encoding context (0.16.0)
+## Encoding specificity and contextual memory (0.16.x)
 
-Encoding context captures the circumstances under which a memory was formed. It is **not** arbitrary application metadata and is **not** used during retrieval in `0.16.0`.
+> Context affects memory **accessibility**. It does not replace topical relevance, candidate generation, tenant/subject scoping, or working-memory selection.
 
-```text
-Source record
-    ↓
-Application mapper
-    ↓
-ObservationInput
- ├── statement / entities / source / time
- └── ObservationContext (optional)
-    ↓
-Episodic encoding
-    ↓
-StoredEpisode.encoding_context (MemoryContextSignature)
-```
-
-**Retrieval context (0.16.1–0.16.4):** applications may supply `RetrievalContext` on recall APIs. Cogkura compares it to stored encoding context via `DeterministicContextMatcher`. In **`0.16.2`**, `DeterministicContextReinstatementPolicy` converts match evidence into bounded episodic activation contribution (`Rᵢ = Mᵢ × Vᵢ`, `Cᵢ = λctx × Rᵢ`, `Aᵢ' = Aᵢ + Cᵢ`). In **`0.16.3`**, `DeterministicSemanticSupportContextPolicy` aggregates unique `SUPPORTS` episode matches into bounded semantic activation (`Rₛ = ΣRⱼ/K`, `Cₛ = λsem × Rₛ`, `Aₛ' = Aₛ + Cₛ`). In **`0.16.4`**, `DeterministicRetrievalContextPolicy` classifies retrieval-level contextual evidence on `inspect_recall` (and fills additive `MemoryAssessment.context`) without changing activation or ranking. Reinstatement is **accessibility, not relevance**: it does not generate candidates or bypass admission gates. Semantic candidates keep `context_match=None`. No-context calls and disabled weights reproduce prior release behaviour.
+> Cogkura accepts **structured context**. It does not use an LLM to infer goal, activity, domain, conversation, or thread from natural-language prose.
 
 ```text
-RetrievalCue + optional RetrievalContext
-    ↓
-Declarative activation (base-level + partial match + spreading + …)
-    ↓
-ContextMatcher → ContextMatch → ContextReinstatement → Cᵢ (episodes)
-    ↓                              SemanticSupportContextEvidence → Cₛ (semantics)
-    ↓
-A' = A + C → threshold / rank / latency / presentation
-    ↓
-inspect_recall → RetrievalContextDiagnostics (0.16.4 observability only)
+ENCODING
+ObservationContext (optional)
+    ↓ episodic encoding
+MemoryContextSignature on StoredEpisode.encoding_context
+
+RETRIEVAL
+RetrievalContext (optional on recall APIs)
+    ↓ DeterministicContextMatcher
+ContextMatch (episodic diagnostics)
+
+EPISODIC ACCESSIBILITY (0.16.2+)
+ContextMatch → ContextReinstatement → Cᵢ = λctx × (M × V)
+positive-only: mismatch / unavailable / no cue → zero bonus
+
+SEMANTIC ACCESSIBILITY (0.16.3+)
+SemanticMemory → unique SUPPORTS episodes → SemanticSupportContextEvidence
+Rₛ = ΣRⱼ/K, Cₛ = λsem × Rₛ
+
+METAMEMORY (0.16.4+, hardened 0.16.5)
+Retrieval-level RetrievalContextDiagnostics on inspect_recall
+additive MemoryAssessment.context from recall pool
 ```
 
-Applications supply structured context when it is already available (conversation, goal, activity, domain, and so on). Cogkura does not infer context from natural-language observation text.
+**Engineering weights (not cognitive-science constants):**
 
-**`0.16.0`** captures and persists encoding context only. **`0.16.1`** adds matching diagnostics. **`0.16.2`** applies positive-only reinstatement on episodic activation when retrieval context is populated and `context_reinstatement_weight > 0`. **`0.16.3`** propagates support-context evidence onto semantic activation when `semantic_context_reinstatement_weight > 0`. **`0.16.4`** explains contextual evidence on `inspect_recall` and fills additive `MemoryAssessment.context` without changing retrieval behaviour.
+| Parameter | Default | Role |
+|-----------|---------|------|
+| `context_reinstatement_weight` | `0.50` | Episodic λctx; `0.25` is smallest tested observable effect |
+| `semantic_context_reinstatement_weight` | `0.25` | Semantic λsem relative to episodic default |
+
+**Metamemory states (frozen in 0.16.5):**
+
+| State | Meaning |
+|-------|---------|
+| `CONTEXT_NOT_PROVIDED` | No structured retrieval context supplied |
+| `CONTEXT_UNAVAILABLE` | Cue exists but stored traces have no comparable encoding context |
+| `CONTEXT_CONFLICT` | Comparable evidence exists but no plausible candidate has positive correspondence |
+| `CONTEXT_UNDERSPECIFIED` | Positive matches remain ambiguous among plausible candidates |
+| `CONTEXT_SUFFICIENT` | Contextual evidence meaningfully discriminates |
+
+Decision order: not provided → unavailable → conflict → underspecified → sufficient. Structured diagnostics on `RecallInspectionResult.context` and `RetrievalDiagnostics` are the source of truth.
+
+**Semantic generalization:** knowledge supported across many contexts averages reinstatement over the full unique support base (`K`), so broadly supported semantics become less dependent on reinstating any single encoding context.
+
+**`MemoryContextSignature.concept_ids`:** reserved for future structured concept context; the default episodic encoder leaves it empty (`()`). Cogkura does not infer concepts from text.
+
+**Known intentional limitations (0.16 freeze):** exact normalized matching only; no fuzzy/synonym matching; no embeddings; no negative mismatch activation; no automatic context extraction or clarification; custom attributes excluded from primary match score.
+
+Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze.
+
+Design notes: [`design-encoding-context-0.16.0.md`](design-encoding-context-0.16.0.md) through [`design-context-hardening-0.16.5.md`](design-context-hardening-0.16.5.md).
 
 Prefer coarse contextual identifiers for `location` when possible; the core library remains agnostic but applications should minimise sensitive detail.
 
@@ -153,7 +175,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.16.0)
+## Current implementation boundary (0.16.5)
 
 Implemented:
 
@@ -164,14 +186,13 @@ Implemented:
 - working-memory chunking with semantic structural primary (0.15.10) and frozen semantic-only support render (0.15.11–0.15.12)
 - `prepare_context` / `MemoryContext` application boundary with explicit members-vs-rendered-text provenance contract
 - metamemory assessment and recall inspection
-- **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); retrieval remains unchanged
+- **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); **`concept_ids` reserved** on default encoder
+- **retrieval-context matching, reinstatement, semantic support propagation, and contextual metamemory** (0.16.1–0.16.5); architecture frozen after 0.16.5
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
-**Encoding-context contract (0.16.0):** encoding context is part of the episodic memory trace and is visible via `list_episodes()` / `inspect_recall()`. It does not alter recall ranking, activation, admission, or working-memory selection in this release.
+**Encoding-context contract (0.16.0):** encoding context is part of the episodic memory trace and is visible via `list_episodes()` / `inspect_recall()`.
 
-**Retrieval-context contract (0.16.1):** retrieval context is supplied structurally on recall APIs; `ContextMatch` is inspectable on `RetrievalDiagnostics`.
-
-**Context reinstatement (0.16.2–0.16.4):** when retrieval context is populated, episodic activation receives a positive bounded contribution from direct encoding-context match (`context_reinstatement_weight`), and semantic activation may receive a positive bounded contribution aggregated from unique `SUPPORTS` episode matches (`semantic_context_reinstatement_weight`). **`0.16.4`** adds inspect-only contextual metamemory (`RetrievalContextDiagnostics`, rank/threshold attribution) that does not feed working-memory render or change recall. No-context and disabled weights preserve prior release retrieval behaviour.
+**Retrieval-context contract (0.16.1–0.16.5):** retrieval context is supplied structurally on recall APIs. Episodic activation may receive positive bounded reinstatement; semantic activation may receive positive bounded support-context contribution. **`0.16.4–0.16.5`** add inspect-only contextual metamemory including `CONTEXT_CONFLICT` (0.16.5). No-context and disabled weights preserve prior release retrieval behaviour. Diagnostics do not feed working-memory render.
 
 Planned later: additional connectors, embedding/LLM provider interfaces, benchmark suites in separate packages.

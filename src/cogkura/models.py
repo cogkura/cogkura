@@ -173,6 +173,7 @@ class MemoryContextSignature:
     source_types: tuple[str, ...] = ()
     entity_ids: tuple[str, ...] = ()
     concept_ids: tuple[str, ...] = ()
+    """Reserved for future structured concept context; default encoder leaves empty."""
     temporal_contexts: tuple[str, ...] = ()
     attributes: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
@@ -1211,6 +1212,8 @@ class SemanticSupportContextReason(StrEnum):
 
     APPLIED = "applied"
     NO_RETRIEVAL_CONTEXT = "no_retrieval_context"
+    NO_COMPARABLE_CONTEXT = "no_comparable_context"
+    NOT_EVALUATED = "not_evaluated"
     DISABLED = "disabled"
     NO_SUPPORTS = "no_supports"
 
@@ -1281,6 +1284,7 @@ class RetrievalContextState(StrEnum):
 
     CONTEXT_NOT_PROVIDED = "context_not_provided"
     CONTEXT_UNAVAILABLE = "context_unavailable"
+    CONTEXT_CONFLICT = "context_conflict"
     CONTEXT_UNDERSPECIFIED = "context_underspecified"
     CONTEXT_SUFFICIENT = "context_sufficient"
 
@@ -1290,6 +1294,7 @@ class ContextObservabilityReason(StrEnum):
 
     NO_RETRIEVAL_CONTEXT = "no_retrieval_context"
     NO_COMPARABLE_CONTEXT = "no_comparable_context"
+    NO_CONTEXTUAL_MATCH = "no_contextual_match"
     MULTIPLE_TOP_CONTEXT_MATCHES = "multiple_top_context_matches"
     LOW_CONTEXT_MARGIN = "low_context_margin"
     PARTIAL_CONTEXT_CONFLICT = "partial_context_conflict"

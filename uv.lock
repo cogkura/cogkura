@@ -238,7 +238,7 @@ wheels = [
 
 [[package]]
 name = "cogkura"
-version = "0.16.4"
+version = "0.16.5"
 source = { editable = "." }
 
 [package.optional-dependencies]

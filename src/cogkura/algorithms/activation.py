@@ -1076,8 +1076,12 @@ def _context_reinstatement_from_support_evidence(
         SemanticSupportContextReason.NO_RETRIEVAL_CONTEXT: (
             ContextReinstatementReason.NO_RETRIEVAL_CONTEXT
         ),
+        SemanticSupportContextReason.NO_COMPARABLE_CONTEXT: (
+            ContextReinstatementReason.NO_COMPARABLE_CONTEXT
+        ),
+        SemanticSupportContextReason.NOT_EVALUATED: ContextReinstatementReason.DISABLED,
         SemanticSupportContextReason.DISABLED: ContextReinstatementReason.DISABLED,
-        SemanticSupportContextReason.NO_SUPPORTS: ContextReinstatementReason.NO_RETRIEVAL_CONTEXT,
+        SemanticSupportContextReason.NO_SUPPORTS: ContextReinstatementReason.DISABLED,
     }
     return ContextReinstatement(
         match_score=None,

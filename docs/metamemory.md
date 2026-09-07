@@ -62,11 +62,21 @@ Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`
 - Provenance diversity counts observation traces, not independent external sources.
 - No persistence or PostgreSQL migration for assessments.
 
-## Contextual metamemory (`0.16.4`)
+## Contextual metamemory (`0.16.4+`, hardened `0.16.5`)
 
-`MemoryAssessment.context` carries additive `RetrievalContextDiagnostics` derived from the same recall pool used for flags and signals. It reports whether supplied retrieval context is absent, unavailable on stored traces, underspecified among plausible candidates, or sufficient — without changing existing flags or `MetamemorySignals`.
+`MemoryAssessment.context` carries additive `RetrievalContextDiagnostics` derived from the same recall pool used for flags and signals. Retrieval-level states:
+
+| State | Meaning |
+|-------|---------|
+| `CONTEXT_NOT_PROVIDED` | No structured retrieval context |
+| `CONTEXT_UNAVAILABLE` | Cue exists but no comparable encoding context on plausible candidates |
+| `CONTEXT_CONFLICT` | Comparable evidence exists but zero positive contextual matches (`NO_CONTEXTUAL_MATCH`) |
+| `CONTEXT_UNDERSPECIFIED` | Positive matches remain ambiguous (margin/tie) |
+| `CONTEXT_SUFFICIENT` | Context meaningfully discriminates |
 
 **Canonical surface:** `inspect_recall().context` over the full inspect discrimination set. `assess_memory().context` uses the narrower threshold-qualified pool and may differ when borderline candidates are excluded from recall.
+
+Semantic mixed-support partial conflict surfaces as `PARTIAL_CONTEXT_CONFLICT` when both matching and conflicting supports exist on the same semantic candidate. Episodic partial conflict remains visible on `ContextMatch` dimensions.
 
 Contextual assessment is knowledge about retrieval evidence, not memory content. It must not be confused with slot/entity `_metamemory_match_context` or fed into `MemoryContext.render()`.
 

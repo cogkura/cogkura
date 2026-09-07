@@ -52,7 +52,13 @@ def candidate_has_comparable_context(diagnostics: RetrievalDiagnostics | None) -
 
 def candidate_has_partial_context_conflict(diagnostics: RetrievalDiagnostics | None) -> bool:
     """Return True when comparable context has mixed match/mismatch dimensions."""
-    if diagnostics is None or diagnostics.context_match is None:
+    if diagnostics is None:
+        return False
+    support = diagnostics.support_context
+    if support is not None:
+        if support.matching_support_count > 0 and support.conflicting_support_count > 0:
+            return True
+    if diagnostics.context_match is None:
         return False
     match = diagnostics.context_match
     if match.score is None:
@@ -355,6 +361,22 @@ def _build_diagnostics(
         if candidate_has_partial_context_conflict(candidate.diagnostics):
             reasons.append(ContextObservabilityReason.PARTIAL_CONTEXT_CONFLICT)
             break
+
+    if matching_count == 0:
+        reasons.append(ContextObservabilityReason.NO_CONTEXTUAL_MATCH)
+        return RetrievalContextDiagnostics(
+            state=RetrievalContextState.CONTEXT_CONFLICT,
+            provided_dimension_count=provided,
+            cue_specificity=specificity,
+            comparable_candidate_count=comparable_count,
+            matching_candidate_count=0,
+            top_context_strength=top_strength,
+            second_context_strength=second_strength,
+            context_margin=margin,
+            top_candidate_ids=top_ids,
+            reasons=tuple(dict.fromkeys(reasons)),
+            underspecified_margin=underspecified_margin,
+        )
 
     if len(ordered_strengths) >= 2 and margin is not None and margin <= underspecified_margin:
         state = RetrievalContextState.CONTEXT_UNDERSPECIFIED

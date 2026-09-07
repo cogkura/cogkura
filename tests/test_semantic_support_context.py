@@ -183,8 +183,68 @@ def test_no_retrieval_context_short_circuits(
         match_cache=None,
     )
     assert evidence.reason is SemanticSupportContextReason.NO_RETRIEVAL_CONTEXT
+    assert evidence.comparable_support_count == 0
+    assert evidence.unavailable_support_count == 0
     assert evidence.activation_contribution == 0.0
     assert evidence.supports == ()
+
+
+def test_missing_match_cache_is_not_evaluated(
+    policy: DeterministicSemanticSupportContextPolicy,
+) -> None:
+    memory = _semantic(
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-1",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+        )
+    )
+    evidence = policy.evaluate(
+        memory=memory,
+        retrieval_context=RetrievalContext(domain="payments-api"),
+        weight=0.25,
+        match_cache=None,
+    )
+    assert evidence.reason is SemanticSupportContextReason.NOT_EVALUATED
+    assert evidence.comparable_support_count == 0
+    assert evidence.unavailable_support_count == 0
+
+
+def test_all_unavailable_supports_are_no_comparable_context(
+    policy: DeterministicSemanticSupportContextPolicy,
+) -> None:
+    memory = _semantic(
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="ep-1",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.9,
+            ),
+            SemanticDerivationInput(
+                episode_id="ep-2",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=0.8,
+            ),
+        )
+    )
+    cache = _StubMatchCache(
+        {
+            "ep-1": (None, 0.0, True),
+            "ep-2": (None, 0.0, True),
+        }
+    )
+    evidence = policy.evaluate(
+        memory=memory,
+        retrieval_context=RetrievalContext(domain="payments-api"),
+        weight=0.25,
+        match_cache=cache,
+    )
+    assert evidence.reason is SemanticSupportContextReason.NO_COMPARABLE_CONTEXT
+    assert evidence.comparable_support_count == 0
+    assert evidence.unavailable_support_count == 2
+    assert evidence.strength == 0.0
 
 
 def test_disabled_weight_keeps_diagnostics(
