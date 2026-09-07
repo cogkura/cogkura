@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.3] - 2026-09-07
+
+### Added
+
+- `SemanticSupportContextItem`, `SemanticSupportContextEvidence`, `SemanticSupportContextReason`, and `DeterministicSemanticSupportContextPolicy` propagating bounded semantic activation from unique `SUPPORTS` episode encoding contexts at retrieval time (`Rⱼ = Mⱼ × Vⱼ`, `Rₛ = ΣRⱼ/K`, `Cₛ = λsem × Rₛ`, `Aₛ' = Aₛ + Cₛ`).
+- `ActivationConfig.semantic_context_reinstatement_weight` (0–1, default `0.25`; `0` disables contribution while preserving diagnostics).
+- `RetrievalDiagnostics.support_context` for per-support breakdown; semantic candidates keep `context_match=None`.
+- Request-scoped support-episode match cache keyed by `episode_id`; `Memory.recall` / `inspect_recall` pass pre-forgetting `episode_by_id` into declarative scoring.
+- Behaviour and unit tests (`tests/test_semantic_support_context.py`, `tests/test_016_3_semantic_support_context.py`).
+- Design note [`docs/design-semantic-support-context-0.16.3.md`](docs/design-semantic-support-context-0.16.3.md) and calibration findings [`docs/findings/0.16.3-semantic-context-calibration.md`](docs/findings/0.16.3-semantic-context-calibration.md).
+
+### Changed
+
+- Semantic declarative activation may receive positive bounded support-context contribution when retrieval context is populated and `semantic_context_reinstatement_weight > 0`.
+- Extended [`examples/retrieval_context.py`](examples/retrieval_context.py) with consolidated semantic support-context demonstration.
+
+### Preserved
+
+- No storage migration; support-context evidence is not persisted.
+- Episodic `0.16.2` reinstatement path unchanged; independent episode candidates still receive their own `Cᵢ`.
+- No-context and `semantic_context_reinstatement_weight=0` reproduce `0.16.2` semantic retrieval behaviour.
+- Mismatch and unavailable supports contribute `0` (positive-only); context does not bypass relevance/admission gates.
+- Working-memory chunk construction, render format, and `record_context_use` flattening unchanged.
+
+### Notes
+
+- Default `semantic_context_reinstatement_weight=0.25` is in-repo engineering calibration (≤ episodic default `0.50`), not a cognitive-science constant.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.3`).
+
+## [0.16.2] - 2026-09-06
+
+### Added
+
+- `ContextReinstatement`, `ContextReinstatementReason`, and `DeterministicContextReinstatementPolicy` converting frozen `ContextMatch` evidence into bounded episodic activation contribution (`Rᵢ = Mᵢ × Vᵢ`, `Cᵢ = λctx × Rᵢ`).
+- `ActivationConfig.context_reinstatement_weight` (0–1, default `0.50`; `0` disables contribution while preserving diagnostics).
+- `ActivationComponents.context_reinstatement`, `RetrievalDiagnostics.context_reinstatement`, and `RetrievalDiagnostics.activation_before_context`.
+- Context reinstatement applied inside declarative scoring for episodic candidates only; `Aᵢ' = Aᵢ + Cᵢ` drives threshold, rank, latency, and presentation score.
+- Behaviour and regression tests (`tests/test_context_reinstatement.py`, `tests/test_016_2_context_reinstatement.py`).
+- Design note [`docs/design-context-reinstatement-0.16.2.md`](docs/design-context-reinstatement-0.16.2.md) and calibration findings [`docs/findings/0.16.2-context-reinstatement-calibration.md`](docs/findings/0.16.2-context-reinstatement-calibration.md).
+
+### Changed
+
+- `0.16.1` retrieval-neutrality A/B tests rewritten: populated retrieval context may change recall when `context_reinstatement_weight > 0`; no-context and `weight=0` paths remain equivalent to `0.16.1`.
+- Extended [`examples/retrieval_context.py`](examples/retrieval_context.py) to demonstrate recall-order change with matching retrieval context.
+
+### Preserved
+
+- No storage migration; context matches and reinstatement are not persisted.
+- Semantic candidates keep `context_match=None` and zero reinstatement contribution.
+- Mismatch and missing context contribute `0` (positive-only); context does not generate candidates or bypass relevance/admission gates.
+- Working-memory chunk construction and render format unchanged for no-context calls.
+
+### Notes
+
+- Default `context_reinstatement_weight=0.50` is in-repo engineering calibration, not a cognitive-science constant.
+- External CogKuraBench no-context workloads should remain equivalent aside from additive diagnostic fields.
+- Package `__version__` aligned with `pyproject.toml` (`0.16.2`).
+
 ## [0.16.1] - 2026-09-06
 
 ### Added

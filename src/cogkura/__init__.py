@@ -9,6 +9,10 @@ from cogkura.algorithms.context_matching import (
     ContextMatcher,
     DeterministicContextMatcher,
 )
+from cogkura.algorithms.context_reinstatement import (
+    ContextReinstatementPolicy,
+    DeterministicContextReinstatementPolicy,
+)
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.learning import DeterministicLearningProcessor, LearningProcessor
 from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMonitor
@@ -21,6 +25,10 @@ from cogkura.algorithms.semantic import (
     MetadataSemanticExtractor,
     SemanticConsolidator,
     SemanticExtractor,
+)
+from cogkura.algorithms.semantic_support_context import (
+    DeterministicSemanticSupportContextPolicy,
+    SemanticSupportContextPolicy,
 )
 from cogkura.algorithms.working_memory import (
     ApproximateTokenEstimator,
@@ -41,6 +49,8 @@ from cogkura.models import (
     ContextDimensionMatch,
     ContextMatch,
     ContextMatchState,
+    ContextReinstatement,
+    ContextReinstatementReason,
     EntityRelationshipInput,
     EpisodeEncodingResult,
     EpisodeEntity,
@@ -89,6 +99,9 @@ from cogkura.models import (
     SemanticRevisionCandidate,
     SemanticRevisionInput,
     SemanticRevisionRelation,
+    SemanticSupportContextEvidence,
+    SemanticSupportContextItem,
+    SemanticSupportContextReason,
     SemanticUpdateRelation,
     SemanticWriteStatus,
     SlotFitSource,
@@ -144,8 +157,13 @@ __all__ = [
     "ContextDimensionMatch",
     "ContextMatch",
     "ContextMatchState",
+    "ContextReinstatement",
+    "ContextReinstatementPolicy",
+    "ContextReinstatementReason",
     "ContextMatcher",
     "DeterministicContextMatcher",
+    "DeterministicContextReinstatementPolicy",
+    "DeterministicSemanticSupportContextPolicy",
     "EntityRelationshipInput",
     "EpisodeWriteStatus",
     "EpisodicEncoder",
@@ -206,6 +224,10 @@ __all__ = [
     "SemanticRevisionCandidate",
     "SemanticRevisionInput",
     "SemanticRevisionRelation",
+    "SemanticSupportContextEvidence",
+    "SemanticSupportContextItem",
+    "SemanticSupportContextPolicy",
+    "SemanticSupportContextReason",
     "SemanticUpdateRelation",
     "SemanticWriteStatus",
     "StoredEpisode",
@@ -226,4 +248,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.16.1"
+__version__ = "0.16.3"

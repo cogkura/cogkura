@@ -176,8 +176,26 @@
 - **0.15.12** architecture-freeze hardening: frozen support-render contract, observational performance baseline snapshot, mandatory canonical regression fixture
 - **0.16.0** encoding-context capture on observations and episodes (retrieval-neutral)
 - **0.16.1** retrieval-context matching diagnostics (retrieval-neutral)
+- **0.16.2** context reinstatement on episodic activation (accessibility, not relevance)
+- **0.16.3** semantic support-context propagation on declarative activation (accessibility, not relevance)
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
+
+## 0.16.3 — Semantic support-context propagation (done)
+
+- `DeterministicSemanticSupportContextPolicy` aggregates unique `SUPPORTS` episode `ContextMatch` evidence into bounded semantic activation (`Rⱼ = Mⱼ × Vⱼ`, `Rₛ = ΣRⱼ/K`, `Cₛ = λsem × Rₛ`, `Aₛ' = Aₛ + Cₛ`).
+- `ActivationConfig.semantic_context_reinstatement_weight` (default `0.25`; `0` disables while preserving diagnostics).
+- Episodic `0.16.2` path unchanged; semantic candidates keep `context_match=None`; positive-only (mismatch/unavailable → `0`).
+- No-context and `semantic_context_reinstatement_weight=0` reproduce `0.16.2` semantic retrieval behaviour.
+- [`docs/design-semantic-support-context-0.16.3.md`](design-semantic-support-context-0.16.3.md) and calibration [`docs/findings/0.16.3-semantic-context-calibration.md`](findings/0.16.3-semantic-context-calibration.md).
+
+## 0.16.2 — Context reinstatement (done)
+
+- `DeterministicContextReinstatementPolicy` converts `ContextMatch` into bounded episodic activation contribution (`Rᵢ = Mᵢ × Vᵢ`, `Cᵢ = λctx × Rᵢ`, `Aᵢ' = Aᵢ + Cᵢ`).
+- `ActivationConfig.context_reinstatement_weight` (default `0.50`; `0` disables while preserving diagnostics).
+- Episodic only; semantic candidates unchanged; positive-only (mismatch/missing → `0`).
+- No-context and `weight=0` reproduce `0.16.1` retrieval behaviour.
+- [`docs/design-context-reinstatement-0.16.2.md`](design-context-reinstatement-0.16.2.md) and calibration [`docs/findings/0.16.2-context-reinstatement-calibration.md`](findings/0.16.2-context-reinstatement-calibration.md).
 
 ## 0.16.1 — Retrieval context matching (done)
 
@@ -197,7 +215,6 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 
 ## Later
 
-- **0.16.2 — Context reinstatement**: encoding-context influences accessibility during recall.
 - additional source connectors (SQLite, APIs, queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;

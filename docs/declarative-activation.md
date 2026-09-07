@@ -213,6 +213,44 @@ Re-run CogKuraBench/Demo externally: expect ~4/5 and ~3/5 until those fixtures s
 - Cardinality-one implicit supersession and explicit overlapping `CONFLICTS` behaviour are frozen; see [`reconsolidation.md`](reconsolidation.md).
 - Working-memory `SEMANTIC_WITH_SUPPORT` render omits support episode text when structured predicate/object are present; see [`working-memory.md`](working-memory.md).
 
+## 0.16.2 context reinstatement
+
+When retrieval context is populated and `context_reinstatement_weight > 0`, episodic candidates receive a positive bounded activation contribution derived from frozen `ContextMatch` evidence:
+
+\[
+R_i = M_i \times V_i \qquad C_i = \lambda_{ctx} \times R_i \qquad A_i' = A_i + C_i
+\]
+
+- \(M_i\): `ContextMatch.score` (or `0` when `None`)
+- \(V_i\): `ContextMatch.cue_coverage`
+- \(\lambda_{ctx}\): `ActivationConfig.context_reinstatement_weight` (default `0.50`)
+- Semantic candidates: `context_match=None`, contribution `0` in `0.16.2`; in **`0.16.3`**, semantic contribution comes from `support_context` aggregation instead
+- Mismatch and missing context: contribution `0` (never penalised)
+- `A_i'` drives threshold eligibility, `rank_activation`, latency, and presentation score
+- Inspect `RetrievalDiagnostics.activation_before_context` for pre-reinstatement activation
+
+Context reinstatement is **accessibility, not relevance**. It does not generate candidates, change SQL filters, or bypass existing admission gates.
+
+No `RetrievalContext` (or empty cue / episodic `weight=0`) reproduces `0.16.1` retrieval behaviour for episodic candidates.
+
+## 0.16.3 semantic support-context propagation
+
+When retrieval context is populated and `semantic_context_reinstatement_weight > 0`, semantic candidates receive a positive bounded activation contribution aggregated from unique `SUPPORTS` episode encoding contexts:
+
+\[
+R_j = M_j \times V_j \qquad R_s = \frac{\sum_j R_j}{K} \qquad C_s = \lambda_{sem} \times R_s \qquad A_s' = A_s + C_s
+\]
+
+- \(K\): count of unique `SUPPORTS` episode ids on the semantic memory (including unavailable supports)
+- \(R_j\): per-support reinstatement strength from `DeterministicContextMatcher` (`0` when unavailable or non-comparable)
+- \(\lambda_{sem}\): `ActivationConfig.semantic_context_reinstatement_weight` (default `0.25`)
+- Semantic candidates: `context_match=None`; inspect `RetrievalDiagnostics.support_context`
+- Episodic `0.16.2` path unchanged; independent episode candidates still receive their own \(C_i\)
+- Mismatch and unavailable supports contribute `0` to the aggregate (never penalised)
+- `A_s'` drives threshold eligibility, `rank_activation`, latency, and presentation score
+
+No `RetrievalContext` (or empty cue / semantic `weight=0`) reproduces `0.16.2` semantic retrieval behaviour.
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

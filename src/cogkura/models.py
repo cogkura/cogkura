@@ -1162,6 +1162,120 @@ class ContextMatch:
             raise ValidationError("cue_coverage must be 0.0 when cue_dimension_count is zero.")
 
 
+class ContextReinstatementReason(StrEnum):
+    """Why contextual reinstatement did or did not apply."""
+
+    APPLIED = "applied"
+    NO_RETRIEVAL_CONTEXT = "no_retrieval_context"
+    NO_COMPARABLE_CONTEXT = "no_comparable_context"
+    ZERO_MATCH = "zero_match"
+    DISABLED = "disabled"
+    NOT_EPISODIC = "not_episodic"
+
+
+@dataclass(frozen=True, slots=True)
+class ContextReinstatement:
+    """Bounded reinstatement derived from context-match evidence."""
+
+    match_score: float | None
+    cue_coverage: float
+    strength: float
+    weight: float
+    activation_contribution: float
+    applied: bool
+    reason: ContextReinstatementReason
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.cue_coverage <= 1.0:
+            raise ValidationError("cue_coverage must be between 0.0 and 1.0.")
+        if not 0.0 <= self.strength <= 1.0:
+            raise ValidationError("strength must be between 0.0 and 1.0.")
+        if not 0.0 <= self.weight <= 1.0:
+            raise ValidationError("weight must be between 0.0 and 1.0.")
+        if not math.isfinite(self.activation_contribution):
+            raise ValidationError("activation_contribution must be finite.")
+        if self.activation_contribution < 0.0:
+            raise ValidationError("activation_contribution must not be negative.")
+        if self.activation_contribution > self.weight:
+            raise ValidationError("activation_contribution must not exceed weight.")
+        if self.match_score is not None and not 0.0 <= self.match_score <= 1.0:
+            raise ValidationError("match_score must be between 0.0 and 1.0 when provided.")
+        if self.applied and self.activation_contribution <= 0.0:
+            raise ValidationError("applied reinstatement requires a positive contribution.")
+        if not self.applied and self.reason is ContextReinstatementReason.APPLIED:
+            raise ValidationError("reason must not be applied when reinstatement is not applied.")
+
+
+class SemanticSupportContextReason(StrEnum):
+    """Why semantic support-context propagation did or did not apply."""
+
+    APPLIED = "applied"
+    NO_RETRIEVAL_CONTEXT = "no_retrieval_context"
+    DISABLED = "disabled"
+    NO_SUPPORTS = "no_supports"
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticSupportContextItem:
+    """Per-support contextual evidence for a semantic memory."""
+
+    episode_id: str
+    context_match: ContextMatch | None
+    reinstatement_strength: float
+    unavailable: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.episode_id.strip():
+            raise ValidationError("episode_id must not be empty.")
+        if not 0.0 <= self.reinstatement_strength <= 1.0:
+            raise ValidationError("reinstatement_strength must be between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticSupportContextEvidence:
+    """Aggregated support-context evidence for semantic activation."""
+
+    support_count: int
+    comparable_support_count: int
+    unavailable_support_count: int
+    matching_support_count: int
+    conflicting_support_count: int
+    support_coverage: float
+    mean_reinstatement_strength: float
+    strength: float
+    weight: float
+    activation_contribution: float
+    applied: bool
+    reason: SemanticSupportContextReason
+    supports: tuple[SemanticSupportContextItem, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.support_count < 0:
+            raise ValidationError("support_count must not be negative.")
+        if self.comparable_support_count < 0:
+            raise ValidationError("comparable_support_count must not be negative.")
+        if self.unavailable_support_count < 0:
+            raise ValidationError("unavailable_support_count must not be negative.")
+        if not 0.0 <= self.support_coverage <= 1.0:
+            raise ValidationError("support_coverage must be between 0.0 and 1.0.")
+        if not 0.0 <= self.mean_reinstatement_strength <= 1.0:
+            raise ValidationError("mean_reinstatement_strength must be between 0.0 and 1.0.")
+        if not 0.0 <= self.strength <= 1.0:
+            raise ValidationError("strength must be between 0.0 and 1.0.")
+        if not 0.0 <= self.weight <= 1.0:
+            raise ValidationError("weight must be between 0.0 and 1.0.")
+        if not math.isfinite(self.activation_contribution):
+            raise ValidationError("activation_contribution must be finite.")
+        if self.activation_contribution < 0.0:
+            raise ValidationError("activation_contribution must not be negative.")
+        if self.activation_contribution > self.weight:
+            raise ValidationError("activation_contribution must not exceed weight.")
+        if self.applied and self.activation_contribution <= 0.0:
+            raise ValidationError("applied support context requires a positive contribution.")
+        if not self.applied and self.reason is SemanticSupportContextReason.APPLIED:
+            raise ValidationError("reason must not be applied when support context is not applied.")
+
+
 @dataclass(frozen=True, slots=True)
 class ActivationConfig:
     """Configuration for ACT-R declarative activation."""
@@ -1230,6 +1344,8 @@ class ActivationConfig:
         default_factory=lambda: _DEFAULT_RELATIONSHIP_TYPE_WEIGHTS
     )
     semantic_relationship_min_relevance: float = 0.06
+    context_reinstatement_weight: float = 0.50
+    semantic_context_reinstatement_weight: float = 0.25
 
     def __post_init__(self) -> None:
         if not 0.0 < self.decay <= 1.0:
@@ -1313,6 +1429,12 @@ class ActivationConfig:
                 raise ValidationError(
                     "relationship_type_weights values must be between 0.0 and 1.0."
                 )
+        if not 0.0 <= self.context_reinstatement_weight <= 1.0:
+            raise ValidationError("context_reinstatement_weight must be between 0.0 and 1.0.")
+        if not 0.0 <= self.semantic_context_reinstatement_weight <= 1.0:
+            raise ValidationError(
+                "semantic_context_reinstatement_weight must be between 0.0 and 1.0."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1325,6 +1447,7 @@ class ActivationComponents:
     noise: float
     total: float
     current_state: float = 0.0
+    context_reinstatement: float = 0.0
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1334,6 +1457,7 @@ class ActivationComponents:
             ("noise", self.noise),
             ("total", self.total),
             ("current_state", self.current_state),
+            ("context_reinstatement", self.context_reinstatement),
         ):
             if not math.isfinite(value):
                 raise ValidationError(f"{label} must be finite.")
@@ -1500,6 +1624,9 @@ class RetrievalDiagnostics:
     canonical_object_value: str | None = None
     cardinality: str | None = None
     context_match: ContextMatch | None = None
+    context_reinstatement: ContextReinstatement | None = None
+    activation_before_context: float | None = None
+    support_context: SemanticSupportContextEvidence | None = None
 
     def __post_init__(self) -> None:
         for label, value in (

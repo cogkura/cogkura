@@ -1,4 +1,4 @@
-# Configuration reference (0.15.12)
+# Configuration reference (0.16.2)
 
 Cogkura exposes two primary configuration dataclasses on `Memory(...)`: `ActivationConfig` and `WorkingMemoryConfig`. Defaults are defined in [`src/cogkura/models.py`](../src/cogkura/models.py).
 
@@ -25,6 +25,8 @@ candidate → returned → admitted → recalled → chunked → selected → re
 | Knob | Default | Role |
 |------|---------|------|
 | `retrieval_threshold` | `-3.0` | ACT-R floor for declarative recall |
+| `context_reinstatement_weight` | `0.50` | Bounded episodic boost from retrieval-context match (`0` disables contribution) |
+| `semantic_context_reinstatement_weight` | `0.25` | Bounded semantic boost from SUPPORT episode encoding contexts (`0` disables contribution) |
 | `max_items` | `8` | Maximum **chunks** when chunking is enabled |
 | `max_prompt_tokens` | `2048` | Working-memory token budget |
 | `enable_chunking` | `true` | Chunk-based selection vs item-level |
@@ -41,6 +43,8 @@ Application integration:
 
 | Knob | Default | Role |
 |------|---------|------|
+| `context_reinstatement_weight` | `0.50` | Episodic activation boost from context match (`R=M×V`, `C=λ×R`); `0` keeps diagnostics only |
+| `semantic_context_reinstatement_weight` | `0.25` | Semantic activation boost from SUPPORT episode contexts (`Rₛ=ΣRⱼ/K`, `Cₛ=λsem×Rₛ`); `0` keeps diagnostics only |
 | `semantic_soft_admission_floor` | `-4.0` | Lexical soft-admission floor (not required for current admission) |
 | `max_soft_admitted_semantics` | `8` | Cap on soft-admitted semantics |
 | `semantic_current_min_relevance` | `0.06` | Combined relevance gate for current admission |

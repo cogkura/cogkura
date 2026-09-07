@@ -17,12 +17,22 @@ from cogkura.algorithms.cognitive_traces import (
     derive_episode_cognitive_traces,
     derive_semantic_cognitive_traces,
 )
+from cogkura.algorithms.context_matching import ContextMatcher, DeterministicContextMatcher
+from cogkura.algorithms.context_reinstatement import (
+    ContextReinstatementPolicy,
+    DeterministicContextReinstatementPolicy,
+)
 from cogkura.algorithms.retrieval_features import (
     canonical_content_features,
     distinctive_content_features,
     feature_overlap,
     normalize_and_tokenize,
     predicate_content_features,
+)
+from cogkura.algorithms.semantic_support_context import (
+    DeterministicSemanticSupportContextPolicy,
+    SemanticSupportContextPolicy,
+    SupportContextMatchCache,
 )
 from cogkura.algorithms.spreading import (
     DeterministicSpreadingActivator,
@@ -36,6 +46,9 @@ from cogkura.models import (
     ActivationConfig,
     ActivationReferenceTrace,
     AssociationPath,
+    ContextMatch,
+    ContextReinstatement,
+    ContextReinstatementReason,
     LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
@@ -51,6 +64,8 @@ from cogkura.models import (
     SemanticCardinality,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
+    SemanticSupportContextEvidence,
+    SemanticSupportContextReason,
     SlotFitSource,
     StoredEntityRelationship,
     StoredEpisode,
@@ -188,6 +203,7 @@ class DeclarativeActivator(Protocol):
         episode_slot_index: Mapping[str, str] | None = None,
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         subject_id: str | None = None,
+        episode_by_id: Mapping[str, StoredEpisode] | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -208,6 +224,8 @@ class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
         episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
         valid_at: datetime | None = None,
         episode_slot_index: Mapping[str, str] | None = None,
+        entity_relationships: Sequence[StoredEntityRelationship] = (),
+        episode_by_id: Mapping[str, StoredEpisode] | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return inspection dispositions."""
 
@@ -377,8 +395,21 @@ def build_episode_slot_index_from_results(
 class ACTRDeclarativeActivator:
     """Deterministic ACT-R declarative activation (base-level + partial matching)."""
 
-    def __init__(self, spreading_activator: SpreadingActivator | None = None) -> None:
+    def __init__(
+        self,
+        spreading_activator: SpreadingActivator | None = None,
+        context_matcher: ContextMatcher | None = None,
+        reinstatement_policy: ContextReinstatementPolicy | None = None,
+        semantic_support_context_policy: SemanticSupportContextPolicy | None = None,
+    ) -> None:
         self._spreading_activator = spreading_activator or DeterministicSpreadingActivator()
+        self._context_matcher = context_matcher or DeterministicContextMatcher()
+        self._reinstatement_policy = (
+            reinstatement_policy or DeterministicContextReinstatementPolicy()
+        )
+        self._semantic_support_context_policy = (
+            semantic_support_context_policy or DeterministicSemanticSupportContextPolicy()
+        )
 
     def rank(
         self,
@@ -395,6 +426,7 @@ class ACTRDeclarativeActivator:
         episode_slot_index: Mapping[str, str] | None = None,
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         subject_id: str | None = None,
+        episode_by_id: Mapping[str, StoredEpisode] | None = None,
     ) -> list[RecallResult]:
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
         tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
@@ -442,6 +474,11 @@ class ACTRDeclarativeActivator:
             temporal_mode=temporal_mode,
             effective_entities=effective_entity_ids,
         )
+        support_context_cache = _build_support_context_cache(
+            cue=cue,
+            context_matcher=self._context_matcher,
+            episode_by_id=episode_by_id,
+        )
 
         scored: list[RecallResult] = []
         rank_by_identity: dict[MemoryIdentity, float] = {}
@@ -470,6 +507,10 @@ class ACTRDeclarativeActivator:
                 slot_fit=slot_fit_selection.slot_fit,
                 support_provenance=slot_fit_selection.support_provenance,
                 selected_support_revision_key=slot_fit_selection.selected_support_revision_key,
+                context_matcher=self._context_matcher,
+                reinstatement_policy=self._reinstatement_policy,
+                semantic_support_context_policy=self._semantic_support_context_policy,
+                support_context_cache=support_context_cache,
             )
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
@@ -581,6 +622,7 @@ class ACTRDeclarativeActivator:
         valid_at: datetime | None = None,
         episode_slot_index: Mapping[str, str] | None = None,
         entity_relationships: Sequence[StoredEntityRelationship] = (),
+        episode_by_id: Mapping[str, StoredEpisode] | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
         candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
@@ -630,6 +672,11 @@ class ACTRDeclarativeActivator:
             temporal_mode=temporal_mode,
             effective_entities=effective_entity_ids,
         )
+        support_context_cache = _build_support_context_cache(
+            cue=cue,
+            context_matcher=self._context_matcher,
+            episode_by_id=episode_by_id,
+        )
 
         scored: list[RecallResult] = []
         rank_by_identity: dict[MemoryIdentity, float] = {}
@@ -658,6 +705,10 @@ class ACTRDeclarativeActivator:
                 slot_fit=slot_fit_selection.slot_fit,
                 support_provenance=slot_fit_selection.support_provenance,
                 selected_support_revision_key=slot_fit_selection.selected_support_revision_key,
+                context_matcher=self._context_matcher,
+                reinstatement_policy=self._reinstatement_policy,
+                semantic_support_context_policy=self._semantic_support_context_policy,
+                support_context_cache=support_context_cache,
             )
             scored.append(result)
             rank_by_identity[_result_identity(result)] = rank_activation
@@ -958,6 +1009,136 @@ def _scaled_idf_weights(
     }
 
 
+def _has_retrieval_context(cue: RetrievalCue) -> bool:
+    if cue.retrieval_context is None:
+        return False
+    return not cue.retrieval_context.is_empty()
+
+
+def _build_support_context_cache(
+    *,
+    cue: RetrievalCue,
+    context_matcher: ContextMatcher,
+    episode_by_id: Mapping[str, StoredEpisode] | None,
+) -> SupportContextMatchCache | None:
+    if not _has_retrieval_context(cue):
+        return None
+    if episode_by_id is None or cue.retrieval_context is None:
+        return None
+    return SupportContextMatchCache(
+        context_matcher=context_matcher,
+        retrieval_context=cue.retrieval_context,
+        episode_by_id=episode_by_id,
+    )
+
+
+def _context_reinstatement_from_support_evidence(
+    evidence: SemanticSupportContextEvidence,
+) -> ContextReinstatement:
+    reason_map = {
+        SemanticSupportContextReason.APPLIED: ContextReinstatementReason.APPLIED,
+        SemanticSupportContextReason.NO_RETRIEVAL_CONTEXT: (
+            ContextReinstatementReason.NO_RETRIEVAL_CONTEXT
+        ),
+        SemanticSupportContextReason.DISABLED: ContextReinstatementReason.DISABLED,
+        SemanticSupportContextReason.NO_SUPPORTS: ContextReinstatementReason.NO_RETRIEVAL_CONTEXT,
+    }
+    return ContextReinstatement(
+        match_score=None,
+        cue_coverage=evidence.support_coverage,
+        strength=evidence.strength,
+        weight=evidence.weight,
+        activation_contribution=evidence.activation_contribution,
+        applied=evidence.applied,
+        reason=reason_map[evidence.reason],
+    )
+
+
+def _apply_context_reinstatement(
+    candidate: ActivationCandidate,
+    *,
+    cue: RetrievalCue,
+    config: ActivationConfig,
+    activation: float,
+    rank_activation: float,
+    context_matcher: ContextMatcher,
+    reinstatement_policy: ContextReinstatementPolicy,
+    semantic_support_context_policy: SemanticSupportContextPolicy,
+    support_context_cache: SupportContextMatchCache | None,
+) -> tuple[
+    float,
+    float,
+    ContextMatch | None,
+    ContextReinstatement,
+    SemanticSupportContextEvidence | None,
+    float,
+]:
+    activation_before = activation
+    has_context = _has_retrieval_context(cue)
+    episodic = isinstance(candidate.memory, StoredEpisode)
+    semantic = isinstance(candidate.memory, StoredSemanticMemory)
+
+    if episodic:
+        context_match: ContextMatch | None = None
+        if has_context:
+            memory = candidate.memory
+            if isinstance(memory, StoredEpisode):
+                context_match = context_matcher.match(
+                    cue.retrieval_context,
+                    memory.encoding_context,
+                )
+        reinstatement = reinstatement_policy.evaluate(
+            match=context_match,
+            weight=config.context_reinstatement_weight,
+            episodic=True,
+            has_retrieval_context=has_context,
+        )
+        contribution = reinstatement.activation_contribution
+        return (
+            activation + contribution,
+            rank_activation + contribution,
+            context_match,
+            reinstatement,
+            None,
+            activation_before,
+        )
+
+    if semantic:
+        memory = candidate.memory
+        if isinstance(memory, StoredSemanticMemory):
+            support_context = semantic_support_context_policy.evaluate(
+                memory=memory,
+                retrieval_context=cue.retrieval_context,
+                weight=config.semantic_context_reinstatement_weight,
+                match_cache=support_context_cache,
+            )
+            reinstatement = _context_reinstatement_from_support_evidence(support_context)
+            contribution = support_context.activation_contribution
+            return (
+                activation + contribution,
+                rank_activation + contribution,
+                None,
+                reinstatement,
+                support_context,
+                activation_before,
+            )
+
+    reinstatement = reinstatement_policy.evaluate(
+        match=None,
+        weight=config.context_reinstatement_weight,
+        episodic=False,
+        has_retrieval_context=has_context,
+    )
+    return (
+        activation,
+        rank_activation,
+        None,
+        reinstatement,
+        None,
+        activation_before,
+    )
+
+
 def _score_candidate(
     candidate: ActivationCandidate,
     *,
@@ -978,6 +1159,10 @@ def _score_candidate(
     slot_fit: float | None,
     support_provenance: Sequence[SupportProvenance],
     selected_support_revision_key: str | None,
+    context_matcher: ContextMatcher,
+    reinstatement_policy: ContextReinstatementPolicy,
+    semantic_support_context_policy: SemanticSupportContextPolicy,
+    support_context_cache: SupportContextMatchCache | None,
 ) -> tuple[RecallResult, float]:
     identity = candidate.identity
     stored_traces = references.get(identity, ())
@@ -1040,6 +1225,24 @@ def _score_candidate(
         slot_fit, mismatch_penalty=config.mismatch_penalty
     )
     rank_activation = activation - accessibility_partial + ranking_partial + structured_adjustment
+    (
+        activation,
+        rank_activation,
+        context_match,
+        context_reinstatement,
+        support_context,
+        activation_before_context,
+    ) = _apply_context_reinstatement(
+        candidate,
+        cue=cue,
+        config=config,
+        activation=activation,
+        rank_activation=rank_activation,
+        context_matcher=context_matcher,
+        reinstatement_policy=reinstatement_policy,
+        semantic_support_context_policy=semantic_support_context_policy,
+        support_context_cache=support_context_cache,
+    )
     latency_seconds = config.latency_factor * math.exp(-config.latency_exponent * activation)
     score = _presentation_score(activation, config.retrieval_threshold)
     components = ActivationComponents(
@@ -1049,6 +1252,7 @@ def _score_candidate(
         noise=noise,
         total=activation,
         current_state=current_state,
+        context_reinstatement=context_reinstatement.activation_contribution,
     )
     matched_entities = len(set(effective_entity_ids).intersection(candidate.entity_ids))
     text_coverage = text_match.coverage
@@ -1093,6 +1297,10 @@ def _score_candidate(
         observation_evidence_ids=observation_evidence_ids,
         support_provenance=tuple(support_provenance),
         selected_support_revision_key=selected_support_revision_key,
+        context_match=context_match,
+        context_reinstatement=context_reinstatement,
+        activation_before_context=activation_before_context,
+        support_context=support_context,
     )
     reason = _build_reason(
         activation=activation,

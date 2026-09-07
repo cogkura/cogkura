@@ -213,10 +213,13 @@ class Memory:
             if semantic_reconciler is not None
             else DeterministicSemanticReconciler()
         )
+        self._context_matcher = (
+            context_matcher if context_matcher is not None else DeterministicContextMatcher()
+        )
         self._declarative_activator = (
             declarative_activator
             if declarative_activator is not None
-            else ACTRDeclarativeActivator()
+            else ACTRDeclarativeActivator(context_matcher=self._context_matcher)
         )
         self._forgetting_evaluator = (
             forgetting_evaluator
@@ -245,9 +248,6 @@ class Memory:
         )
         self._token_estimator = (
             token_estimator if token_estimator is not None else ApproximateTokenEstimator()
-        )
-        self._context_matcher = (
-            context_matcher if context_matcher is not None else DeterministicContextMatcher()
         )
         self._policy = policy if policy is not None else DefaultObservationPolicy()
         self._retention_mode = retention_mode
@@ -550,9 +550,10 @@ class Memory:
             valid_at=valid_at,
             episode_slot_index=episode_slot_index,
             entity_relationships=tuple(entity_relationships),
+            episode_by_id={episode.id: episode for episode in episodes},
         )
         if not forgotten_identities:
-            return self._attach_context_matches_to_inspection(
+            return _with_inspection_retrieval_context(
                 replace(
                     inspection,
                     truncated=truncated,
@@ -590,7 +591,7 @@ class Memory:
                     ),
                 )
             )
-        return self._attach_context_matches_to_inspection(
+        return _with_inspection_retrieval_context(
             replace(
                 inspection,
                 rejected=(*forgotten_candidates, *inspection.rejected),
@@ -696,8 +697,9 @@ class Memory:
             episode_slot_index=episode_slot_index,
             entity_relationships=tuple(entity_relationships),
             subject_id=subject_id,
+            episode_by_id={episode.id: episode for episode in episodes},
         )
-        return self._attach_context_matches_to_results(ranked, cue)
+        return ranked
 
     async def select_working_memory(
         self,
@@ -1522,48 +1524,14 @@ class Memory:
         results: Sequence[RecallResult],
         cue: RetrievalCue,
     ) -> list[RecallResult]:
-        retrieval_context = _effective_retrieval_context(cue)
-        if retrieval_context is None:
-            return list(results)
-        return [
-            _context_match_for_result(
-                context_matcher=self._context_matcher,
-                retrieval_context=retrieval_context,
-                result=result,
-            )
-            for result in results
-        ]
+        return list(results)
 
     def _attach_context_matches_to_inspection(
         self,
         inspection: RecallInspectionResult,
         cue: RetrievalCue,
     ) -> RecallInspectionResult:
-        retrieval_context = _effective_retrieval_context(cue)
-        if retrieval_context is None:
-            return inspection
-        returned = tuple(
-            _context_match_for_inspection_candidate(
-                context_matcher=self._context_matcher,
-                retrieval_context=retrieval_context,
-                candidate=candidate,
-            )
-            for candidate in inspection.returned
-        )
-        rejected = tuple(
-            _context_match_for_inspection_candidate(
-                context_matcher=self._context_matcher,
-                retrieval_context=retrieval_context,
-                candidate=candidate,
-            )
-            for candidate in inspection.rejected
-        )
-        return replace(
-            inspection,
-            returned=returned,
-            rejected=rejected,
-            retrieval_context=retrieval_context,
-        )
+        return _with_inspection_retrieval_context(inspection, cue)
 
     async def _filter_recallable_candidates(
         self,
@@ -1768,6 +1736,16 @@ def _effective_retrieval_context(cue: RetrievalCue) -> RetrievalContext | None:
     if cue.retrieval_context is None or cue.retrieval_context.is_empty():
         return None
     return cue.retrieval_context
+
+
+def _with_inspection_retrieval_context(
+    inspection: RecallInspectionResult,
+    cue: RetrievalCue,
+) -> RecallInspectionResult:
+    retrieval_context = _effective_retrieval_context(cue)
+    if retrieval_context is None:
+        return inspection
+    return replace(inspection, retrieval_context=retrieval_context)
 
 
 def _context_match_for_result(

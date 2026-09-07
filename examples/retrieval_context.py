@@ -1,7 +1,7 @@
-"""Retrieval-context example for Cogkura 0.16.1."""
+"""Retrieval-context example for Cogkura 0.16.3."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from cogkura import Memory, ObservationContext, ObservationInput, RetrievalContext
 
@@ -9,11 +9,13 @@ from cogkura import Memory, ObservationContext, ObservationInput, RetrievalConte
 async def main() -> None:
     memory = Memory()
     tenant_id = "acme"
+    subject_id = "developer-1"
+    observed_at = datetime(2026, 8, 4, 10, 0, tzinfo=UTC)
 
-    await memory.observe(
+    observations = [
         ObservationInput(
             tenant_id=tenant_id,
-            subject_id="developer-1",
+            subject_id=subject_id,
             source_namespace="github",
             source_record_id="redis-decision",
             source_type="discussion",
@@ -21,7 +23,7 @@ async def main() -> None:
                 "We decided not to use Redis because another stateful dependency "
                 "would increase operational complexity."
             ),
-            observed_at=datetime.now(UTC),
+            observed_at=observed_at,
             metadata={
                 "conversation_id": "arch-42",
                 "entity_ids": ("redis", "payments-api"),
@@ -34,10 +36,32 @@ async def main() -> None:
                 domain="payments-api",
                 temporal_context=("queue-redesign",),
             ),
-        )
-    )
+        ),
+        ObservationInput(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            source_namespace="github",
+            source_record_id="auth-redis",
+            source_type="discussion",
+            content="Auth service uses Redis for session caching.",
+            observed_at=observed_at + timedelta(hours=4),
+            metadata={
+                "conversation_id": "arch-43",
+                "entity_ids": ("redis", "auth-api"),
+            },
+            context=ObservationContext(
+                conversation_id="arch-43",
+                thread_id="auth-cache",
+                goal="improve-session-latency",
+                activity="architecture-decision",
+                domain="auth-api",
+            ),
+        ),
+    ]
+    for observation in observations:
+        await memory.observe(observation)
+    await memory.process(tenant_id=tenant_id, subject_id=subject_id)
 
-    await memory.encode_episodes(tenant_id=tenant_id)
     query = "Why did we decide not to use Redis?"
     retrieval_context = RetrievalContext(
         conversation_id="arch-42",
@@ -54,7 +78,19 @@ async def main() -> None:
         tenant_id=tenant_id,
         retrieval_context=retrieval_context,
     )
-    print("Rendered working memory unchanged:", baseline.render() == contextual.render())
+    print("No-context render unchanged:", baseline.render() == contextual.render())
+
+    baseline_recall = await memory.recall(query, tenant_id=tenant_id)
+    contextual_recall = await memory.recall(
+        query,
+        tenant_id=tenant_id,
+        retrieval_context=retrieval_context,
+    )
+    baseline_keys = [result.memory.memory_key for result in baseline_recall]
+    contextual_keys = [result.memory.memory_key for result in contextual_recall]
+    print("Recall order may change with matching context:", baseline_keys != contextual_keys)
+    print("Baseline order:", baseline_keys)
+    print("Contextual order:", contextual_keys)
 
     inspection = await memory.inspect_recall(
         query,
@@ -63,9 +99,21 @@ async def main() -> None:
     )
     print(f"Retrieval context supplied: {inspection.retrieval_context is not None}")
     for candidate in inspection.returned:
-        if candidate.diagnostics and candidate.diagnostics.context_match:
-            match = candidate.diagnostics.context_match
-            print(f"Context match score={match.score} coverage={match.cue_coverage}")
+        if candidate.diagnostics and candidate.diagnostics.context_reinstatement:
+            rest = candidate.diagnostics.context_reinstatement
+            print(
+                f"Episodic reinstatement applied={rest.applied} "
+                f"contribution={rest.activation_contribution:.3f} "
+                f"reason={rest.reason.value}"
+            )
+        if candidate.diagnostics and candidate.diagnostics.support_context:
+            support = candidate.diagnostics.support_context
+            print(
+                f"Semantic support-context applied={support.applied} "
+                f"strength={support.strength:.3f} "
+                f"contribution={support.activation_contribution:.3f} "
+                f"supports={support.support_count}"
+            )
 
 
 if __name__ == "__main__":
