@@ -17,7 +17,7 @@ episodic encoding + semantic consolidation (+ reconsolidation)
     ↓
 activation + forgetting (ACT-R base-level, dynamics)
     ↓
-semantic relevance + competition
+semantic relevance + relevance-tier competition (0.15.6 ranking)
     ↓
 contextual association + structured relationships
     ↓
@@ -119,6 +119,10 @@ Rₛ = ΣRⱼ/K, Cₛ = λsem × Rₛ
 METAMEMORY (0.16.4+, hardened 0.16.5)
 Retrieval-level RetrievalContextDiagnostics on inspect_recall
 additive MemoryAssessment.context from recall pool
+
+COMPETITION DIAGNOSTICS (0.17.0, inspect only)
+CompetitionMatcher over inspect discrimination set
+RecallInspectionCandidate.competition + RecallInspectionResult.competition counters
 ```
 
 **Engineering weights (not cognitive-science constants):**
@@ -146,7 +150,9 @@ Decision order: not provided → unavailable → conflict → underspecified →
 
 **Known intentional limitations (0.16 freeze):** exact normalized matching only; no fuzzy/synonym matching; no embeddings; no negative mismatch activation; no automatic context extraction or clarification; custom attributes excluded from primary match score.
 
-Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze.
+Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational).
+
+**Competition vs other mechanisms (0.17.0):** reconsolidation decides semantic authority; forgetting models accessibility; contextual reinstatement adjusts accessibility from encoding context; **`0.17.0` competition** records which inspect candidates plausibly answer the same cue without changing scores.
 
 Design notes: [`design-encoding-context-0.16.0.md`](design-encoding-context-0.16.0.md) through [`design-context-hardening-0.16.5.md`](design-context-hardening-0.16.5.md).
 
@@ -175,7 +181,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.16.5)
+## Current implementation boundary (0.17.0)
 
 Implemented:
 
@@ -188,6 +194,7 @@ Implemented:
 - metamemory assessment and recall inspection
 - **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); **`concept_ids` reserved** on default encoder
 - **retrieval-context matching, reinstatement, semantic support propagation, and contextual metamemory** (0.16.1–0.16.5); architecture frozen after 0.16.5
+- **cue-competition diagnostics on `inspect_recall`** (0.17.0); observational only — does not alter `recall()` ranking
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 

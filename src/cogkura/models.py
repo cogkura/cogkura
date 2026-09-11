@@ -1341,6 +1341,131 @@ class RetrievalContextDiagnostics:
                 raise ValidationError("top_candidate_ids must not contain empty values.")
 
 
+class CompetitionDirection(StrEnum):
+    """Temporal direction of a competitor relative to a candidate."""
+
+    PROACTIVE = "proactive"
+    RETROACTIVE = "retroactive"
+    CO_TEMPORAL = "co_temporal"
+
+
+@dataclass(frozen=True, slots=True)
+class CompetitionEvidence:
+    """Diagnostic evidence for a pairwise cue-competition relationship."""
+
+    competitor_identity: MemoryIdentity
+    direction: CompetitionDirection
+    strength: float
+    candidate_cue_fit: float
+    competitor_cue_fit: float
+    same_subject: bool
+    same_semantic_slot: bool
+    same_predicate: bool
+    shared_entity_ids: tuple[str, ...]
+    shared_features: tuple[str, ...]
+    relationship_strength: float
+    joint_cue_fit: float
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("strength", self.strength),
+            ("candidate_cue_fit", self.candidate_cue_fit),
+            ("competitor_cue_fit", self.competitor_cue_fit),
+            ("relationship_strength", self.relationship_strength),
+            ("joint_cue_fit", self.joint_cue_fit),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        for entity_id in self.shared_entity_ids:
+            if not entity_id.strip():
+                raise ValidationError("shared_entity_ids must not contain empty values.")
+        for feature in self.shared_features:
+            if not feature.strip():
+                raise ValidationError("shared_features must not contain empty values.")
+
+
+@dataclass(frozen=True, slots=True)
+class CompetitionDiagnostics:
+    """Per-candidate observational competition summary."""
+
+    competitor_count: int
+    proactive_count: int
+    retroactive_count: int
+    co_temporal_count: int
+    strongest_competition: float
+    competitors: tuple[CompetitionEvidence, ...]
+
+    def __post_init__(self) -> None:
+        if self.competitor_count < 0:
+            raise ValidationError("competitor_count must not be negative.")
+        if self.proactive_count < 0:
+            raise ValidationError("proactive_count must not be negative.")
+        if self.retroactive_count < 0:
+            raise ValidationError("retroactive_count must not be negative.")
+        if self.co_temporal_count < 0:
+            raise ValidationError("co_temporal_count must not be negative.")
+        if (
+            not math.isfinite(self.strongest_competition)
+            or not 0.0 <= self.strongest_competition <= 1.0
+        ):
+            raise ValidationError("strongest_competition must be finite and between 0.0 and 1.0.")
+        if self.competitor_count != len(self.competitors):
+            raise ValidationError("competitor_count must equal len(competitors).")
+        direction_total = self.proactive_count + self.retroactive_count + self.co_temporal_count
+        if direction_total != self.competitor_count:
+            raise ValidationError("direction counts must sum to competitor_count.")
+
+
+@dataclass(frozen=True, slots=True)
+class CompetitionRunDiagnostics:
+    """Retrieval-level observational competition counters."""
+
+    candidate_count: int
+    potential_competitor_pairs: int
+    evaluated_competitor_pairs: int
+    accepted_competition_pairs: int
+    maximum_competitors_for_candidate: int
+
+    def __post_init__(self) -> None:
+        if self.candidate_count < 0:
+            raise ValidationError("candidate_count must not be negative.")
+        if self.potential_competitor_pairs < 0:
+            raise ValidationError("potential_competitor_pairs must not be negative.")
+        if self.evaluated_competitor_pairs < 0:
+            raise ValidationError("evaluated_competitor_pairs must not be negative.")
+        if self.accepted_competition_pairs < 0:
+            raise ValidationError("accepted_competition_pairs must not be negative.")
+        if self.maximum_competitors_for_candidate < 0:
+            raise ValidationError("maximum_competitors_for_candidate must not be negative.")
+
+
+@dataclass(frozen=True, slots=True)
+class CompetitionConfig:
+    """Configuration for observational cue-competition diagnostics."""
+
+    enabled: bool = True
+    minimum_strength: float = 0.45
+    max_competitors_per_candidate: int = 8
+    same_slot_strength: float = 0.95
+    same_predicate_strength: float = 0.80
+    entity_overlap_weight: float = 0.20
+    feature_overlap_weight: float = 0.30
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.minimum_strength <= 1.0:
+            raise ValidationError("minimum_strength must be between 0.0 and 1.0.")
+        if self.max_competitors_per_candidate < 1:
+            raise ValidationError("max_competitors_per_candidate must be at least 1.")
+        for label, value in (
+            ("same_slot_strength", self.same_slot_strength),
+            ("same_predicate_strength", self.same_predicate_strength),
+            ("entity_overlap_weight", self.entity_overlap_weight),
+            ("feature_overlap_weight", self.feature_overlap_weight),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+
+
 @dataclass(frozen=True, slots=True)
 class ActivationConfig:
     """Configuration for ACT-R declarative activation."""
@@ -1874,6 +1999,7 @@ class RecallInspectionCandidate:
     diagnostics: RetrievalDiagnostics | None = None
     reason: str | None = None
     association_role: str | None = None
+    competition: CompetitionDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.activation):
@@ -1909,6 +2035,7 @@ class RecallInspectionResult:
     relationship_paths_used: int = 0
     retrieval_context: RetrievalContext | None = None
     context: RetrievalContextDiagnostics | None = None
+    competition: CompetitionRunDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():

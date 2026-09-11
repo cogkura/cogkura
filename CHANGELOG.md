@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-09-11
+
+### Added
+
+- Observational cue-competition diagnostics on `inspect_recall`: `CompetitionDiagnostics`, `CompetitionEvidence`, `CompetitionDirection`, and `CompetitionRunDiagnostics`.
+- `CompetitionConfig` and `DeterministicCompetitionMatcher` for deterministic pairwise competition analysis over the inspect candidate universe.
+- Per-candidate `RecallInspectionCandidate.competition` and retrieval-level `RecallInspectionResult.competition` performance counters.
+- Unit and behaviour tests (`tests/test_competition.py`, `tests/test_017_0_competition.py`) and example [`examples/competition.py`](examples/competition.py).
+- Design note [`docs/design-competition-representation-0.17.0.md`](docs/design-competition-representation-0.17.0.md).
+
+### Changed
+
+- `Memory(...)` accepts `competition_config` and optional `competition_matcher`; `ACTRDeclarativeActivator.inspect()` attaches competition after existing context attribution.
+
+### Preserved
+
+- No storage migration; competition is retrieval-local and diagnostic only.
+- `rank()` scoring, `recall()` identities/activations/scores, admission, working-memory selection, `prepare_context().render()`, and `record_context_use` unchanged for identical inputs.
+- `0.15.6` relevance-tier ranking competition among distinct semantics unchanged.
+
+### Notes
+
+- Competition strength is `relationship_strength × joint_cue_fit` with conservative defaults (`minimum_strength=0.45`, `max_competitors_per_candidate=8`).
+- Interference penalties and inhibition belong to later `0.17.x` releases.
+- Package `__version__` aligned with `pyproject.toml` (`0.17.0`).
+
 ## [0.16.5] - 2026-09-07
 
 ### Added

@@ -183,6 +183,13 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.0 — Competition representation and diagnostics (done)
+
+- Observational cue-competition diagnostics on `inspect_recall` (`CompetitionDiagnostics`, `CompetitionEvidence`, `CompetitionDirection`).
+- Deterministic `CompetitionMatcher` over inspect discrimination-set candidates; bounded top-k competitors per candidate.
+- `CompetitionConfig` on `Memory(...)`; no storage migration; `rank()` / `recall()` behaviour unchanged.
+- [`docs/design-competition-representation-0.17.0.md`](design-competition-representation-0.17.0.md) and [`examples/competition.py`](../../examples/competition.py).
+
 ## 0.16.5 — Context hardening and architecture freeze (done)
 
 - `CONTEXT_CONFLICT` metamemory when comparable evidence has zero positive matches; `NO_CONTEXTUAL_MATCH` reason code.

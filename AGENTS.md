@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.16.5` context hardening and architecture freeze (CONTEXT_CONFLICT metamemory, semantic support diagnostic semantics, `concept_ids` contract, consolidated 0.16 invariants)
+- Current release focus: `0.17.0` competition representation and diagnostics (observational cue-competition on `inspect_recall`; retrieval behaviour unchanged)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

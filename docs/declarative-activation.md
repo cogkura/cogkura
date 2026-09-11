@@ -264,6 +264,23 @@ After existing scoring, `inspect_recall` attaches retrieval-level contextual dia
 
 Observability does not change activation, admission, working-memory selection, or `MemoryContext.render()`. Following `0.16.5`, contextual-memory contracts are architecture-frozen.
 
+## 0.17.0 cue-competition diagnostics
+
+After context attribution, `inspect_recall` may attach **cue-competition** diagnostics without re-scoring or changing `rank()`:
+
+- `RecallInspectionCandidate.competition`: bounded `CompetitionDiagnostics` per discrimination-set candidate
+- `RecallInspectionResult.competition`: `CompetitionRunDiagnostics` counters (`candidate_count`, pair evaluation counts, `maximum_competitors_for_candidate`)
+- `CompetitionEvidence` explains strength from structural relationship (`same_semantic_slot`, `same_predicate`, shared entities/features) and `joint_cue_fit`
+- `CompetitionDirection`: `proactive`, `retroactive`, or `co_temporal` relative to effective memory time
+
+This is **not** the `0.15.6` relevance-tier ranking competition. Ranking competition is unchanged.
+
+`CompetitionConfig.enabled=False` skips analysis entirely. Defaults favour precision (`minimum_strength=0.45`, `max_competitors_per_candidate=8`).
+
+Competition does not subtract activation, alter admission, or resurrect superseded semantics. Candidate generation and authority rules run before competition analysis.
+
+See [`design-competition-representation-0.17.0.md`](design-competition-representation-0.17.0.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

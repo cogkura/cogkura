@@ -17,6 +17,11 @@ from cogkura.algorithms.cognitive_traces import (
     derive_episode_cognitive_traces,
     derive_semantic_cognitive_traces,
 )
+from cogkura.algorithms.competition import (
+    CompetitionMatcher,
+    DeterministicCompetitionMatcher,
+    apply_inspection_competition,
+)
 from cogkura.algorithms.context_matching import ContextMatcher, DeterministicContextMatcher
 from cogkura.algorithms.context_observability import (
     DeterministicRetrievalContextPolicy,
@@ -51,6 +56,7 @@ from cogkura.models import (
     ActivationConfig,
     ActivationReferenceTrace,
     AssociationPath,
+    CompetitionConfig,
     ContextMatch,
     ContextReinstatement,
     ContextReinstatementReason,
@@ -232,6 +238,8 @@ class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
         context_underspecified_margin: float = 0.0,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return inspection dispositions."""
 
@@ -408,6 +416,7 @@ class ACTRDeclarativeActivator:
         reinstatement_policy: ContextReinstatementPolicy | None = None,
         semantic_support_context_policy: SemanticSupportContextPolicy | None = None,
         retrieval_context_policy: DeterministicRetrievalContextPolicy | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
     ) -> None:
         self._spreading_activator = spreading_activator or DeterministicSpreadingActivator()
         self._context_matcher = context_matcher or DeterministicContextMatcher()
@@ -420,6 +429,7 @@ class ACTRDeclarativeActivator:
         self._retrieval_context_policy = (
             retrieval_context_policy or DeterministicRetrievalContextPolicy()
         )
+        self._competition_matcher = competition_matcher or DeterministicCompetitionMatcher()
 
     def rank(
         self,
@@ -634,8 +644,12 @@ class ACTRDeclarativeActivator:
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
         context_underspecified_margin: float = 0.0,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
+        effective_competition_config = competition_config or CompetitionConfig()
+        effective_competition_matcher = competition_matcher or self._competition_matcher
         candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
         tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
@@ -937,6 +951,32 @@ class ACTRDeclarativeActivator:
             candidates=attributed,
             underspecified_margin=context_underspecified_margin,
         )
+        competition_run_diagnostics = None
+        if effective_competition_config.enabled:
+            retrieval_context_provided = (
+                cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
+            )
+            attributed, competition_run_diagnostics = apply_inspection_competition(
+                attributed,
+                config=effective_competition_config,
+                matcher=effective_competition_matcher,
+                episode_slot_index=slot_index,
+                cue_subject_id=cue.subject_id,
+                retrieval_context_provided=retrieval_context_provided,
+            )
+            returned_candidates = sorted(
+                [
+                    candidate
+                    for candidate in attributed
+                    if candidate.disposition is RecallInspectionDisposition.RETURNED
+                ],
+                key=lambda item: item.rank or 0,
+            )
+            rejected_candidates = [
+                candidate
+                for candidate in attributed
+                if candidate.disposition is not RecallInspectionDisposition.RETURNED
+            ]
 
         return RecallInspectionResult(
             tenant_id=tenant_id,
@@ -953,6 +993,7 @@ class ACTRDeclarativeActivator:
             relationship_seed_count=relevance_context.relationship_seed_count,
             relationship_paths_used=relevance_context.relationship_paths_used,
             context=context_diagnostics,
+            competition=competition_run_diagnostics,
         )
 
 

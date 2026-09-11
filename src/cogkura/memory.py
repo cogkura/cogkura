@@ -16,6 +16,7 @@ from cogkura.algorithms.activation import (
     build_episode_support_provenance_index,
 )
 from cogkura.algorithms.cognitive_traces import build_activation_candidates
+from cogkura.algorithms.competition import CompetitionMatcher, DeterministicCompetitionMatcher
 from cogkura.algorithms.context_matching import (
     ContextMatcher,
     DeterministicContextMatcher,
@@ -58,6 +59,7 @@ from cogkura.models import (
     ActivationConfig,
     ActivationReferenceKind,
     ActivationReferenceTrace,
+    CompetitionConfig,
     EpisodeEncodingResult,
     ForgettingConfig,
     ForgettingResult,
@@ -162,6 +164,8 @@ class Memory:
         working_memory_config: WorkingMemoryConfig | None = None,
         memory_monitor: MemoryMonitor | None = None,
         metamemory_config: MetamemoryConfig | None = None,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
         token_estimator: TokenEstimator | None = None,
         context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
@@ -245,6 +249,14 @@ class Memory:
         )
         self._metamemory_config = (
             metamemory_config if metamemory_config is not None else MetamemoryConfig()
+        )
+        self._competition_config = (
+            competition_config if competition_config is not None else CompetitionConfig()
+        )
+        self._competition_matcher = (
+            competition_matcher
+            if competition_matcher is not None
+            else DeterministicCompetitionMatcher()
         )
         self._token_estimator = (
             token_estimator if token_estimator is not None else ApproximateTokenEstimator()
@@ -552,6 +564,8 @@ class Memory:
             entity_relationships=tuple(entity_relationships),
             episode_by_id={episode.id: episode for episode in episodes},
             context_underspecified_margin=self._metamemory_config.context_underspecified_margin,
+            competition_config=self._competition_config,
+            competition_matcher=self._competition_matcher,
         )
         if not forgotten_identities:
             return _with_inspection_retrieval_context(

@@ -72,6 +72,20 @@ See [`docs/declarative-activation.md`](declarative-activation.md) for the full a
 
 Contextual metamemory is observational. It does not change activation, ranking, or working-memory selection. Canonical discrimination is `inspect_recall`; `assess_memory.context` uses the narrower recall pool.
 
+### Competition (`CompetitionConfig`)
+
+| Knob | Default | Role |
+|------|---------|------|
+| `enabled` | `true` | Master switch; `false` omits all competition diagnostics |
+| `minimum_strength` | `0.45` | Drop pairs below this competition strength |
+| `max_competitors_per_candidate` | `8` | Bounded competitors per inspect candidate |
+| `same_slot_strength` | `0.95` | Relationship strength when `slot_key` matches |
+| `same_predicate_strength` | `0.80` | Relationship strength for compatible subject + same predicate |
+| `entity_overlap_weight` | `0.20` | Moderate overlap component |
+| `feature_overlap_weight` | `0.30` | Moderate overlap component |
+
+Competition is inspect-only in `0.17.0`. It does not change `recall()` activation, admission, or ranking.
+
 ### Working memory (`WorkingMemoryConfig`)
 
 | Knob | Default | Role |

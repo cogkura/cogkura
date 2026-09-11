@@ -5,6 +5,10 @@ from cogkura.algorithms.activation import (
     DeclarativeActivator,
     InspectableDeclarativeActivator,
 )
+from cogkura.algorithms.competition import (
+    CompetitionMatcher,
+    DeterministicCompetitionMatcher,
+)
 from cogkura.algorithms.context_matching import (
     ContextMatcher,
     DeterministicContextMatcher,
@@ -50,6 +54,11 @@ from cogkura.models import (
     AssociationPath,
     CognitiveReferenceTrace,
     CognitiveTraceOrigin,
+    CompetitionConfig,
+    CompetitionDiagnostics,
+    CompetitionDirection,
+    CompetitionEvidence,
+    CompetitionRunDiagnostics,
     ContextDimensionMatch,
     ContextMatch,
     ContextMatchState,
@@ -147,6 +156,13 @@ __all__ = [
     "AssociationPath",
     "CognitiveReferenceTrace",
     "CognitiveTraceOrigin",
+    "CompetitionConfig",
+    "CompetitionDiagnostics",
+    "CompetitionDirection",
+    "CompetitionEvidence",
+    "CompetitionMatcher",
+    "CompetitionRunDiagnostics",
+    "DeterministicCompetitionMatcher",
     "ApproximateTokenEstimator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
@@ -260,4 +276,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.16.5"
+__version__ = "0.17.0"
