@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-09-13
+
+### Added
+
+- Behavioural competition eligibility policy (`BehavioralCompetitionPolicy`, `DeterministicBehavioralCompetitionPolicy`, `build_behavioral_query_scope`) between diagnostic matching and transient interference.
+- `BehavioralCompetitionEligibility`, `BehavioralEligibilityReason`, `BehavioralQueryScope`, `BehavioralStructuralAnchor` on `CompetitionEvidence` and run diagnostics (`behaviorally_eligible_*`, `behaviorally_rejected_*`, `rejected_by_reason`).
+- `CompetitionConfig.minimum_behavioral_strength` and `minimum_behavioral_cue_fit` thresholds.
+- Unit and behaviour tests (`tests/test_behavioral_competition.py`, `tests/test_017_2_eligibility.py`) and design note [`docs/design-competition-behavioral-eligibility-0.17.2.md`](docs/design-competition-behavioral-eligibility-0.17.2.md).
+
+### Changed
+
+- When `apply_interference=True`, noisy-OR pressure uses behaviourally eligible pairs only; ineligible diagnostic pairs contribute zero interference and are omitted from `TransientInterferenceDiagnostics.contributions`.
+- `Memory(...)` and `ACTRDeclarativeActivator(...)` accept optional `behavioral_competition_policy` (default `DeterministicBehavioralCompetitionPolicy()`).
+
+### Preserved
+
+- Default `apply_interference=False` keeps recall/working-memory scores unchanged; eligibility is still evaluated for inspect diagnostics when competition is enabled.
+- `0.17.1` matcher and noisy-OR formula unchanged; no storage migration.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.2`).
+
 ## [0.17.1] - 2026-09-13
 
 ### Added

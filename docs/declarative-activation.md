@@ -300,6 +300,19 @@ Default `apply_interference=False` preserves `0.17.0` recall behaviour.
 
 See [`design-competition-hardening-interference-0.17.1.md`](design-competition-hardening-interference-0.17.1.md).
 
+## 0.17.2 behavioural competition eligibility
+
+`0.17.2` adds a precision gate between diagnostic matching and interference:
+
+- `DeterministicBehavioralCompetitionPolicy` evaluates every accepted pair and attaches `BehavioralCompetitionEligibility` on `CompetitionEvidence`.
+- Diagnostic `competitor_count` is unchanged; `behaviorally_eligible_competitor_count` / `behaviorally_rejected_competitor_count` split behavioural permission from detection.
+- When `apply_interference=True`, noisy-OR pressure uses eligible pairs only; ineligible rivals contribute zero interference and are omitted from `TransientInterferenceDiagnostics.contributions`.
+- `BehavioralQueryScope` is built once per retrieval from cue text, predicate, and entity anchors.
+
+Default `apply_interference=False` preserves recall scores; inspect still reports eligibility when competition is enabled.
+
+See [`design-competition-behavioral-eligibility-0.17.2.md`](design-competition-behavioral-eligibility-0.17.2.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

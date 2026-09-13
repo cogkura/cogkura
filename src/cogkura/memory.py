@@ -15,6 +15,10 @@ from cogkura.algorithms.activation import (
     build_episode_support_index,
     build_episode_support_provenance_index,
 )
+from cogkura.algorithms.behavioral_competition import (
+    BehavioralCompetitionPolicy,
+    DeterministicBehavioralCompetitionPolicy,
+)
 from cogkura.algorithms.cognitive_traces import build_activation_candidates
 from cogkura.algorithms.competition import CompetitionMatcher, DeterministicCompetitionMatcher
 from cogkura.algorithms.context_matching import (
@@ -166,6 +170,7 @@ class Memory:
         metamemory_config: MetamemoryConfig | None = None,
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        behavioral_competition_policy: BehavioralCompetitionPolicy | None = None,
         token_estimator: TokenEstimator | None = None,
         context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
@@ -220,10 +225,27 @@ class Memory:
         self._context_matcher = (
             context_matcher if context_matcher is not None else DeterministicContextMatcher()
         )
+        self._competition_config = (
+            competition_config if competition_config is not None else CompetitionConfig()
+        )
+        self._competition_matcher = (
+            competition_matcher
+            if competition_matcher is not None
+            else DeterministicCompetitionMatcher()
+        )
+        self._behavioral_competition_policy = (
+            behavioral_competition_policy
+            if behavioral_competition_policy is not None
+            else DeterministicBehavioralCompetitionPolicy()
+        )
         self._declarative_activator = (
             declarative_activator
             if declarative_activator is not None
-            else ACTRDeclarativeActivator(context_matcher=self._context_matcher)
+            else ACTRDeclarativeActivator(
+                context_matcher=self._context_matcher,
+                competition_matcher=self._competition_matcher,
+                behavioral_competition_policy=self._behavioral_competition_policy,
+            )
         )
         self._forgetting_evaluator = (
             forgetting_evaluator
@@ -249,14 +271,6 @@ class Memory:
         )
         self._metamemory_config = (
             metamemory_config if metamemory_config is not None else MetamemoryConfig()
-        )
-        self._competition_config = (
-            competition_config if competition_config is not None else CompetitionConfig()
-        )
-        self._competition_matcher = (
-            competition_matcher
-            if competition_matcher is not None
-            else DeterministicCompetitionMatcher()
         )
         self._token_estimator = (
             token_estimator if token_estimator is not None else ApproximateTokenEstimator()

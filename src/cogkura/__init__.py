@@ -5,6 +5,11 @@ from cogkura.algorithms.activation import (
     DeclarativeActivator,
     InspectableDeclarativeActivator,
 )
+from cogkura.algorithms.behavioral_competition import (
+    BehavioralCompetitionPolicy,
+    DeterministicBehavioralCompetitionPolicy,
+    build_behavioral_query_scope,
+)
 from cogkura.algorithms.competition import (
     CompetitionMatcher,
     DeterministicCompetitionMatcher,
@@ -52,6 +57,10 @@ from cogkura.models import (
     ActivationReferenceKind,
     ActivationReferenceTrace,
     AssociationPath,
+    BehavioralCompetitionEligibility,
+    BehavioralEligibilityReason,
+    BehavioralQueryScope,
+    BehavioralStructuralAnchor,
     CognitiveReferenceTrace,
     CognitiveTraceOrigin,
     CompetitionConfig,
@@ -153,6 +162,11 @@ __all__ = [
     "ACTRDeclarativeActivator",
     "ActivationComponents",
     "ActivationConfig",
+    "BehavioralCompetitionEligibility",
+    "BehavioralCompetitionPolicy",
+    "BehavioralEligibilityReason",
+    "BehavioralQueryScope",
+    "BehavioralStructuralAnchor",
     "ActivationReferenceKind",
     "ActivationReferenceTrace",
     "AssociationPath",
@@ -164,7 +178,9 @@ __all__ = [
     "CompetitionEvidence",
     "CompetitionMatcher",
     "CompetitionRunDiagnostics",
+    "DeterministicBehavioralCompetitionPolicy",
     "DeterministicCompetitionMatcher",
+    "build_behavioral_query_scope",
     "ApproximateTokenEstimator",
     "ComplementaryLearningSemanticConsolidator",
     "DeclarativeActivator",
@@ -280,4 +296,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.17.1"
+__version__ = "0.17.2"

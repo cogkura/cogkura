@@ -84,10 +84,12 @@ Contextual metamemory is observational. It does not change activation, ranking, 
 | `entity_overlap_weight` | `0.20` | Moderate overlap component |
 | `feature_overlap_weight` | `0.30` | Moderate overlap component |
 | `apply_interference` | `false` | When `true` with `enabled=true`, apply bounded transient negative activation on `rank()` and `inspect()` |
+| `minimum_behavioral_strength` | `0.60` | Behavioural eligibility floor for interference (must be `>= minimum_strength`) |
+| `minimum_behavioral_cue_fit` | `0.40` | Minimum candidate and competitor cue-fit for behavioural eligibility |
 | `proactive_weight` | `0.20` | Engineering calibration for proactive noisy-OR penalty |
 | `retroactive_weight` | `0.20` | Engineering calibration for retroactive noisy-OR penalty |
 
-With default `apply_interference=false`, competition remains diagnostic-only (as in `0.17.0`). When `apply_interference=true`, recall activation, score, and order may change; explicit semantic admission from pre-interference activation is preserved.
+With default `apply_interference=false`, competition remains diagnostic-only (as in `0.17.0`); eligibility reasons are still attached when `enabled=true`. When `apply_interference=true`, recall activation, score, and order may change from **behaviourally eligible** pairs only; explicit semantic admission from pre-interference activation is preserved.
 
 ### Working memory (`WorkingMemoryConfig`)
 

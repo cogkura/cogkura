@@ -1349,6 +1349,82 @@ class CompetitionDirection(StrEnum):
     CO_TEMPORAL = "co_temporal"
 
 
+class BehavioralEligibilityReason(StrEnum):
+    """Reason a competition relationship is or is not behaviourally eligible."""
+
+    SAME_SEMANTIC_SLOT = "same_semantic_slot"
+    SAME_SUBJECT_PREDICATE = "same_subject_predicate"
+    QUERY_ANCHORED_COMPETITION = "query_anchored_competition"
+    COMPETITION_TOO_WEAK = "competition_too_weak"
+    CANDIDATE_CUE_FIT_TOO_WEAK = "candidate_cue_fit_too_weak"
+    COMPETITOR_CUE_FIT_TOO_WEAK = "competitor_cue_fit_too_weak"
+    NO_QUERY_SCOPE_ANCHOR = "no_query_scope_anchor"
+    NO_SHARED_QUERY_FEATURE = "no_shared_query_feature"
+    BROAD_SUBJECT_ONLY = "broad_subject_only"
+    ENTITY_OVERLAP_ONLY = "entity_overlap_only"
+    FEATURE_OVERLAP_ONLY = "feature_overlap_only"
+    SAME_LINEAGE = "same_lineage"
+    NON_BEHAVIORAL_DIRECTION = "non_behavioral_direction"
+
+
+class BehavioralStructuralAnchor(StrEnum):
+    """Structural evidence tier supporting behavioural eligibility."""
+
+    SEMANTIC_SLOT = "semantic_slot"
+    SUBJECT_PREDICATE = "subject_predicate"
+    QUERY_SCOPE = "query_scope"
+
+
+@dataclass(frozen=True, slots=True)
+class BehavioralQueryScope:
+    """Retrieval-local query scope for behavioural competition gating."""
+
+    subject_id: str | None
+    entity_ids: tuple[str, ...]
+    features: tuple[str, ...]
+    predicate: str | None
+
+    def __post_init__(self) -> None:
+        for entity_id in self.entity_ids:
+            if not entity_id.strip():
+                raise ValidationError("entity_ids must not contain empty values.")
+        for feature in self.features:
+            if not feature.strip():
+                raise ValidationError("features must not contain empty values.")
+
+
+@dataclass(frozen=True, slots=True)
+class BehavioralCompetitionEligibility:
+    """Deterministic behavioural eligibility for one directed competition pair."""
+
+    eligible: bool
+    reason: BehavioralEligibilityReason
+    competition_strength: float
+    candidate_cue_fit: float
+    competitor_cue_fit: float
+    same_semantic_slot: bool
+    same_fact_subject: bool
+    same_predicate: bool
+    shared_query_entity_ids: tuple[str, ...]
+    shared_query_features: tuple[str, ...]
+    structural_anchor: BehavioralStructuralAnchor | None = None
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("competition_strength", self.competition_strength),
+            ("candidate_cue_fit", self.candidate_cue_fit),
+            ("competitor_cue_fit", self.competitor_cue_fit),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        for entity_id in self.shared_query_entity_ids:
+            if not entity_id.strip():
+                raise ValidationError("shared_query_entity_ids must not contain empty values.")
+        for feature in self.shared_query_features:
+            if not feature.strip():
+                raise ValidationError("shared_query_features must not contain empty values.")
+
+
 @dataclass(frozen=True, slots=True)
 class CompetitionEvidence:
     """Diagnostic evidence for a pairwise cue-competition relationship."""
@@ -1365,6 +1441,7 @@ class CompetitionEvidence:
     shared_features: tuple[str, ...]
     relationship_strength: float
     joint_cue_fit: float
+    behavioral_eligibility: BehavioralCompetitionEligibility | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1442,6 +1519,8 @@ class CompetitionDiagnostics:
     strongest_competition: float
     competitors: tuple[CompetitionEvidence, ...]
     interference: TransientInterferenceDiagnostics | None = None
+    behaviorally_eligible_competitor_count: int = 0
+    behaviorally_rejected_competitor_count: int = 0
 
     def __post_init__(self) -> None:
         if self.competitor_count < 0:
@@ -1462,6 +1541,18 @@ class CompetitionDiagnostics:
         direction_total = self.proactive_count + self.retroactive_count + self.co_temporal_count
         if direction_total != self.competitor_count:
             raise ValidationError("direction counts must sum to competitor_count.")
+        if self.behaviorally_eligible_competitor_count < 0:
+            raise ValidationError("behaviorally_eligible_competitor_count must not be negative.")
+        if self.behaviorally_rejected_competitor_count < 0:
+            raise ValidationError("behaviorally_rejected_competitor_count must not be negative.")
+        behavioral_total = (
+            self.behaviorally_eligible_competitor_count
+            + self.behaviorally_rejected_competitor_count
+        )
+        if behavioral_total != self.competitor_count:
+            raise ValidationError(
+                "behavioral eligibility counts must sum to competitor_count when evaluated."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1473,8 +1564,16 @@ class CompetitionRunDiagnostics:
     evaluated_competitor_pairs: int
     accepted_competition_pairs: int
     maximum_competitors_for_candidate: int
+    behaviorally_eligible_pairs: int = 0
+    behaviorally_rejected_pairs: int = 0
+    rejected_by_reason: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "rejected_by_reason",
+            MappingProxyType(dict(self.rejected_by_reason)),
+        )
         if self.candidate_count < 0:
             raise ValidationError("candidate_count must not be negative.")
         if self.potential_competitor_pairs < 0:
@@ -1485,6 +1584,20 @@ class CompetitionRunDiagnostics:
             raise ValidationError("accepted_competition_pairs must not be negative.")
         if self.maximum_competitors_for_candidate < 0:
             raise ValidationError("maximum_competitors_for_candidate must not be negative.")
+        if self.behaviorally_eligible_pairs < 0:
+            raise ValidationError("behaviorally_eligible_pairs must not be negative.")
+        if self.behaviorally_rejected_pairs < 0:
+            raise ValidationError("behaviorally_rejected_pairs must not be negative.")
+        behavioral_total = self.behaviorally_eligible_pairs + self.behaviorally_rejected_pairs
+        if behavioral_total != self.accepted_competition_pairs:
+            raise ValidationError(
+                "behavioral pair counts must sum to accepted_competition_pairs when evaluated."
+            )
+        for reason, count in self.rejected_by_reason.items():
+            if not reason.strip():
+                raise ValidationError("rejected_by_reason keys must not be empty.")
+            if count < 0:
+                raise ValidationError("rejected_by_reason counts must not be negative.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1501,10 +1614,20 @@ class CompetitionConfig:
     feature_overlap_weight: float = 0.30
     proactive_weight: float = 0.20
     retroactive_weight: float = 0.20
+    minimum_behavioral_strength: float = 0.60
+    minimum_behavioral_cue_fit: float = 0.40
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.minimum_strength <= 1.0:
             raise ValidationError("minimum_strength must be between 0.0 and 1.0.")
+        if not 0.0 <= self.minimum_behavioral_strength <= 1.0:
+            raise ValidationError("minimum_behavioral_strength must be between 0.0 and 1.0.")
+        if self.minimum_behavioral_strength < self.minimum_strength:
+            raise ValidationError(
+                "minimum_behavioral_strength must be greater than or equal to minimum_strength."
+            )
+        if not 0.0 <= self.minimum_behavioral_cue_fit <= 1.0:
+            raise ValidationError("minimum_behavioral_cue_fit must be between 0.0 and 1.0.")
         if self.max_competitors_per_candidate < 1:
             raise ValidationError("max_competitors_per_candidate must be at least 1.")
         for label, value in (

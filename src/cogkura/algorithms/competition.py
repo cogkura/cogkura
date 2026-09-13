@@ -8,8 +8,12 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
+from cogkura.algorithms.behavioral_competition import (
+    BehavioralCompetitionPolicy,
+)
 from cogkura.algorithms.retrieval_features import canonical_content_features
 from cogkura.models import (
+    BehavioralQueryScope,
     CompetitionConfig,
     CompetitionDiagnostics,
     CompetitionDirection,
@@ -527,6 +531,16 @@ def _summarize_competition(
         1 for item in competitors if item.direction is CompetitionDirection.CO_TEMPORAL
     )
     strongest = max((item.strength for item in competitors), default=0.0)
+    eligible_count = sum(
+        1
+        for item in competitors
+        if item.behavioral_eligibility is not None and item.behavioral_eligibility.eligible
+    )
+    rejected_count = sum(
+        1
+        for item in competitors
+        if item.behavioral_eligibility is not None and not item.behavioral_eligibility.eligible
+    )
     return CompetitionDiagnostics(
         competitor_count=len(competitors),
         proactive_count=proactive,
@@ -535,6 +549,8 @@ def _summarize_competition(
         strongest_competition=strongest,
         competitors=tuple(competitors),
         interference=interference,
+        behaviorally_eligible_competitor_count=eligible_count,
+        behaviorally_rejected_competitor_count=rejected_count,
     )
 
 
@@ -562,7 +578,8 @@ def _compute_interference(
     retroactive_pressures: list[float] = []
 
     for evidence in competitors:
-        if evidence.direction is CompetitionDirection.CO_TEMPORAL:
+        eligibility = evidence.behavioral_eligibility
+        if eligibility is None or not eligibility.eligible:
             continue
         competitor_accessibility = accessibility_by_identity.get(
             evidence.competitor_identity,
@@ -599,11 +616,32 @@ def _compute_interference(
     )
 
 
+def _attach_behavioral_eligibility(
+    evidence: CompetitionEvidence,
+    *,
+    candidate: CompetitionProfile,
+    competitor: CompetitionProfile,
+    policy: BehavioralCompetitionPolicy,
+    query_scope: BehavioralQueryScope,
+    config: CompetitionConfig,
+) -> CompetitionEvidence:
+    eligibility = policy.evaluate(
+        candidate=candidate,
+        competitor=competitor,
+        evidence=evidence,
+        query_scope=query_scope,
+        config=config,
+    )
+    return replace(evidence, behavioral_eligibility=eligibility)
+
+
 def evaluate_competition(
     results: Sequence[RecallResult],
     *,
     config: CompetitionConfig,
     matcher: CompetitionMatcher,
+    behavioral_policy: BehavioralCompetitionPolicy,
+    query_scope: BehavioralQueryScope,
     cue_subject_id: str | None,
     cue_entity_ids: tuple[str, ...],
     episode_slot_index: Mapping[str, str],
@@ -646,6 +684,9 @@ def evaluate_competition(
     evaluated_pairs = 0
     accepted_pairs = 0
     maximum_competitors = 0
+    behaviorally_eligible_pairs = 0
+    behaviorally_rejected_pairs = 0
+    rejected_reason_counts: dict[str, int] = {}
 
     for profile in profiles:
         possible = index.possible_competitors(profile)
@@ -666,7 +707,25 @@ def evaluate_competition(
             if comparison is None:
                 continue
             accepted_pairs += 1
-            evidence.append(comparison)
+            enriched = _attach_behavioral_eligibility(
+                comparison,
+                candidate=profile,
+                competitor=other,
+                policy=behavioral_policy,
+                query_scope=query_scope,
+                config=config,
+            )
+            eligibility = enriched.behavioral_eligibility
+            if eligibility is not None:
+                if eligibility.eligible:
+                    behaviorally_eligible_pairs += 1
+                else:
+                    behaviorally_rejected_pairs += 1
+                    reason_key = eligibility.reason.value
+                    rejected_reason_counts[reason_key] = (
+                        rejected_reason_counts.get(reason_key, 0) + 1
+                    )
+            evidence.append(enriched)
         bounded = _bounded_competitors(
             evidence,
             max_competitors=config.max_competitors_per_candidate,
@@ -694,6 +753,9 @@ def evaluate_competition(
             evaluated_competitor_pairs=evaluated_pairs,
             accepted_competition_pairs=accepted_pairs,
             maximum_competitors_for_candidate=maximum_competitors,
+            behaviorally_eligible_pairs=behaviorally_eligible_pairs,
+            behaviorally_rejected_pairs=behaviorally_rejected_pairs,
+            rejected_by_reason=dict(sorted(rejected_reason_counts.items())),
         ),
     )
 
@@ -762,6 +824,8 @@ def apply_competition_pipeline(
     *,
     config: CompetitionConfig,
     matcher: CompetitionMatcher,
+    behavioral_policy: BehavioralCompetitionPolicy,
+    query_scope: BehavioralQueryScope,
     cue_subject_id: str | None,
     cue_entity_ids: tuple[str, ...],
     episode_slot_index: Mapping[str, str],
@@ -780,6 +844,8 @@ def apply_competition_pipeline(
         frozen_scored,
         config=config,
         matcher=matcher,
+        behavioral_policy=behavioral_policy,
+        query_scope=query_scope,
         cue_subject_id=cue_subject_id,
         cue_entity_ids=cue_entity_ids,
         episode_slot_index=episode_slot_index,
@@ -899,6 +965,8 @@ def apply_inspection_competition(
     *,
     config: CompetitionConfig,
     matcher: CompetitionMatcher,
+    behavioral_policy: BehavioralCompetitionPolicy,
+    query_scope: BehavioralQueryScope,
     episode_slot_index: Mapping[str, str],
     cue_subject_id: str | None,
     cue_entity_ids: tuple[str, ...],
@@ -935,6 +1003,8 @@ def apply_inspection_competition(
             recall_results,
             config=config,
             matcher=matcher,
+            behavioral_policy=behavioral_policy,
+            query_scope=query_scope,
             cue_subject_id=cue_subject_id,
             cue_entity_ids=cue_entity_ids,
             episode_slot_index=episode_slot_index,

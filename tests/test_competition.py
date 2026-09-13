@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
+from cogkura.algorithms.behavioral_competition import (
+    DeterministicBehavioralCompetitionPolicy,
+    build_behavioral_query_scope,
+)
 from cogkura.algorithms.competition import (
     CompetitionProfile,
     DeterministicCompetitionMatcher,
@@ -16,6 +20,9 @@ from cogkura.algorithms.competition import (
 )
 from cogkura.models import (
     ActivationComponents,
+    BehavioralCompetitionEligibility,
+    BehavioralEligibilityReason,
+    BehavioralStructuralAnchor,
     CompetitionConfig,
     CompetitionDirection,
     CompetitionEvidence,
@@ -23,6 +30,7 @@ from cogkura.models import (
     MemoryKind,
     RecallInspectionCandidate,
     RecallInspectionDisposition,
+    RetrievalCue,
     RetrievalDiagnostics,
     SemanticCardinality,
     SemanticDerivationInput,
@@ -316,6 +324,8 @@ def test_bounded_top_k_is_deterministic() -> None:
         (candidate, *others),
         config=config,
         matcher=matcher,
+        behavioral_policy=DeterministicBehavioralCompetitionPolicy(),
+        query_scope=build_behavioral_query_scope(RetrievalCue(text="slot-1")),
         episode_slot_index={},
         cue_subject_id=None,
         cue_entity_ids=(),
@@ -346,6 +356,8 @@ def test_disabled_competition_returns_none_on_candidates() -> None:
         (candidate,),
         config=CompetitionConfig(enabled=False),
         matcher=DeterministicCompetitionMatcher(),
+        behavioral_policy=DeterministicBehavioralCompetitionPolicy(),
+        query_scope=build_behavioral_query_scope(RetrievalCue(text="slot-1")),
         episode_slot_index={},
         cue_subject_id=None,
         cue_entity_ids=(),
@@ -424,23 +436,43 @@ def test_effective_memory_time_uses_support_episode_chronology() -> None:
     )
 
 
+def _eligible_evidence(**overrides: object) -> CompetitionEvidence:
+    competitor = MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="other")
+    defaults = {
+        "competitor_identity": competitor,
+        "direction": CompetitionDirection.PROACTIVE,
+        "strength": 0.5,
+        "candidate_cue_fit": 0.8,
+        "competitor_cue_fit": 0.8,
+        "same_subject": True,
+        "same_semantic_slot": True,
+        "same_predicate": True,
+        "shared_entity_ids": ("payments-api",),
+        "shared_features": ("deploy",),
+        "relationship_strength": 0.95,
+        "joint_cue_fit": 0.8,
+        "behavioral_eligibility": BehavioralCompetitionEligibility(
+            eligible=True,
+            reason=BehavioralEligibilityReason.SAME_SEMANTIC_SLOT,
+            competition_strength=0.5,
+            candidate_cue_fit=0.8,
+            competitor_cue_fit=0.8,
+            same_semantic_slot=True,
+            same_fact_subject=True,
+            same_predicate=True,
+            shared_query_entity_ids=("payments-api",),
+            shared_query_features=("deploy",),
+            structural_anchor=BehavioralStructuralAnchor.SEMANTIC_SLOT,
+        ),
+    }
+    defaults.update(overrides)
+    return CompetitionEvidence(**defaults)
+
+
 def test_noisy_or_interference_formula() -> None:
     profile = _profile(_semantic(), memory_kind=MemoryKind.SEMANTIC, slot_key="slot-1")
     competitor = MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="other")
-    evidence = CompetitionEvidence(
-        competitor_identity=competitor,
-        direction=CompetitionDirection.PROACTIVE,
-        strength=0.5,
-        candidate_cue_fit=0.8,
-        competitor_cue_fit=0.8,
-        same_subject=True,
-        same_semantic_slot=True,
-        same_predicate=True,
-        shared_entity_ids=("payments-api",),
-        shared_features=("deploy",),
-        relationship_strength=0.95,
-        joint_cue_fit=0.8,
-    )
+    evidence = _eligible_evidence(competitor_identity=competitor)
     config = CompetitionConfig(
         apply_interference=True,
         proactive_weight=0.2,
@@ -470,19 +502,25 @@ def test_noisy_or_interference_formula() -> None:
 def test_co_temporal_competition_has_zero_interference_pressure() -> None:
     profile = _profile(_semantic(), memory_kind=MemoryKind.SEMANTIC)
     competitor = MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="other")
-    evidence = CompetitionEvidence(
+    evidence = _eligible_evidence(
         competitor_identity=competitor,
         direction=CompetitionDirection.CO_TEMPORAL,
         strength=0.9,
         candidate_cue_fit=0.9,
         competitor_cue_fit=0.9,
-        same_subject=True,
-        same_semantic_slot=True,
-        same_predicate=True,
-        shared_entity_ids=("payments-api",),
-        shared_features=("deploy",),
-        relationship_strength=0.95,
         joint_cue_fit=0.9,
+        behavioral_eligibility=BehavioralCompetitionEligibility(
+            eligible=False,
+            reason=BehavioralEligibilityReason.NON_BEHAVIORAL_DIRECTION,
+            competition_strength=0.9,
+            candidate_cue_fit=0.9,
+            competitor_cue_fit=0.9,
+            same_semantic_slot=True,
+            same_fact_subject=True,
+            same_predicate=True,
+            shared_query_entity_ids=("payments-api",),
+            shared_query_features=("deploy",),
+        ),
     )
     interference = _compute_interference(
         profile,

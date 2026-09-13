@@ -183,6 +183,13 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.2 — Behavioural competition eligibility (done)
+
+- Deterministic eligibility policy between diagnostic matching and transient interference; matcher unchanged.
+- `BehavioralCompetitionEligibility` on every accepted pair when competition is enabled; interference uses eligible pairs only.
+- `minimum_behavioral_strength` / `minimum_behavioral_cue_fit` on `CompetitionConfig`.
+- [`docs/design-competition-behavioral-eligibility-0.17.2.md`](design-competition-behavioral-eligibility-0.17.2.md).
+
 ## 0.17.1 — Competition hardening and transient interference (done)
 
 - Hardened matcher: query entity anchors, fact-subject compatibility, SUPPORT-episode chronology.

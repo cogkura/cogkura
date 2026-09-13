@@ -12,6 +12,11 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol
 
+from cogkura.algorithms.behavioral_competition import (
+    BehavioralCompetitionPolicy,
+    DeterministicBehavioralCompetitionPolicy,
+    build_behavioral_query_scope,
+)
 from cogkura.algorithms.cognitive_traces import (
     activation_reference_traces_for_candidate,
     derive_episode_cognitive_traces,
@@ -422,6 +427,7 @@ class ACTRDeclarativeActivator:
         semantic_support_context_policy: SemanticSupportContextPolicy | None = None,
         retrieval_context_policy: DeterministicRetrievalContextPolicy | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        behavioral_competition_policy: BehavioralCompetitionPolicy | None = None,
     ) -> None:
         self._spreading_activator = spreading_activator or DeterministicSpreadingActivator()
         self._context_matcher = context_matcher or DeterministicContextMatcher()
@@ -435,6 +441,9 @@ class ACTRDeclarativeActivator:
             retrieval_context_policy or DeterministicRetrievalContextPolicy()
         )
         self._competition_matcher = competition_matcher or DeterministicCompetitionMatcher()
+        self._behavioral_competition_policy = (
+            behavioral_competition_policy or DeterministicBehavioralCompetitionPolicy()
+        )
 
     def rank(
         self,
@@ -604,11 +613,17 @@ class ACTRDeclarativeActivator:
             cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
         )
         cue_entity_ids = tuple(sorted(set(cue.entity_ids)))
+        behavioral_query_scope = build_behavioral_query_scope(
+            cue,
+            exclude_tokens=config.current_state_cue_tokens,
+        )
         scored, rank_by_identity, _ = apply_competition_pipeline(
             scored,
             rank_by_identity,
             config=effective_competition_config,
             matcher=effective_competition_matcher,
+            behavioral_policy=self._behavioral_competition_policy,
+            query_scope=behavioral_query_scope,
             cue_subject_id=cue.subject_id,
             cue_entity_ids=cue_entity_ids,
             episode_slot_index=slot_index,
@@ -826,12 +841,18 @@ class ACTRDeclarativeActivator:
             cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
         )
         cue_entity_ids = tuple(sorted(set(cue.entity_ids)))
+        behavioral_query_scope = build_behavioral_query_scope(
+            cue,
+            exclude_tokens=config.current_state_cue_tokens,
+        )
         competition_evaluation: CompetitionEvaluation | None = None
         scored, rank_by_identity, competition_evaluation = apply_competition_pipeline(
             scored,
             rank_by_identity,
             config=effective_competition_config,
             matcher=effective_competition_matcher,
+            behavioral_policy=self._behavioral_competition_policy,
+            query_scope=behavioral_query_scope,
             cue_subject_id=cue.subject_id,
             cue_entity_ids=cue_entity_ids,
             episode_slot_index=slot_index,
@@ -1003,6 +1024,8 @@ class ACTRDeclarativeActivator:
                 attributed,
                 config=effective_competition_config,
                 matcher=effective_competition_matcher,
+                behavioral_policy=self._behavioral_competition_policy,
+                query_scope=behavioral_query_scope,
                 episode_slot_index=slot_index,
                 cue_subject_id=cue.subject_id,
                 cue_entity_ids=cue_entity_ids,
