@@ -1,13 +1,13 @@
-"""Observational cue-competition diagnostics for recall inspection."""
+"""Cue-competition diagnostics and transient interference for declarative recall."""
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
-from cogkura.algorithms.context_observability import discrimination_set
 from cogkura.algorithms.retrieval_features import canonical_content_features
 from cogkura.models import (
     CompetitionConfig,
@@ -15,13 +15,17 @@ from cogkura.models import (
     CompetitionDirection,
     CompetitionEvidence,
     CompetitionRunDiagnostics,
+    InterferenceContribution,
     MemoryIdentity,
     MemoryKind,
     RecallInspectionCandidate,
     RecallInspectionDisposition,
+    RecallResult,
     RetrievalDiagnostics,
+    SemanticDerivationRelation,
     StoredEpisode,
     StoredSemanticMemory,
+    TransientInterferenceDiagnostics,
 )
 
 _DISCRIMINATION_DISPOSITIONS = frozenset(
@@ -51,16 +55,26 @@ class CompetitionProfile:
     lineage_group: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class CompetitionEvaluation:
+    """Shared competition evaluation over recall results."""
+
+    by_identity: Mapping[MemoryIdentity, CompetitionDiagnostics]
+    run: CompetitionRunDiagnostics
+
+
 def effective_memory_time(
     memory: StoredEpisode | StoredSemanticMemory,
     *,
     memory_kind: MemoryKind,
+    episode_by_id: Mapping[str, StoredEpisode] | None = None,
 ) -> datetime:
     """Return the deterministic temporal point used for competition direction.
 
     Precedence:
-    - Episode: ``started_at`` else ``created_at``
-    - Semantic: ``valid_from`` else ``last_supported_at`` else ``created_at``
+    - Episode: ``started_at``
+    - Semantic: ``valid_from`` else latest visible SUPPORT episode ``started_at``
+      else ``last_supported_at`` else ``created_at``
     """
     if memory_kind is MemoryKind.EPISODE:
         if not isinstance(memory, StoredEpisode):
@@ -70,6 +84,15 @@ def effective_memory_time(
         raise TypeError("Semantic effective time requires StoredSemanticMemory.")
     if memory.valid_from is not None:
         return memory.valid_from
+    if episode_by_id:
+        support_times = [
+            episode_by_id[derivation.episode_id].started_at
+            for derivation in memory.derivations
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS
+            and derivation.episode_id in episode_by_id
+        ]
+        if support_times:
+            return max(support_times)
     return memory.last_supported_at
 
 
@@ -108,24 +131,43 @@ def _context_correspondence(
     return 1.0
 
 
-def _fact_subject(profile: CompetitionProfile) -> str | None:
-    """Return the structured fact subject used for competition matching."""
-    return profile.subject_entity_id or profile.subject_id
-
-
 def subjects_compatible(
     left: CompetitionProfile,
     right: CompetitionProfile,
     *,
     cue_subject_id: str | None,
+    cue_entity_ids: tuple[str, ...],
 ) -> bool:
     """Return True when memories share a compatible subject dimension."""
-    left_subject = _fact_subject(left)
-    right_subject = _fact_subject(right)
-    if left_subject is not None and right_subject is not None and left_subject == right_subject:
+    if (
+        left.subject_entity_id is not None
+        and right.subject_entity_id is not None
+        and left.subject_entity_id == right.subject_entity_id
+    ):
         return True
+
+    shared_query_anchor = tuple(
+        sorted(set(left.entity_ids).intersection(right.entity_ids).intersection(cue_entity_ids))
+    )
+    if shared_query_anchor:
+        return True
+
     if cue_subject_id:
-        return left_subject == cue_subject_id and right_subject == cue_subject_id
+        left_fact = left.subject_entity_id
+        right_fact = right.subject_entity_id
+        if left_fact is None or right_fact is None:
+            return False
+        return left_fact == cue_subject_id and right_fact == cue_subject_id
+
+    if left.subject_entity_id is not None or right.subject_entity_id is not None:
+        return False
+
+    if (
+        left.subject_id is not None
+        and right.subject_id is not None
+        and left.subject_id == right.subject_id
+    ):
+        return True
     return False
 
 
@@ -149,11 +191,78 @@ def _lineage_group(
     return None
 
 
+def _profile_from_result(
+    result: RecallResult,
+    *,
+    retrieval_context_provided: bool,
+    episode_slot_index: Mapping[str, str],
+    episode_by_id: Mapping[str, StoredEpisode] | None,
+) -> CompetitionProfile | None:
+    diagnostics = result.diagnostics
+    if diagnostics is None:
+        return None
+    memory = result.memory
+    subject_entity_id: str | None = None
+    predicate: str | None = None
+    semantic_slot_key = diagnostics.semantic_slot_key
+    entity_ids: tuple[str, ...] = ()
+    if isinstance(memory, StoredSemanticMemory):
+        subject_entity_id = memory.subject_entity_id
+        predicate = memory.predicate
+        semantic_slot_key = semantic_slot_key or memory.slot_key
+        entity_ids = tuple(
+            sorted({entity.entity_id for entity in memory.entities if entity.entity_id})
+        )
+    elif isinstance(memory, StoredEpisode):
+        entity_ids = tuple(
+            sorted({entity.entity_id for entity in memory.entities if entity.entity_id})
+        )
+    retrieval_features = tuple(
+        sorted(
+            set(diagnostics.matched_direct_features)
+            | set(diagnostics.matched_evidence_features)
+            | set(canonical_content_features(memory.statement))
+        )
+    )
+    cue_fit = _base_cue_fit(diagnostics)
+    context_factor = _context_correspondence(
+        diagnostics,
+        retrieval_context_provided=retrieval_context_provided,
+    )
+    return CompetitionProfile(
+        identity=MemoryIdentity(
+            memory_kind=result.memory_kind,
+            memory_key=memory.memory_key,
+        ),
+        memory_kind=result.memory_kind,
+        effective_time=effective_memory_time(
+            memory,
+            memory_kind=result.memory_kind,
+            episode_by_id=episode_by_id,
+        ),
+        subject_id=memory.subject_id,
+        subject_entity_id=subject_entity_id,
+        semantic_slot_key=semantic_slot_key,
+        predicate=predicate,
+        entity_ids=entity_ids,
+        retrieval_features=retrieval_features,
+        cue_fit=cue_fit,
+        effective_cue_fit=cue_fit * context_factor,
+        lineage_group=_lineage_group(
+            memory,
+            memory_kind=result.memory_kind,
+            diagnostics=diagnostics,
+            episode_slot_index=episode_slot_index,
+        ),
+    )
+
+
 def _profile_from_candidate(
     candidate: RecallInspectionCandidate,
     *,
     retrieval_context_provided: bool,
     episode_slot_index: Mapping[str, str],
+    episode_by_id: Mapping[str, StoredEpisode] | None,
 ) -> CompetitionProfile | None:
     diagnostics = candidate.diagnostics
     if diagnostics is None:
@@ -192,7 +301,11 @@ def _profile_from_candidate(
             memory_key=memory.memory_key,
         ),
         memory_kind=candidate.memory_kind,
-        effective_time=effective_memory_time(memory, memory_kind=candidate.memory_kind),
+        effective_time=effective_memory_time(
+            memory,
+            memory_kind=candidate.memory_kind,
+            episode_by_id=episode_by_id,
+        ),
         subject_id=memory.subject_id,
         subject_entity_id=subject_entity_id,
         semantic_slot_key=semantic_slot_key,
@@ -226,6 +339,7 @@ class CompetitionMatcher(Protocol):
         *,
         config: CompetitionConfig,
         cue_subject_id: str | None,
+        cue_entity_ids: tuple[str, ...],
     ) -> CompetitionEvidence | None:
         """Return competition evidence when profiles plausibly compete."""
         ...
@@ -242,6 +356,7 @@ class DeterministicCompetitionMatcher:
         *,
         config: CompetitionConfig,
         cue_subject_id: str | None,
+        cue_entity_ids: tuple[str, ...],
     ) -> CompetitionEvidence | None:
         if candidate.identity == other.identity:
             return None
@@ -257,7 +372,12 @@ class DeterministicCompetitionMatcher:
             and other.predicate is not None
             and candidate.predicate == other.predicate
         )
-        same_subject = subjects_compatible(candidate, other, cue_subject_id=cue_subject_id)
+        same_subject = subjects_compatible(
+            candidate,
+            other,
+            cue_subject_id=cue_subject_id,
+            cue_entity_ids=cue_entity_ids,
+        )
         shared_entity_ids = tuple(sorted(set(candidate.entity_ids).intersection(other.entity_ids)))
         shared_features = tuple(
             sorted(set(candidate.retrieval_features).intersection(other.retrieval_features))
@@ -396,6 +516,8 @@ def _bounded_competitors(
 
 def _summarize_competition(
     competitors: Sequence[CompetitionEvidence],
+    *,
+    interference: TransientInterferenceDiagnostics | None = None,
 ) -> CompetitionDiagnostics:
     proactive = sum(1 for item in competitors if item.direction is CompetitionDirection.PROACTIVE)
     retroactive = sum(
@@ -412,40 +534,111 @@ def _summarize_competition(
         co_temporal_count=co_temporal,
         strongest_competition=strongest,
         competitors=tuple(competitors),
+        interference=interference,
     )
 
 
-def apply_inspection_competition(
-    candidates: Sequence[RecallInspectionCandidate],
+def _presentation_score(activation: float, threshold: float) -> float:
+    return 1.0 / (1.0 + math.exp(-(activation - threshold)))
+
+
+def _noisy_or_pressure(pressures: Sequence[float]) -> float:
+    product = 1.0
+    for pressure in pressures:
+        product *= 1.0 - pressure
+    return 1.0 - product
+
+
+def _compute_interference(
+    profile: CompetitionProfile,
+    competitors: Sequence[CompetitionEvidence],
+    *,
+    config: CompetitionConfig,
+    accessibility_by_identity: Mapping[MemoryIdentity, float],
+    retrieval_threshold: float,
+) -> TransientInterferenceDiagnostics:
+    contributions: list[InterferenceContribution] = []
+    proactive_pressures: list[float] = []
+    retroactive_pressures: list[float] = []
+
+    for evidence in competitors:
+        if evidence.direction is CompetitionDirection.CO_TEMPORAL:
+            continue
+        competitor_accessibility = accessibility_by_identity.get(
+            evidence.competitor_identity,
+            0.0,
+        )
+        score = _presentation_score(competitor_accessibility, retrieval_threshold)
+        pressure = evidence.strength * score
+        contributions.append(
+            InterferenceContribution(
+                competitor_identity=evidence.competitor_identity,
+                direction=evidence.direction,
+                strength=evidence.strength,
+                competitor_accessibility=score,
+                pressure=pressure,
+            )
+        )
+        if evidence.direction is CompetitionDirection.PROACTIVE:
+            proactive_pressures.append(pressure)
+        elif evidence.direction is CompetitionDirection.RETROACTIVE:
+            retroactive_pressures.append(pressure)
+
+    proactive_pressure = _noisy_or_pressure(proactive_pressures)
+    retroactive_pressure = _noisy_or_pressure(retroactive_pressures)
+    proactive_penalty = -config.proactive_weight * proactive_pressure
+    retroactive_penalty = -config.retroactive_weight * retroactive_pressure
+    total_penalty = proactive_penalty + retroactive_penalty
+    return TransientInterferenceDiagnostics(
+        proactive_pressure=proactive_pressure,
+        retroactive_pressure=retroactive_pressure,
+        proactive_penalty=proactive_penalty,
+        retroactive_penalty=retroactive_penalty,
+        total_penalty=total_penalty,
+        contributions=tuple(contributions),
+    )
+
+
+def evaluate_competition(
+    results: Sequence[RecallResult],
     *,
     config: CompetitionConfig,
     matcher: CompetitionMatcher,
-    episode_slot_index: Mapping[str, str],
     cue_subject_id: str | None,
+    cue_entity_ids: tuple[str, ...],
+    episode_slot_index: Mapping[str, str],
+    episode_by_id: Mapping[str, StoredEpisode] | None,
     retrieval_context_provided: bool,
-) -> tuple[tuple[RecallInspectionCandidate, ...], CompetitionRunDiagnostics]:
-    """Attach competition diagnostics to inspect candidates without changing scores."""
+    retrieval_threshold: float,
+) -> CompetitionEvaluation:
+    """Evaluate pairwise competition over recall results."""
     if not config.enabled:
-        return tuple(candidates), CompetitionRunDiagnostics(
-            candidate_count=0,
-            potential_competitor_pairs=0,
-            evaluated_competitor_pairs=0,
-            accepted_competition_pairs=0,
-            maximum_competitors_for_candidate=0,
+        return CompetitionEvaluation(
+            by_identity={},
+            run=CompetitionRunDiagnostics(
+                candidate_count=0,
+                potential_competitor_pairs=0,
+                evaluated_competitor_pairs=0,
+                accepted_competition_pairs=0,
+                maximum_competitors_for_candidate=0,
+            ),
         )
-    eligible = discrimination_set(candidates)
+
     profiles: list[CompetitionProfile] = []
     profile_by_identity: dict[MemoryIdentity, CompetitionProfile] = {}
-    for candidate in eligible:
-        profile = _profile_from_candidate(
-            candidate,
+    accessibility_by_identity: dict[MemoryIdentity, float] = {}
+    for result in results:
+        profile = _profile_from_result(
+            result,
             retrieval_context_provided=retrieval_context_provided,
             episode_slot_index=episode_slot_index,
+            episode_by_id=episode_by_id,
         )
         if profile is None:
             continue
         profiles.append(profile)
         profile_by_identity[profile.identity] = profile
+        accessibility_by_identity[profile.identity] = result.activation
 
     index = _build_index(profiles)
     competition_by_identity: dict[MemoryIdentity, CompetitionDiagnostics] = {}
@@ -463,22 +656,292 @@ def apply_inspection_competition(
             if other is None:
                 continue
             evaluated_pairs += 1
-            result = matcher.compare(
+            comparison = matcher.compare(
                 profile,
                 other,
                 config=config,
                 cue_subject_id=cue_subject_id,
+                cue_entity_ids=cue_entity_ids,
             )
-            if result is None:
+            if comparison is None:
                 continue
             accepted_pairs += 1
-            evidence.append(result)
+            evidence.append(comparison)
         bounded = _bounded_competitors(
             evidence,
             max_competitors=config.max_competitors_per_candidate,
         )
         maximum_competitors = max(maximum_competitors, len(bounded))
-        competition_by_identity[profile.identity] = _summarize_competition(bounded)
+        interference = None
+        if config.apply_interference:
+            interference = _compute_interference(
+                profile,
+                bounded,
+                config=config,
+                accessibility_by_identity=accessibility_by_identity,
+                retrieval_threshold=retrieval_threshold,
+            )
+        competition_by_identity[profile.identity] = _summarize_competition(
+            bounded,
+            interference=interference,
+        )
+
+    return CompetitionEvaluation(
+        by_identity=competition_by_identity,
+        run=CompetitionRunDiagnostics(
+            candidate_count=len(profiles),
+            potential_competitor_pairs=potential_pairs,
+            evaluated_competitor_pairs=evaluated_pairs,
+            accepted_competition_pairs=accepted_pairs,
+            maximum_competitors_for_candidate=maximum_competitors,
+        ),
+    )
+
+
+def _result_identity(result: RecallResult) -> MemoryIdentity:
+    return MemoryIdentity(memory_kind=result.memory_kind, memory_key=result.memory.memory_key)
+
+
+def _freeze_pre_interference(
+    result: RecallResult,
+) -> RecallResult:
+    diagnostics = result.diagnostics
+    if diagnostics is None:
+        return result
+    frozen = replace(
+        diagnostics,
+        activation_before_interference=result.activation,
+        rank_activation_before_interference=diagnostics.rank_activation,
+    )
+    return replace(result, diagnostics=frozen)
+
+
+def _apply_interference_to_result(
+    result: RecallResult,
+    *,
+    penalty: float,
+    retrieval_threshold: float,
+    latency_factor: float,
+    latency_exponent: float,
+) -> RecallResult:
+    activation_before = result.activation
+    diagnostics = result.diagnostics
+    rank_before = diagnostics.rank_activation if diagnostics is not None else activation_before
+    activation_after = activation_before + penalty
+    rank_after = rank_before + penalty
+    score = _presentation_score(activation_after, retrieval_threshold)
+    latency_seconds = latency_factor * math.exp(-latency_exponent * activation_after)
+    components = replace(
+        result.components,
+        interference=penalty,
+        total=activation_after,
+    )
+    updated_diagnostics = diagnostics
+    if diagnostics is not None:
+        crossed = (
+            activation_before >= retrieval_threshold and activation_after < retrieval_threshold
+        )
+        updated_diagnostics = replace(
+            diagnostics,
+            rank_activation=rank_after,
+            crossed_activation_threshold_due_to_interference=crossed,
+        )
+    return replace(
+        result,
+        activation=activation_after,
+        score=score,
+        latency_seconds=latency_seconds,
+        components=components,
+        diagnostics=updated_diagnostics,
+    )
+
+
+def apply_competition_pipeline(
+    scored: Sequence[RecallResult],
+    rank_by_identity: Mapping[MemoryIdentity, float],
+    *,
+    config: CompetitionConfig,
+    matcher: CompetitionMatcher,
+    cue_subject_id: str | None,
+    cue_entity_ids: tuple[str, ...],
+    episode_slot_index: Mapping[str, str],
+    episode_by_id: Mapping[str, StoredEpisode] | None,
+    retrieval_context_provided: bool,
+    retrieval_threshold: float,
+    latency_factor: float,
+    latency_exponent: float,
+) -> tuple[list[RecallResult], dict[MemoryIdentity, float], CompetitionEvaluation | None]:
+    """Freeze pre-interference state, evaluate competition, and optionally apply penalties."""
+    if not config.enabled:
+        return list(scored), dict(rank_by_identity), None
+
+    frozen_scored = [_freeze_pre_interference(result) for result in scored]
+    evaluation = evaluate_competition(
+        frozen_scored,
+        config=config,
+        matcher=matcher,
+        cue_subject_id=cue_subject_id,
+        cue_entity_ids=cue_entity_ids,
+        episode_slot_index=episode_slot_index,
+        episode_by_id=episode_by_id,
+        retrieval_context_provided=retrieval_context_provided,
+        retrieval_threshold=retrieval_threshold,
+    )
+
+    if not config.apply_interference:
+        return frozen_scored, dict(rank_by_identity), evaluation
+
+    updated_rank = dict(rank_by_identity)
+    updated_scored: list[RecallResult] = []
+    for result in frozen_scored:
+        identity = _result_identity(result)
+        competition = evaluation.by_identity.get(identity)
+        penalty = 0.0
+        if competition is not None and competition.interference is not None:
+            penalty = competition.interference.total_penalty
+        if penalty != 0.0:
+            updated = _apply_interference_to_result(
+                result,
+                penalty=penalty,
+                retrieval_threshold=retrieval_threshold,
+                latency_factor=latency_factor,
+                latency_exponent=latency_exponent,
+            )
+            updated_rank[identity] = updated_rank[identity] + penalty
+            updated_scored.append(updated)
+        else:
+            updated_scored.append(result)
+    return updated_scored, updated_rank, evaluation
+
+
+@dataclass(frozen=True, slots=True)
+class _InterferenceRankInfo:
+    rank_before_interference: int
+    rank_after_interference: int
+    interference_rank_delta: int
+
+
+def assign_interference_ranks(
+    candidates: Sequence[RecallInspectionCandidate],
+) -> dict[str, _InterferenceRankInfo]:
+    """Assign pre/post interference ranks for inspect candidates."""
+    eligible = [
+        candidate
+        for candidate in candidates
+        if candidate.disposition in _DISCRIMINATION_DISPOSITIONS
+    ]
+
+    def _rank_before_interference(candidate: RecallInspectionCandidate) -> float:
+        diagnostics = candidate.diagnostics
+        if diagnostics is not None and diagnostics.rank_activation_before_interference is not None:
+            return diagnostics.rank_activation_before_interference
+        return candidate.activation
+
+    before_sorted = sorted(
+        eligible,
+        key=lambda item: (
+            -_rank_before_interference(item),
+            item.memory_kind.value,
+            item.memory.memory_key,
+        ),
+    )
+    after_sorted = sorted(
+        eligible,
+        key=lambda item: (
+            -(item.diagnostics.rank_activation if item.diagnostics else item.activation),
+            item.memory_kind.value,
+            item.memory.memory_key,
+        ),
+    )
+    before_rank = {
+        candidate.memory.memory_key: index + 1 for index, candidate in enumerate(before_sorted)
+    }
+    after_rank = {
+        candidate.memory.memory_key: index + 1 for index, candidate in enumerate(after_sorted)
+    }
+    ranks: dict[str, _InterferenceRankInfo] = {}
+    for candidate in eligible:
+        key = candidate.memory.memory_key
+        before = before_rank[key]
+        after = after_rank[key]
+        ranks[key] = _InterferenceRankInfo(
+            rank_before_interference=before,
+            rank_after_interference=after,
+            interference_rank_delta=after - before,
+        )
+    return ranks
+
+
+def apply_inspection_interference_attribution(
+    candidates: Sequence[RecallInspectionCandidate],
+) -> tuple[RecallInspectionCandidate, ...]:
+    """Attach interference rank deltas to inspect candidates."""
+    ranks = assign_interference_ranks(candidates)
+    updated: list[RecallInspectionCandidate] = []
+    for candidate in candidates:
+        rank_info = ranks.get(candidate.memory.memory_key)
+        if rank_info is None:
+            updated.append(candidate)
+            continue
+        updated.append(
+            replace(
+                candidate,
+                rank_before_interference=rank_info.rank_before_interference,
+                rank_after_interference=rank_info.rank_after_interference,
+                interference_rank_delta=rank_info.interference_rank_delta,
+            )
+        )
+    return tuple(updated)
+
+
+def apply_inspection_competition(
+    candidates: Sequence[RecallInspectionCandidate],
+    *,
+    config: CompetitionConfig,
+    matcher: CompetitionMatcher,
+    episode_slot_index: Mapping[str, str],
+    cue_subject_id: str | None,
+    cue_entity_ids: tuple[str, ...],
+    retrieval_context_provided: bool,
+    episode_by_id: Mapping[str, StoredEpisode] | None = None,
+    evaluation: CompetitionEvaluation | None = None,
+) -> tuple[tuple[RecallInspectionCandidate, ...], CompetitionRunDiagnostics]:
+    """Attach competition diagnostics to inspect candidates without changing scores."""
+    if not config.enabled:
+        return tuple(candidates), CompetitionRunDiagnostics(
+            candidate_count=0,
+            potential_competitor_pairs=0,
+            evaluated_competitor_pairs=0,
+            accepted_competition_pairs=0,
+            maximum_competitors_for_candidate=0,
+        )
+
+    if evaluation is None:
+        recall_results = [
+            RecallResult(
+                memory_kind=candidate.memory_kind,
+                memory=candidate.memory,
+                activation=candidate.activation,
+                score=candidate.score,
+                latency_seconds=0.0,
+                components=candidate.components,
+                reason=candidate.reason or "",
+                diagnostics=candidate.diagnostics,
+            )
+            for candidate in candidates
+            if candidate.disposition in _DISCRIMINATION_DISPOSITIONS
+        ]
+        evaluation = evaluate_competition(
+            recall_results,
+            config=config,
+            matcher=matcher,
+            cue_subject_id=cue_subject_id,
+            cue_entity_ids=cue_entity_ids,
+            episode_slot_index=episode_slot_index,
+            episode_by_id=episode_by_id,
+            retrieval_context_provided=retrieval_context_provided,
+            retrieval_threshold=candidates[0].retrieval_threshold if candidates else -3.0,
+        )
 
     updated: list[RecallInspectionCandidate] = []
     for candidate in candidates:
@@ -489,14 +952,7 @@ def apply_inspection_competition(
             memory_kind=candidate.memory_kind,
             memory_key=candidate.memory.memory_key,
         )
-        diagnostics = competition_by_identity.get(identity)
+        diagnostics = evaluation.by_identity.get(identity)
         updated.append(replace(candidate, competition=diagnostics))
 
-    run_diagnostics = CompetitionRunDiagnostics(
-        candidate_count=len(profiles),
-        potential_competitor_pairs=potential_pairs,
-        evaluated_competitor_pairs=evaluated_pairs,
-        accepted_competition_pairs=accepted_pairs,
-        maximum_competitors_for_candidate=maximum_competitors,
-    )
-    return tuple(updated), run_diagnostics
+    return tuple(updated), evaluation.run

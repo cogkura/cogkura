@@ -281,6 +281,25 @@ Competition does not subtract activation, alter admission, or resurrect supersed
 
 See [`design-competition-representation-0.17.0.md`](design-competition-representation-0.17.0.md).
 
+## 0.17.1 competition hardening and transient interference
+
+`0.17.1` reuses the same matcher for diagnostics and behaviour:
+
+- Hardened subject compatibility (query entity anchors, fact subjects, no broad `subject_id` false positives).
+- Semantic effective time from SUPPORT episode chronology when `valid_from` is absent.
+- Shared `evaluate_competition()` on `RecallResult` in both `rank()` and `inspect()` after admission, before threshold/sort.
+
+When `CompetitionConfig.apply_interference=True`:
+
+- Noisy-OR proactive/retroactive pressure from bounded competitors applies transient negative activation.
+- `A_final = A_pre + I`; base-level, spreading, partial match, current-state, and context reinstatement are unchanged.
+- `RetrievalDiagnostics.activation_before_interference` and `crossed_activation_threshold_due_to_interference` on returned recall rows.
+- `RecallInspectionCandidate.rank_before_interference` / `rank_after_interference` / `interference_rank_delta`.
+
+Default `apply_interference=False` preserves `0.17.0` recall behaviour.
+
+See [`design-competition-hardening-interference-0.17.1.md`](design-competition-hardening-interference-0.17.1.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

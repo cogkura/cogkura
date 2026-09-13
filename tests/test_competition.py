@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from cogkura.algorithms.competition import (
     CompetitionProfile,
     DeterministicCompetitionMatcher,
+    _compute_interference,
     apply_inspection_competition,
     competition_direction,
     effective_memory_time,
@@ -16,12 +18,15 @@ from cogkura.models import (
     ActivationComponents,
     CompetitionConfig,
     CompetitionDirection,
+    CompetitionEvidence,
     MemoryIdentity,
     MemoryKind,
     RecallInspectionCandidate,
     RecallInspectionDisposition,
     RetrievalDiagnostics,
     SemanticCardinality,
+    SemanticDerivationInput,
+    SemanticDerivationRelation,
     SemanticMemoryStatus,
     SemanticPolarity,
     StoredEpisode,
@@ -186,8 +191,8 @@ def test_same_slot_strength_is_symmetric() -> None:
         subject_entity_id="payments-api",
         effective_time=_T_LATER,
     )
-    ab = matcher.compare(left, right, config=config, cue_subject_id=None)
-    ba = matcher.compare(right, left, config=config, cue_subject_id=None)
+    ab = matcher.compare(left, right, config=config, cue_subject_id=None, cue_entity_ids=())
+    ba = matcher.compare(right, left, config=config, cue_subject_id=None, cue_entity_ids=())
     assert ab is not None
     assert ba is not None
     assert ab.strength == ba.strength
@@ -221,7 +226,9 @@ def test_entity_overlap_without_subject_is_rejected() -> None:
         entity_ids=("postgresql",),
         features=("postgresql", "backup", "hours"),
     )
-    assert matcher.compare(left, right, config=config, cue_subject_id=None) is None
+    assert (
+        matcher.compare(left, right, config=config, cue_subject_id=None, cue_entity_ids=()) is None
+    )
 
 
 def test_same_lineage_excluded() -> None:
@@ -241,7 +248,9 @@ def test_same_lineage_excluded() -> None:
         memory_kind=MemoryKind.EPISODE,
         lineage_group="semantic:sem-1",
     )
-    assert matcher.compare(left, right, config=config, cue_subject_id=None) is None
+    assert (
+        matcher.compare(left, right, config=config, cue_subject_id=None, cue_entity_ids=()) is None
+    )
 
 
 def test_subjects_compatible_requires_shared_subject() -> None:
@@ -255,7 +264,7 @@ def test_subjects_compatible_requires_shared_subject() -> None:
         memory_kind=MemoryKind.SEMANTIC,
         subject_entity_id="identity-service",
     )
-    assert not subjects_compatible(left, right, cue_subject_id="payments-api")
+    assert not subjects_compatible(left, right, cue_subject_id="payments-api", cue_entity_ids=())
 
 
 def test_bounded_top_k_is_deterministic() -> None:
@@ -309,6 +318,7 @@ def test_bounded_top_k_is_deterministic() -> None:
         matcher=matcher,
         episode_slot_index={},
         cue_subject_id=None,
+        cue_entity_ids=(),
         retrieval_context_provided=False,
     )
     base = next(item for item in updated if item.memory.memory_key == "base")
@@ -338,7 +348,147 @@ def test_disabled_competition_returns_none_on_candidates() -> None:
         matcher=DeterministicCompetitionMatcher(),
         episode_slot_index={},
         cue_subject_id=None,
+        cue_entity_ids=(),
         retrieval_context_provided=False,
     )
     assert updated[0].competition is None
     assert run.candidate_count == 0
+
+
+def test_shared_query_anchor_enables_subject_compatibility() -> None:
+    left = _profile(
+        _semantic(subject_entity_id="payments-api"),
+        memory_kind=MemoryKind.SEMANTIC,
+        subject_entity_id="payments-api",
+        entity_ids=("payments-api", "shared-anchor"),
+    )
+    right = _profile(
+        _semantic(memory_key="sem-2", subject_entity_id="identity-service"),
+        memory_kind=MemoryKind.SEMANTIC,
+        subject_entity_id="identity-service",
+        entity_ids=("identity-service", "shared-anchor"),
+    )
+    assert subjects_compatible(
+        left,
+        right,
+        cue_subject_id=None,
+        cue_entity_ids=("shared-anchor",),
+    )
+
+
+def test_broad_subject_id_does_not_match_conflicting_entities() -> None:
+    left = _profile(
+        replace(_semantic(subject_entity_id="payments-api"), subject_id="operator"),
+        memory_kind=MemoryKind.SEMANTIC,
+        subject_entity_id="payments-api",
+    )
+    right = _profile(
+        replace(
+            _semantic(memory_key="sem-2", subject_entity_id="identity-service"),
+            subject_id="operator",
+        ),
+        memory_kind=MemoryKind.SEMANTIC,
+        subject_entity_id="identity-service",
+    )
+    assert not subjects_compatible(left, right, cue_subject_id=None, cue_entity_ids=())
+
+
+def test_effective_memory_time_uses_support_episode_chronology() -> None:
+    episode = _episode(
+        memory_key="ep-support",
+        started_at=_T_EARLIER,
+        created_at=_T_LATER,
+    )
+    semantic = _semantic(
+        valid_from=None,
+        last_supported_at=_T_LATER,
+        created_at=_T_LATER,
+    )
+    semantic = replace(
+        semantic,
+        derivations=(
+            SemanticDerivationInput(
+                episode_id="episode-1",
+                relation=SemanticDerivationRelation.SUPPORTS,
+                contribution_score=1.0,
+            ),
+        ),
+    )
+    assert (
+        effective_memory_time(
+            semantic,
+            memory_kind=MemoryKind.SEMANTIC,
+            episode_by_id={"episode-1": episode},
+        )
+        == _T_EARLIER
+    )
+
+
+def test_noisy_or_interference_formula() -> None:
+    profile = _profile(_semantic(), memory_kind=MemoryKind.SEMANTIC, slot_key="slot-1")
+    competitor = MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="other")
+    evidence = CompetitionEvidence(
+        competitor_identity=competitor,
+        direction=CompetitionDirection.PROACTIVE,
+        strength=0.5,
+        candidate_cue_fit=0.8,
+        competitor_cue_fit=0.8,
+        same_subject=True,
+        same_semantic_slot=True,
+        same_predicate=True,
+        shared_entity_ids=("payments-api",),
+        shared_features=("deploy",),
+        relationship_strength=0.95,
+        joint_cue_fit=0.8,
+    )
+    config = CompetitionConfig(
+        apply_interference=True,
+        proactive_weight=0.2,
+        retroactive_weight=0.2,
+    )
+    interference = _compute_interference(
+        profile,
+        (evidence,),
+        config=config,
+        accessibility_by_identity={competitor: -100.0},
+        retrieval_threshold=-3.0,
+    )
+    assert interference.proactive_pressure == 0.0
+    assert interference.total_penalty == 0.0
+
+    interference = _compute_interference(
+        profile,
+        (evidence,),
+        config=config,
+        accessibility_by_identity={competitor: 2.0},
+        retrieval_threshold=-3.0,
+    )
+    assert interference.proactive_pressure > 0.0
+    assert interference.total_penalty < 0.0
+
+
+def test_co_temporal_competition_has_zero_interference_pressure() -> None:
+    profile = _profile(_semantic(), memory_kind=MemoryKind.SEMANTIC)
+    competitor = MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="other")
+    evidence = CompetitionEvidence(
+        competitor_identity=competitor,
+        direction=CompetitionDirection.CO_TEMPORAL,
+        strength=0.9,
+        candidate_cue_fit=0.9,
+        competitor_cue_fit=0.9,
+        same_subject=True,
+        same_semantic_slot=True,
+        same_predicate=True,
+        shared_entity_ids=("payments-api",),
+        shared_features=("deploy",),
+        relationship_strength=0.95,
+        joint_cue_fit=0.9,
+    )
+    interference = _compute_interference(
+        profile,
+        (evidence,),
+        config=CompetitionConfig(apply_interference=True),
+        accessibility_by_identity={competitor: 5.0},
+        retrieval_threshold=-3.0,
+    )
+    assert interference.total_penalty == 0.0

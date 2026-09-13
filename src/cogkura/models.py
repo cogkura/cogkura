@@ -1385,6 +1385,53 @@ class CompetitionEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class InterferenceContribution:
+    """One competitor's transient interference pressure on a candidate."""
+
+    competitor_identity: MemoryIdentity
+    direction: CompetitionDirection
+    strength: float
+    competitor_accessibility: float
+    pressure: float
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("strength", self.strength),
+            ("competitor_accessibility", self.competitor_accessibility),
+            ("pressure", self.pressure),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
+class TransientInterferenceDiagnostics:
+    """Bounded transient interference applied to one recall candidate."""
+
+    proactive_pressure: float
+    retroactive_pressure: float
+    proactive_penalty: float
+    retroactive_penalty: float
+    total_penalty: float
+    contributions: tuple[InterferenceContribution, ...]
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("proactive_pressure", self.proactive_pressure),
+            ("retroactive_pressure", self.retroactive_pressure),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        for label, value in (
+            ("proactive_penalty", self.proactive_penalty),
+            ("retroactive_penalty", self.retroactive_penalty),
+            ("total_penalty", self.total_penalty),
+        ):
+            if not math.isfinite(value) or value > 0.0:
+                raise ValidationError(f"{label} must be finite and not positive.")
+
+
+@dataclass(frozen=True, slots=True)
 class CompetitionDiagnostics:
     """Per-candidate observational competition summary."""
 
@@ -1394,6 +1441,7 @@ class CompetitionDiagnostics:
     co_temporal_count: int
     strongest_competition: float
     competitors: tuple[CompetitionEvidence, ...]
+    interference: TransientInterferenceDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if self.competitor_count < 0:
@@ -1444,12 +1492,15 @@ class CompetitionConfig:
     """Configuration for observational cue-competition diagnostics."""
 
     enabled: bool = True
+    apply_interference: bool = False
     minimum_strength: float = 0.45
     max_competitors_per_candidate: int = 8
     same_slot_strength: float = 0.95
     same_predicate_strength: float = 0.80
     entity_overlap_weight: float = 0.20
     feature_overlap_weight: float = 0.30
+    proactive_weight: float = 0.20
+    retroactive_weight: float = 0.20
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.minimum_strength <= 1.0:
@@ -1461,6 +1512,8 @@ class CompetitionConfig:
             ("same_predicate_strength", self.same_predicate_strength),
             ("entity_overlap_weight", self.entity_overlap_weight),
             ("feature_overlap_weight", self.feature_overlap_weight),
+            ("proactive_weight", self.proactive_weight),
+            ("retroactive_weight", self.retroactive_weight),
         ):
             if not math.isfinite(value) or not 0.0 <= value <= 1.0:
                 raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
@@ -1638,6 +1691,7 @@ class ActivationComponents:
     total: float
     current_state: float = 0.0
     context_reinstatement: float = 0.0
+    interference: float = 0.0
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1648,9 +1702,12 @@ class ActivationComponents:
             ("total", self.total),
             ("current_state", self.current_state),
             ("context_reinstatement", self.context_reinstatement),
+            ("interference", self.interference),
         ):
             if not math.isfinite(value):
                 raise ValidationError(f"{label} must be finite.")
+        if self.interference > 0.0:
+            raise ValidationError("interference must not be positive.")
 
 
 class RetrievalEligibility(StrEnum):
@@ -1818,6 +1875,9 @@ class RetrievalDiagnostics:
     activation_before_context: float | None = None
     support_context: SemanticSupportContextEvidence | None = None
     crossed_activation_threshold_due_to_context: bool = False
+    activation_before_interference: float | None = None
+    rank_activation_before_interference: float | None = None
+    crossed_activation_threshold_due_to_interference: bool = False
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -2000,6 +2060,9 @@ class RecallInspectionCandidate:
     reason: str | None = None
     association_role: str | None = None
     competition: CompetitionDiagnostics | None = None
+    rank_before_interference: int | None = None
+    rank_after_interference: int | None = None
+    interference_rank_delta: int | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.activation):
@@ -2012,6 +2075,14 @@ class RecallInspectionCandidate:
             raise ValidationError("retrieval_threshold must be finite.")
         if self.rank is not None and self.rank <= 0:
             raise ValidationError("rank must be greater than zero when provided.")
+        if self.rank_before_interference is not None and self.rank_before_interference <= 0:
+            raise ValidationError(
+                "rank_before_interference must be greater than zero when provided."
+            )
+        if self.rank_after_interference is not None and self.rank_after_interference <= 0:
+            raise ValidationError(
+                "rank_after_interference must be greater than zero when provided."
+            )
         if self.association_role is not None and not self.association_role.strip():
             raise ValidationError("association_role must not be empty when provided.")
 

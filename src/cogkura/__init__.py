@@ -73,6 +73,7 @@ from cogkura.models import (
     EpisodeWriteStatus,
     ForgettingConfig,
     ForgettingResult,
+    InterferenceContribution,
     LearnedAssociation,
     LearningConfig,
     LearningFeedback,
@@ -127,6 +128,7 @@ from cogkura.models import (
     StoredSemanticMemory,
     StoredSemanticRevision,
     SupportProvenance,
+    TransientInterferenceDiagnostics,
     WorkingMemoryChunk,
     WorkingMemoryChunkType,
     WorkingMemoryComponents,
@@ -196,6 +198,7 @@ __all__ = [
     "ForgettingResult",
     "IngestionResult",
     "IngestStatus",
+    "InterferenceContribution",
     "LearnedAssociation",
     "LearningConfig",
     "LearningFeedback",
@@ -267,6 +270,7 @@ __all__ = [
     "SlotFitSource",
     "StoredObservation",
     "TokenEstimator",
+    "TransientInterferenceDiagnostics",
     "WorkingMemoryChunk",
     "WorkingMemoryChunkType",
     "WorkingMemoryComponents",
@@ -276,4 +280,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.17.0"
+__version__ = "0.17.1"

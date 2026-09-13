@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-09-13
+
+### Added
+
+- Hardened cue-competition matching: structured query entity anchors, fact-subject compatibility, SUPPORT-episode chronology for semantic effective time.
+- Shared `evaluate_competition()` over `RecallResult` used by `rank()` and `inspect()`.
+- Opt-in transient interference (`CompetitionConfig.apply_interference`, `proactive_weight`, `retroactive_weight`) with noisy-OR pressure, `TransientInterferenceDiagnostics`, and `ActivationComponents.interference`.
+- `RetrievalDiagnostics` pre/post interference fields and inspect-only interference rank deltas.
+- Unit and behaviour tests (`tests/test_017_1_interference.py`) and design note [`docs/design-competition-hardening-interference-0.17.1.md`](docs/design-competition-hardening-interference-0.17.1.md).
+
+### Changed
+
+- `rank()` and `inspect()` share competition pipeline after admission, before threshold/sort; inspect returned rank assignment follows final recall order.
+
+### Preserved
+
+- Default `apply_interference=False` keeps recall/working-memory behaviour unchanged from `0.17.0`.
+- No storage migration; interference is retrieval-local and non-persistent.
+- `0.15.6` relevance-tier ranking competition unchanged.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.1`).
+
 ## [0.17.0] - 2026-09-11
 
 ### Added

@@ -183,6 +183,13 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.1 — Competition hardening and transient interference (done)
+
+- Hardened matcher: query entity anchors, fact-subject compatibility, SUPPORT-episode chronology.
+- Shared `evaluate_competition()` on `RecallResult` in `rank()` and `inspect()` after admission, before threshold/sort.
+- Opt-in transient interference (`apply_interference`, noisy-OR proactive/retroactive penalties); default diagnostic-only.
+- [`docs/design-competition-hardening-interference-0.17.1.md`](design-competition-hardening-interference-0.17.1.md).
+
 ## 0.17.0 — Competition representation and diagnostics (done)
 
 - Observational cue-competition diagnostics on `inspect_recall` (`CompetitionDiagnostics`, `CompetitionEvidence`, `CompetitionDirection`).

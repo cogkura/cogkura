@@ -713,6 +713,8 @@ class Memory:
             entity_relationships=tuple(entity_relationships),
             subject_id=subject_id,
             episode_by_id={episode.id: episode for episode in episodes},
+            competition_config=self._competition_config,
+            competition_matcher=self._competition_matcher,
         )
         return ranked
 

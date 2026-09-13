@@ -18,9 +18,12 @@ from cogkura.algorithms.cognitive_traces import (
     derive_semantic_cognitive_traces,
 )
 from cogkura.algorithms.competition import (
+    CompetitionEvaluation,
     CompetitionMatcher,
     DeterministicCompetitionMatcher,
+    apply_competition_pipeline,
     apply_inspection_competition,
+    apply_inspection_interference_attribution,
 )
 from cogkura.algorithms.context_matching import ContextMatcher, DeterministicContextMatcher
 from cogkura.algorithms.context_observability import (
@@ -215,6 +218,8 @@ class DeclarativeActivator(Protocol):
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         subject_id: str | None = None,
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -447,7 +452,11 @@ class ACTRDeclarativeActivator:
         entity_relationships: Sequence[StoredEntityRelationship] = (),
         subject_id: str | None = None,
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
     ) -> list[RecallResult]:
+        effective_competition_config = competition_config or CompetitionConfig()
+        effective_competition_matcher = competition_matcher or self._competition_matcher
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
         tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
         effective_entity_ids = (
@@ -590,6 +599,25 @@ class ACTRDeclarativeActivator:
             )
             for result in scored
         ]
+
+        retrieval_context_provided = (
+            cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
+        )
+        cue_entity_ids = tuple(sorted(set(cue.entity_ids)))
+        scored, rank_by_identity, _ = apply_competition_pipeline(
+            scored,
+            rank_by_identity,
+            config=effective_competition_config,
+            matcher=effective_competition_matcher,
+            cue_subject_id=cue.subject_id,
+            cue_entity_ids=cue_entity_ids,
+            episode_slot_index=slot_index,
+            episode_by_id=episode_by_id,
+            retrieval_context_provided=retrieval_context_provided,
+            retrieval_threshold=config.retrieval_threshold,
+            latency_factor=config.latency_factor,
+            latency_exponent=config.latency_exponent,
+        )
 
         eligible = [
             result
@@ -794,6 +822,26 @@ class ACTRDeclarativeActivator:
             for result in scored
         ]
 
+        retrieval_context_provided = (
+            cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
+        )
+        cue_entity_ids = tuple(sorted(set(cue.entity_ids)))
+        competition_evaluation: CompetitionEvaluation | None = None
+        scored, rank_by_identity, competition_evaluation = apply_competition_pipeline(
+            scored,
+            rank_by_identity,
+            config=effective_competition_config,
+            matcher=effective_competition_matcher,
+            cue_subject_id=cue.subject_id,
+            cue_entity_ids=cue_entity_ids,
+            episode_slot_index=slot_index,
+            episode_by_id=episode_by_id,
+            retrieval_context_provided=retrieval_context_provided,
+            retrieval_threshold=config.retrieval_threshold,
+            latency_factor=config.latency_factor,
+            latency_exponent=config.latency_exponent,
+        )
+
         disposition_by_identity: dict[MemoryIdentity, RecallInspectionDisposition] = {}
         eligible_identities = {
             _result_identity(result)
@@ -873,8 +921,15 @@ class ACTRDeclarativeActivator:
         rejected_candidates: list[RecallInspectionCandidate] = []
         seed_episode_ids = {seed.episode.memory.id for seed in relevance_context.seed_episodes}
         bridge_episode_ids = set(relevance_context.bridge_episode_ids)
-        rank = 0
-        for result in scored:
+        rank_by_returned_identity: dict[MemoryIdentity, int] = {
+            _result_identity(result): index + 1 for index, result in enumerate(returned_results)
+        }
+
+        def _build_inspection_candidate(
+            result: RecallResult,
+            *,
+            rank: int | None = None,
+        ) -> RecallInspectionCandidate:
             identity = _result_identity(result)
             candidate = candidate_by_identity[identity]
             disposition = disposition_by_identity[identity]
@@ -888,7 +943,7 @@ class ACTRDeclarativeActivator:
                     association_role = "seed"
                 elif memory.id in bridge_episode_ids:
                     association_role = "bridge"
-            inspection = RecallInspectionCandidate(
+            return RecallInspectionCandidate(
                 memory_kind=result.memory_kind,
                 memory=result.memory,
                 disposition=disposition,
@@ -900,33 +955,24 @@ class ACTRDeclarativeActivator:
                 components=result.components,
                 cognitive_traces=candidate.cognitive_traces,
                 stored_traces=stored,
+                rank=rank,
                 diagnostics=result.diagnostics,
                 reason=result.reason,
                 association_role=association_role,
             )
-            if disposition is RecallInspectionDisposition.RETURNED:
-                rank += 1
-                returned_candidates.append(
-                    RecallInspectionCandidate(
-                        memory_kind=inspection.memory_kind,
-                        memory=inspection.memory,
-                        disposition=inspection.disposition,
-                        activation=inspection.activation,
-                        score=inspection.score,
-                        retrieval_threshold=inspection.retrieval_threshold,
-                        passed_threshold=inspection.passed_threshold,
-                        soft_admitted=inspection.soft_admitted,
-                        components=inspection.components,
-                        cognitive_traces=inspection.cognitive_traces,
-                        stored_traces=inspection.stored_traces,
-                        rank=rank,
-                        diagnostics=inspection.diagnostics,
-                        reason=inspection.reason,
-                        association_role=inspection.association_role,
-                    )
+
+        for result in returned_results:
+            returned_candidates.append(
+                _build_inspection_candidate(
+                    result,
+                    rank=rank_by_returned_identity[_result_identity(result)],
                 )
-            else:
-                rejected_candidates.append(inspection)
+            )
+        for result in scored:
+            identity = _result_identity(result)
+            if disposition_by_identity[identity] is RecallInspectionDisposition.RETURNED:
+                continue
+            rejected_candidates.append(_build_inspection_candidate(result))
 
         all_candidates = tuple([*returned_candidates, *rejected_candidates])
         attributed = apply_inspection_context_attribution(
@@ -953,17 +999,19 @@ class ACTRDeclarativeActivator:
         )
         competition_run_diagnostics = None
         if effective_competition_config.enabled:
-            retrieval_context_provided = (
-                cue.retrieval_context is not None and not cue.retrieval_context.is_empty()
-            )
             attributed, competition_run_diagnostics = apply_inspection_competition(
                 attributed,
                 config=effective_competition_config,
                 matcher=effective_competition_matcher,
                 episode_slot_index=slot_index,
                 cue_subject_id=cue.subject_id,
+                cue_entity_ids=cue_entity_ids,
                 retrieval_context_provided=retrieval_context_provided,
+                episode_by_id=episode_by_id,
+                evaluation=competition_evaluation,
             )
+            if effective_competition_config.apply_interference:
+                attributed = apply_inspection_interference_attribution(attributed)
             returned_candidates = sorted(
                 [
                     candidate
