@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.17.2` behavioural competition eligibility (precision gate on interference sources; diagnostic matching unchanged; opt-in interference uses eligible pairs only via `CompetitionConfig.apply_interference`)
+- Current release focus: `0.17.3` retrieval-induced inhibitory traces (recorded on explicit use from scope-eligible competitors; not applied to recall)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -56,7 +56,8 @@ examples/
 | `inspect_recall(query, tenant_id=..., valid_at=..., as_of=...)` | Bounded recall inspection with terminal dispositions and trace detail |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
 | `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment; `MISSING_KNOWLEDGE` for unresolved slot-like queries or weak non-slot retrieval (`0.14.2+`) |
-| `record_access(results, tenant_id=..., min_score=...)` | Explicitly reinforce used memories (reactivates forgotten dynamics); optional score floor and burst limits |
+| `record_access(results, tenant_id=..., min_score=...)` | Explicitly reinforce used memories (reactivates forgotten dynamics); optional score floor and burst limits. When inhibition recording is enabled, may also persist inhibitory traces |
+| `list_inhibition_traces(tenant_id=..., memory_kind=..., memory_key=...)` | Read inhibitory traces for one memory. Traces are not applied during recall |
 | `learn(feedback)` | Apply HELPFUL/UNHELPFUL/INCORRECT outcome feedback (idempotent by `feedback_id`) |
 | `list_learning_state(tenant_id=..., identities=..., goal=...)` | Inspect persisted learning counts |
 | `apply_forgetting(tenant_id=..., as_of=...)` | Evaluate forgetting lifecycle and compact old activation references |

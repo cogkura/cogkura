@@ -214,6 +214,20 @@ def test_co_temporal_rejected() -> None:
         scope,
     )
     assert reason is BehavioralEligibilityReason.NON_BEHAVIORAL_DIRECTION
+    result = _POLICY.evaluate(
+        candidate=candidate,
+        competitor=competitor,
+        evidence=_evidence(
+            direction=CompetitionDirection.CO_TEMPORAL,
+            same_semantic_slot=True,
+            same_predicate=True,
+        ),
+        query_scope=scope,
+        config=_CONFIG,
+    )
+    assert result.scope_eligible
+    assert not result.eligible
+    assert result.structural_anchor is BehavioralStructuralAnchor.SEMANTIC_SLOT
 
 
 def test_weak_strength_rejected() -> None:

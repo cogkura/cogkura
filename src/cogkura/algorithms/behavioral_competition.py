@@ -185,12 +185,16 @@ class DeterministicBehavioralCompetitionPolicy:
 
         def _result(
             *,
-            eligible: bool,
+            scope_eligible: bool,
             reason: BehavioralEligibilityReason,
             structural_anchor: BehavioralStructuralAnchor | None,
             entity_ids: tuple[str, ...] = shared_query_entity_ids,
             features: tuple[str, ...] = shared_query_features,
         ) -> BehavioralCompetitionEligibility:
+            temporal = evidence.direction is not CompetitionDirection.CO_TEMPORAL
+            eligible = scope_eligible and temporal
+            if scope_eligible and not temporal:
+                reason = BehavioralEligibilityReason.NON_BEHAVIORAL_DIRECTION
             return BehavioralCompetitionEligibility(
                 eligible=eligible,
                 reason=reason,
@@ -203,81 +207,75 @@ class DeterministicBehavioralCompetitionPolicy:
                 shared_query_entity_ids=entity_ids,
                 shared_query_features=features,
                 structural_anchor=structural_anchor,
+                scope_eligible=scope_eligible,
             )
 
         if _same_lineage(candidate, competitor):
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.SAME_LINEAGE,
-                structural_anchor=None,
-            )
-
-        if evidence.direction is CompetitionDirection.CO_TEMPORAL:
-            return _result(
-                eligible=False,
-                reason=BehavioralEligibilityReason.NON_BEHAVIORAL_DIRECTION,
                 structural_anchor=None,
             )
 
         if evidence.strength < config.minimum_behavioral_strength:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.COMPETITION_TOO_WEAK,
                 structural_anchor=None,
             )
 
         if evidence.candidate_cue_fit < config.minimum_behavioral_cue_fit:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.CANDIDATE_CUE_FIT_TOO_WEAK,
                 structural_anchor=None,
             )
 
         if evidence.competitor_cue_fit < config.minimum_behavioral_cue_fit:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.COMPETITOR_CUE_FIT_TOO_WEAK,
                 structural_anchor=None,
             )
 
         if evidence.same_semantic_slot:
             return _result(
-                eligible=True,
+                scope_eligible=True,
                 reason=BehavioralEligibilityReason.SAME_SEMANTIC_SLOT,
                 structural_anchor=BehavioralStructuralAnchor.SEMANTIC_SLOT,
             )
 
         if same_fact_subject and evidence.same_predicate:
             return _result(
-                eligible=True,
+                scope_eligible=True,
                 reason=BehavioralEligibilityReason.SAME_SUBJECT_PREDICATE,
                 structural_anchor=BehavioralStructuralAnchor.SUBJECT_PREDICATE,
             )
 
         if has_anchor and shared_query_features:
             return _result(
-                eligible=True,
+                scope_eligible=True,
                 reason=BehavioralEligibilityReason.QUERY_ANCHORED_COMPETITION,
                 structural_anchor=BehavioralStructuralAnchor.QUERY_SCOPE,
             )
 
         if query_scope.entity_ids and not has_anchor:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.NO_QUERY_SCOPE_ANCHOR,
                 structural_anchor=None,
             )
 
         if has_anchor and not shared_query_features:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.NO_SHARED_QUERY_FEATURE,
                 structural_anchor=None,
             )
 
         if memory_shared_entities:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.ENTITY_OVERLAP_ONLY,
                 structural_anchor=None,
             )
@@ -290,7 +288,7 @@ class DeterministicBehavioralCompetitionPolicy:
         )
         if shared_memory_features:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.FEATURE_OVERLAP_ONLY,
                 structural_anchor=None,
                 features=shared_query_features,
@@ -298,13 +296,13 @@ class DeterministicBehavioralCompetitionPolicy:
 
         if evidence.same_subject and not same_fact_subject:
             return _result(
-                eligible=False,
+                scope_eligible=False,
                 reason=BehavioralEligibilityReason.BROAD_SUBJECT_ONLY,
                 structural_anchor=None,
             )
 
         return _result(
-            eligible=False,
+            scope_eligible=False,
             reason=BehavioralEligibilityReason.NO_QUERY_SCOPE_ANCHOR,
             structural_anchor=None,
         )

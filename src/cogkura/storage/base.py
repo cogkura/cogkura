@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from cogkura.models import (
     ActivationReferenceTrace,
+    InhibitoryTrace,
     LearningPlan,
     LearningWriteResult,
     MemoryIdentity,
@@ -296,3 +297,22 @@ class EntityRelationshipStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove all relationships for a tenant."""
+
+
+class InhibitionStore(Protocol):
+    """Persists retrieval-induced inhibitory traces. Does not apply them."""
+
+    async def append_traces(self, traces: Sequence[InhibitoryTrace]) -> None:
+        """Append inhibitory traces. Request-id retries for the same pair and scope are no-ops."""
+
+    async def list_for_memory(
+        self,
+        *,
+        tenant_id: str,
+        identity: MemoryIdentity,
+        as_of: datetime | None = None,
+    ) -> Sequence[InhibitoryTrace]:
+        """List traces that inhibit one memory, oldest induction first."""
+
+    async def clear(self, *, tenant_id: str) -> None:
+        """Remove inhibitory traces for a tenant."""

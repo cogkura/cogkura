@@ -313,6 +313,17 @@ Default `apply_interference=False` preserves recall scores; inspect still report
 
 See [`design-competition-behavioral-eligibility-0.17.2.md`](design-competition-behavioral-eligibility-0.17.2.md).
 
+## 0.17.3 retrieval-induced inhibitory traces
+
+`0.17.3` records selective-retrieval evidence and does not apply it.
+
+- `scope_eligible` passes the 0.17.2 precision gates. `eligible` additionally requires a proactive or retroactive direction, so transient interference is unchanged.
+- When `InhibitionConfig.enabled` is true, each returned result carries a bounded snapshot of scope-eligible competitors, using pre-interference presentation accessibility.
+- `record_access()` and `record_context_use()` may persist an `InhibitoryTrace` for an unselected competitor. `recall()` and the other presentation APIs do not.
+- `Memory.list_inhibition_traces()` reads those traces. Recall does not.
+
+See [`design-retrieval-inhibition-0.17.3.md`](design-retrieval-inhibition-0.17.3.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

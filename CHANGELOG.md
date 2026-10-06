@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.3] - 2026-10-06
+
+### Added
+
+- `InhibitionConfig`, `InhibitoryTrace`, `InhibitionScopeSignature`, and bounded `RetrievalCompetitionSnapshot` rows on recall diagnostics when inhibition recording is enabled.
+- `InhibitionStore`, `InMemoryInhibitionStore`, PostgreSQL persistence, and migration `010_retrieval_inhibition.sql`.
+- Request-id idempotency for inhibitory traces and read-only `Memory.list_inhibition_traces`.
+- `BehavioralCompetitionEligibility.scope_eligible`, distinct from temporal transient-interference eligibility.
+
+### Changed
+
+- `record_access()` and `record_context_use()` may persist inhibitory traces when `InhibitionConfig.enabled` is true.
+
+### Preserved
+
+- Inhibition recording is disabled by default and does not change recall, forgetting, reconsolidation, or working-memory selection.
+- Transient interference remains independently configurable.
+- No historical backfill. Activation references and inhibition traces are separate store calls and converge on `request_id` retry.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.3`).
+- In Cogkura 0.17.3 inhibitory traces are recorded but are not consulted during retrieval.
+
 ## [0.17.2] - 2026-09-13
 
 ### Added

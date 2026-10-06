@@ -91,6 +91,18 @@ Contextual metamemory is observational. It does not change activation, ranking, 
 
 With default `apply_interference=false`, competition remains diagnostic-only (as in `0.17.0`); eligibility reasons are still attached when `enabled=true`. When `apply_interference=true`, recall activation, score, and order may change from **behaviourally eligible** pairs only; explicit semantic admission from pre-interference activation is preserved.
 
+### Inhibition (`InhibitionConfig`)
+
+Recording is off by default. Enabling it requires `CompetitionConfig.enabled=true` and does not require `apply_interference`.
+
+| Knob | Default | Role |
+|------|---------|------|
+| `enabled` | `false` | Record inhibitory traces on explicit use |
+| `minimum_induction_pressure` | `0.20` | Skip traces below `strength × pre-interference accessibility` |
+| `max_traces_per_use` | `32` | Hard cap for one `record_access` / `record_context_use` call |
+
+Stored traces are not read during retrieval in `0.17.3`. Activation references and inhibition traces are written separately; a repeated `request_id` converges in each store.
+
 ### Working memory (`WorkingMemoryConfig`)
 
 | Knob | Default | Role |

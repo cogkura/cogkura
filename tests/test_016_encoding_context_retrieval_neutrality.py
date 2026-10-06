@@ -11,6 +11,7 @@ from cogkura.models import MemoryKind
 from cogkura.observations.encoding_context import ObservationContext
 
 _T = datetime(2026, 8, 4, 10, 0, tzinfo=UTC)
+_AS_OF = _T.replace(hour=11)
 _TENANT = "neutral"
 _SUBJECT = "developer-1"
 _QUERY = "Why did we decide not to use Redis?"
@@ -105,7 +106,7 @@ async def _build_store(observations: list[ObservationInput]) -> Memory:
     memory = Memory()
     for observation in observations:
         await memory.observe(observation)
-    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T.replace(hour=11))
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_AS_OF)
     return memory
 
 
@@ -120,12 +121,12 @@ async def test_recall_is_identical_with_or_without_encoding_context() -> None:
     baseline = await _build_store(_base_observations())
     contextual = await _build_store(_context_observations())
 
-    baseline_recall = await baseline.recall(_QUERY, tenant_id=_TENANT)
-    contextual_recall = await contextual.recall(_QUERY, tenant_id=_TENANT)
+    baseline_recall = await baseline.recall(_QUERY, tenant_id=_TENANT, as_of=_AS_OF)
+    contextual_recall = await contextual.recall(_QUERY, tenant_id=_TENANT, as_of=_AS_OF)
     assert _recall_snapshot(baseline_recall) == _recall_snapshot(contextual_recall)
 
-    baseline_inspection = await baseline.inspect_recall(_QUERY, tenant_id=_TENANT)
-    contextual_inspection = await contextual.inspect_recall(_QUERY, tenant_id=_TENANT)
+    baseline_inspection = await baseline.inspect_recall(_QUERY, tenant_id=_TENANT, as_of=_AS_OF)
+    contextual_inspection = await contextual.inspect_recall(_QUERY, tenant_id=_TENANT, as_of=_AS_OF)
     baseline_returned = [
         (item.memory.memory_key, item.disposition.value, round(item.score, 6))
         for item in baseline_inspection.returned
@@ -147,12 +148,14 @@ async def test_working_memory_selection_is_identical_with_or_without_encoding_co
         tenant_id=_TENANT,
         goal=_GOAL,
         prompt_budget_tokens=512,
+        as_of=_AS_OF,
     )
     contextual_wm = await contextual.select_working_memory(
         _QUERY,
         tenant_id=_TENANT,
         goal=_GOAL,
         prompt_budget_tokens=512,
+        as_of=_AS_OF,
     )
     baseline_items = [
         (item.memory_kind, item.memory.memory_key, round(item.recall.score, 6))
@@ -169,12 +172,14 @@ async def test_working_memory_selection_is_identical_with_or_without_encoding_co
         tenant_id=_TENANT,
         goal=_GOAL,
         prompt_budget_tokens=512,
+        as_of=_AS_OF,
     )
     contextual_context = await contextual.prepare_context(
         _QUERY,
         tenant_id=_TENANT,
         goal=_GOAL,
         prompt_budget_tokens=512,
+        as_of=_AS_OF,
     )
     assert baseline_context.render() == contextual_context.render()
 
@@ -192,7 +197,7 @@ async def test_redis_payments_fixture_round_trips_encoding_context() -> None:
     assert "redis" in signature.entity_ids
     assert not signature.is_empty()
 
-    inspection = await memory.inspect_recall(_QUERY, tenant_id=_TENANT)
+    inspection = await memory.inspect_recall(_QUERY, tenant_id=_TENANT, as_of=_AS_OF)
     assert inspection.returned
     episode = inspection.returned[0].memory
     assert episode.encoding_context.to_canonical_dict() == signature.to_canonical_dict()

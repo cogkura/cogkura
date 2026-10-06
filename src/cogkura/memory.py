@@ -27,6 +27,7 @@ from cogkura.algorithms.context_matching import (
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
+from cogkura.algorithms.inhibition import build_inhibitory_traces
 from cogkura.algorithms.learning import (
     DeterministicLearningProcessor,
     LearningProcessor,
@@ -67,6 +68,8 @@ from cogkura.models import (
     EpisodeEncodingResult,
     ForgettingConfig,
     ForgettingResult,
+    InhibitionConfig,
+    InhibitoryTrace,
     LearnedAssociation,
     LearningConfig,
     LearningFeedback,
@@ -111,6 +114,7 @@ from cogkura.storage import (
     CheckpointStore,
     EntityRelationshipStore,
     EpisodeStore,
+    InhibitionStore,
     LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
@@ -120,6 +124,7 @@ from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 from cogkura.storage.in_memory_entity_relationship import InMemoryEntityRelationshipStore
 from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
+from cogkura.storage.in_memory_inhibition import InMemoryInhibitionStore
 from cogkura.storage.in_memory_learning import InMemoryLearningStore
 from cogkura.storage.in_memory_observation import InMemoryCheckpointStore, InMemoryObservationStore
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
@@ -171,6 +176,8 @@ class Memory:
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
         behavioral_competition_policy: BehavioralCompetitionPolicy | None = None,
+        inhibition_store: InhibitionStore | None = None,
+        inhibition_config: InhibitionConfig | None = None,
         token_estimator: TokenEstimator | None = None,
         context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
@@ -237,6 +244,14 @@ class Memory:
             behavioral_competition_policy
             if behavioral_competition_policy is not None
             else DeterministicBehavioralCompetitionPolicy()
+        )
+        self._inhibition_config = (
+            inhibition_config if inhibition_config is not None else InhibitionConfig()
+        )
+        if self._inhibition_config.enabled and not self._competition_config.enabled:
+            raise ValidationError("InhibitionConfig.enabled requires CompetitionConfig.enabled.")
+        self._inhibition_store = (
+            inhibition_store if inhibition_store is not None else InMemoryInhibitionStore()
         )
         self._declarative_activator = (
             declarative_activator
@@ -580,6 +595,7 @@ class Memory:
             context_underspecified_margin=self._metamemory_config.context_underspecified_margin,
             competition_config=self._competition_config,
             competition_matcher=self._competition_matcher,
+            inhibition_config=self._inhibition_config,
         )
         if not forgotten_identities:
             return _with_inspection_retrieval_context(
@@ -729,6 +745,7 @@ class Memory:
             episode_by_id={episode.id: episode for episode in episodes},
             competition_config=self._competition_config,
             competition_matcher=self._competition_matcher,
+            inhibition_config=self._inhibition_config,
         )
         return ranked
 
@@ -987,6 +1004,38 @@ class Memory:
             ],
             at=timestamp,
         )
+        if self._inhibition_config.enabled:
+            inhibitory_traces = build_inhibitory_traces(
+                filtered,
+                tenant_id=tenant_id,
+                config=self._inhibition_config,
+                induced_at=timestamp,
+                request_id=request_id,
+            )
+            if inhibitory_traces:
+                await self._inhibition_store.append_traces(inhibitory_traces)
+
+    async def list_inhibition_traces(
+        self,
+        *,
+        tenant_id: str,
+        memory_kind: MemoryKind,
+        memory_key: str,
+        as_of: datetime | None = None,
+    ) -> tuple[InhibitoryTrace, ...]:
+        """Read inhibitory traces for one memory. Does not apply them to retrieval."""
+        if not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not memory_key.strip():
+            raise ValidationError("memory_key must not be empty.")
+        if as_of is not None and as_of.tzinfo is None:
+            raise ValidationError("as_of must be timezone-aware.")
+        traces = await self._inhibition_store.list_for_memory(
+            tenant_id=tenant_id,
+            identity=MemoryIdentity(memory_kind=memory_kind, memory_key=memory_key),
+            as_of=as_of,
+        )
+        return tuple(traces)
 
     async def apply_forgetting(
         self,
@@ -1437,9 +1486,10 @@ class Memory:
         )
 
     async def clear(self, *, tenant_id: str) -> None:
-        """Clear learning, activation, dynamics, semantic memories, episodes, and observations."""
+        """Clear tenant learning, inhibition, activation, dynamics, and memories."""
         if not tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
+        await self._inhibition_store.clear(tenant_id=tenant_id)
         await self._learning_store.clear(tenant_id=tenant_id)
         await self._activation_store.clear(tenant_id=tenant_id)
         await self._dynamics_store.clear(tenant_id=tenant_id)

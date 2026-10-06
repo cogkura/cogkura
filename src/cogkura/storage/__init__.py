@@ -5,6 +5,7 @@ from cogkura.storage.base import (
     CheckpointStore,
     EntityRelationshipStore,
     EpisodeStore,
+    InhibitionStore,
     LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
@@ -13,6 +14,7 @@ from cogkura.storage.base import (
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 from cogkura.storage.in_memory_entity_relationship import InMemoryEntityRelationshipStore
+from cogkura.storage.in_memory_inhibition import InMemoryInhibitionStore
 from cogkura.storage.in_memory_learning import InMemoryLearningStore
 from cogkura.storage.in_memory_observation import (
     InMemoryCheckpointStore,
@@ -27,6 +29,8 @@ __all__ = [
     "InMemoryActivationStore",
     "InMemoryCheckpointStore",
     "InMemoryEntityRelationshipStore",
+    "InMemoryInhibitionStore",
+    "InhibitionStore",
     "InMemoryLearningStore",
     "InMemoryMemoryDynamicsStore",
     "InMemoryObservationStore",

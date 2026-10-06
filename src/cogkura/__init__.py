@@ -82,6 +82,9 @@ from cogkura.models import (
     EpisodeWriteStatus,
     ForgettingConfig,
     ForgettingResult,
+    InhibitionConfig,
+    InhibitionScopeSignature,
+    InhibitoryTrace,
     InterferenceContribution,
     LearnedAssociation,
     LearningConfig,
@@ -106,6 +109,7 @@ from cogkura.models import (
     RecallInspectionResult,
     RecallResult,
     RelationshipEdge,
+    RetrievalCompetitionSnapshot,
     RetrievalContextDiagnostics,
     RetrievalContextState,
     RetrievalCue,
@@ -178,6 +182,10 @@ __all__ = [
     "CompetitionEvidence",
     "CompetitionMatcher",
     "CompetitionRunDiagnostics",
+    "InhibitionConfig",
+    "InhibitionScopeSignature",
+    "InhibitoryTrace",
+    "RetrievalCompetitionSnapshot",
     "DeterministicBehavioralCompetitionPolicy",
     "DeterministicCompetitionMatcher",
     "build_behavioral_query_scope",
@@ -296,4 +304,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.17.2"
+__version__ = "0.17.3"

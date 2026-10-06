@@ -18,10 +18,14 @@ from cogkura.exceptions import StorageError
 from cogkura.models import (
     ActivationReferenceKind,
     ActivationReferenceTrace,
+    BehavioralStructuralAnchor,
+    CompetitionDirection,
     EpisodeEntity,
     EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
+    InhibitionScopeSignature,
+    InhibitoryTrace,
     LearningOutcome,
     LearningPlan,
     LearningWriteResult,
@@ -58,6 +62,7 @@ from cogkura.storage.base import (
     CheckpointStore,
     EntityRelationshipStore,
     EpisodeStore,
+    InhibitionStore,
     LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
@@ -2794,3 +2799,136 @@ def _entity_relationship_from_row(row: Mapping[str, Any]) -> StoredEntityRelatio
         source_record_id=row["source_record_id"],
         created_at=row["created_at"],
     )
+
+
+def _inhibition_trace_from_row(row: Mapping[str, Any]) -> InhibitoryTrace:
+    scope_payload = row["scope_json"]
+    if isinstance(scope_payload, str):
+        scope_payload = json.loads(scope_payload)
+    scope = InhibitionScopeSignature(
+        structural_anchor=BehavioralStructuralAnchor(scope_payload["structural_anchor"]),
+        subject_id=scope_payload.get("subject_id"),
+        entity_ids=tuple(scope_payload.get("entity_ids") or ()),
+        predicate=scope_payload.get("predicate"),
+        semantic_slot_key=scope_payload.get("semantic_slot_key"),
+        feature_ids=tuple(scope_payload.get("feature_ids") or ()),
+    )
+    return InhibitoryTrace(
+        id=str(row["id"]),
+        tenant_id=row["tenant_id"],
+        inhibited_identity=MemoryIdentity(
+            memory_kind=MemoryKind(row["inhibited_memory_kind"]),
+            memory_key=row["inhibited_memory_key"],
+        ),
+        selected_identity=MemoryIdentity(
+            memory_kind=MemoryKind(row["selected_memory_kind"]),
+            memory_key=row["selected_memory_key"],
+        ),
+        direction=CompetitionDirection(row["direction"]),
+        scope=scope,
+        competition_strength=float(row["competition_strength"]),
+        competitor_accessibility=float(row["competitor_accessibility"]),
+        induction_pressure=float(row["induction_pressure"]),
+        retrieval_evaluated_at=row["retrieval_evaluated_at"],
+        induced_at=row["induced_at"],
+        request_id=row["request_id"],
+    )
+
+
+class PostgresInhibitionStore(InhibitionStore):
+    """PostgreSQL-backed inhibitory trace store."""
+
+    def __init__(self, engine: AsyncEngine, *, schema: str = "cogkura") -> None:
+        self._engine = engine
+        self._schema = schema
+
+    def _table(self, name: str) -> str:
+        return f"{self._schema}.{name}"
+
+    async def append_traces(self, traces: Sequence[InhibitoryTrace]) -> None:
+        if not traces:
+            return
+        async with self._engine.begin() as conn:
+            for trace in traces:
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {self._table("memory_inhibition_traces")} (
+                            id, tenant_id,
+                            inhibited_memory_kind, inhibited_memory_key,
+                            selected_memory_kind, selected_memory_key,
+                            direction, scope_key, scope_json,
+                            competition_strength, competitor_accessibility,
+                            induction_pressure, retrieval_evaluated_at,
+                            induced_at, request_id, created_at
+                        ) VALUES (
+                            :id, :tenant_id,
+                            :inhibited_memory_kind, :inhibited_memory_key,
+                            :selected_memory_kind, :selected_memory_key,
+                            :direction, :scope_key, CAST(:scope_json AS jsonb),
+                            :competition_strength, :competitor_accessibility,
+                            :induction_pressure, :retrieval_evaluated_at,
+                            :induced_at, :request_id, :created_at
+                        )
+                        ON CONFLICT DO NOTHING
+                        """
+                    ),
+                    {
+                        "id": trace.id,
+                        "tenant_id": trace.tenant_id,
+                        "inhibited_memory_kind": trace.inhibited_identity.memory_kind.value,
+                        "inhibited_memory_key": trace.inhibited_identity.memory_key,
+                        "selected_memory_kind": trace.selected_identity.memory_kind.value,
+                        "selected_memory_key": trace.selected_identity.memory_key,
+                        "direction": trace.direction.value,
+                        "scope_key": trace.scope.scope_key,
+                        "scope_json": json.dumps(trace.scope.to_canonical_dict()),
+                        "competition_strength": trace.competition_strength,
+                        "competitor_accessibility": trace.competitor_accessibility,
+                        "induction_pressure": trace.induction_pressure,
+                        "retrieval_evaluated_at": trace.retrieval_evaluated_at,
+                        "induced_at": trace.induced_at,
+                        "request_id": trace.request_id,
+                        "created_at": datetime.now(UTC),
+                    },
+                )
+
+    async def list_for_memory(
+        self,
+        *,
+        tenant_id: str,
+        identity: MemoryIdentity,
+        as_of: datetime | None = None,
+    ) -> Sequence[InhibitoryTrace]:
+        query = f"""
+            SELECT *
+            FROM {self._table("memory_inhibition_traces")}
+            WHERE tenant_id = :tenant_id
+              AND inhibited_memory_kind = :memory_kind
+              AND inhibited_memory_key = :memory_key
+        """
+        params: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "memory_kind": identity.memory_kind.value,
+            "memory_key": identity.memory_key,
+        }
+        if as_of is not None:
+            query += " AND induced_at <= :as_of"
+            params["as_of"] = as_of
+        query += " ORDER BY induced_at ASC, scope_key ASC, id ASC"
+        async with self._engine.connect() as conn:
+            result = await conn.execute(text(query), params)
+            rows = result.mappings().all()
+        return [_inhibition_trace_from_row(cast(Mapping[str, Any], row)) for row in rows]
+
+    async def clear(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"""
+                    DELETE FROM {self._table("memory_inhibition_traces")}
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )

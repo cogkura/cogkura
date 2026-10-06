@@ -183,6 +183,13 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.3 — Retrieval-induced inhibitory traces (done)
+
+- Scope eligibility is separate from temporal transient-interference eligibility. Co-temporal pairs can be scope-eligible without interference pressure.
+- Explicit `record_access` / `record_context_use` may persist bounded inhibitory traces. Presentation APIs do not.
+- Traces are inspectable and are not read during recall.
+- [`docs/design-retrieval-inhibition-0.17.3.md`](design-retrieval-inhibition-0.17.3.md).
+
 ## 0.17.2 — Behavioural competition eligibility (done)
 
 - Deterministic eligibility policy between diagnostic matching and transient interference; matcher unchanged.

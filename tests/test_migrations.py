@@ -44,6 +44,7 @@ async def test_migration_files_are_ordered() -> None:
         "007_learning_reinforcement.sql",
         "008_entity_relationships.sql",
         "009_encoding_context.sql",
+        "010_retrieval_inhibition.sql",
     ]
 
 
@@ -66,6 +67,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "007_learning_reinforcement",
         "008_entity_relationships",
         "009_encoding_context",
+        "010_retrieval_inhibition",
     ]
 
 

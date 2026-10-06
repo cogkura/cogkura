@@ -68,6 +68,7 @@ from cogkura.models import (
     ContextMatch,
     ContextReinstatement,
     ContextReinstatementReason,
+    InhibitionConfig,
     LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
@@ -225,6 +226,7 @@ class DeclarativeActivator(Protocol):
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        inhibition_config: InhibitionConfig | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -250,6 +252,7 @@ class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
         context_underspecified_margin: float = 0.0,
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        inhibition_config: InhibitionConfig | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return inspection dispositions."""
 
@@ -463,8 +466,10 @@ class ACTRDeclarativeActivator:
         episode_by_id: Mapping[str, StoredEpisode] | None = None,
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        inhibition_config: InhibitionConfig | None = None,
     ) -> list[RecallResult]:
         effective_competition_config = competition_config or CompetitionConfig()
+        effective_inhibition_config = inhibition_config or InhibitionConfig()
         effective_competition_matcher = competition_matcher or self._competition_matcher
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
         tag_seed_ids = _seed_tag_tokens_from_text(cue, candidates, config)
@@ -632,6 +637,8 @@ class ACTRDeclarativeActivator:
             retrieval_threshold=config.retrieval_threshold,
             latency_factor=config.latency_factor,
             latency_exponent=config.latency_exponent,
+            capture_inhibition=effective_inhibition_config.enabled,
+            retrieval_evaluated_at=as_of,
         )
 
         eligible = [
@@ -689,9 +696,11 @@ class ACTRDeclarativeActivator:
         context_underspecified_margin: float = 0.0,
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
+        inhibition_config: InhibitionConfig | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
         effective_competition_config = competition_config or CompetitionConfig()
+        effective_inhibition_config = inhibition_config or InhibitionConfig()
         effective_competition_matcher = competition_matcher or self._competition_matcher
         candidate_by_identity = {candidate.identity: candidate for candidate in candidates}
         seeded_entity_ids = _seed_entity_ids_from_text(cue, candidates, config)
@@ -861,6 +870,8 @@ class ACTRDeclarativeActivator:
             retrieval_threshold=config.retrieval_threshold,
             latency_factor=config.latency_factor,
             latency_exponent=config.latency_exponent,
+            capture_inhibition=effective_inhibition_config.enabled,
+            retrieval_evaluated_at=as_of,
         )
 
         disposition_by_identity: dict[MemoryIdentity, RecallInspectionDisposition] = {}

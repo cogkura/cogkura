@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Protocol
 
 from cogkura.algorithms.behavioral_competition import (
     BehavioralCompetitionPolicy,
 )
+from cogkura.algorithms.inhibition import build_inhibition_scope
 from cogkura.algorithms.retrieval_features import canonical_content_features
 from cogkura.models import (
     BehavioralQueryScope,
@@ -25,6 +26,7 @@ from cogkura.models import (
     RecallInspectionCandidate,
     RecallInspectionDisposition,
     RecallResult,
+    RetrievalCompetitionSnapshot,
     RetrievalDiagnostics,
     SemanticDerivationRelation,
     StoredEpisode,
@@ -65,6 +67,9 @@ class CompetitionEvaluation:
 
     by_identity: Mapping[MemoryIdentity, CompetitionDiagnostics]
     run: CompetitionRunDiagnostics
+    inhibition_candidates: Mapping[MemoryIdentity, tuple[RetrievalCompetitionSnapshot, ...]] = (
+        field(default_factory=dict)
+    )
 
 
 def effective_memory_time(
@@ -648,6 +653,8 @@ def evaluate_competition(
     episode_by_id: Mapping[str, StoredEpisode] | None,
     retrieval_context_provided: bool,
     retrieval_threshold: float,
+    capture_inhibition: bool = False,
+    retrieval_evaluated_at: datetime | None = None,
 ) -> CompetitionEvaluation:
     """Evaluate pairwise competition over recall results."""
     if not config.enabled:
@@ -687,6 +694,7 @@ def evaluate_competition(
     behaviorally_eligible_pairs = 0
     behaviorally_rejected_pairs = 0
     rejected_reason_counts: dict[str, int] = {}
+    inhibition_by_identity: dict[MemoryIdentity, tuple[RetrievalCompetitionSnapshot, ...]] = {}
 
     for profile in profiles:
         possible = index.possible_competitors(profile)
@@ -744,6 +752,15 @@ def evaluate_competition(
             bounded,
             interference=interference,
         )
+        if capture_inhibition and retrieval_evaluated_at is not None:
+            inhibition_by_identity[profile.identity] = _inhibition_snapshots(
+                profile,
+                bounded,
+                profile_by_identity=profile_by_identity,
+                accessibility_by_identity=accessibility_by_identity,
+                retrieval_threshold=retrieval_threshold,
+                retrieval_evaluated_at=retrieval_evaluated_at,
+            )
 
     return CompetitionEvaluation(
         by_identity=competition_by_identity,
@@ -757,7 +774,71 @@ def evaluate_competition(
             behaviorally_rejected_pairs=behaviorally_rejected_pairs,
             rejected_by_reason=dict(sorted(rejected_reason_counts.items())),
         ),
+        inhibition_candidates=inhibition_by_identity,
     )
+
+
+def _inhibition_snapshots(
+    profile: CompetitionProfile,
+    competitors: Sequence[CompetitionEvidence],
+    *,
+    profile_by_identity: Mapping[MemoryIdentity, CompetitionProfile],
+    accessibility_by_identity: Mapping[MemoryIdentity, float],
+    retrieval_threshold: float,
+    retrieval_evaluated_at: datetime,
+) -> tuple[RetrievalCompetitionSnapshot, ...]:
+    snapshots: list[RetrievalCompetitionSnapshot] = []
+    for evidence in competitors:
+        eligibility = evidence.behavioral_eligibility
+        if eligibility is None or not eligibility.scope_eligible:
+            continue
+        if eligibility.structural_anchor is None:
+            continue
+        competitor = profile_by_identity.get(evidence.competitor_identity)
+        if competitor is None:
+            continue
+        activation = accessibility_by_identity.get(evidence.competitor_identity, 0.0)
+        snapshots.append(
+            RetrievalCompetitionSnapshot(
+                competitor_identity=evidence.competitor_identity,
+                direction=evidence.direction,
+                competition_strength=evidence.strength,
+                competitor_accessibility=_presentation_score(activation, retrieval_threshold),
+                scope_eligible=True,
+                scope=build_inhibition_scope(
+                    eligibility,
+                    subject_entity_id=profile.subject_entity_id,
+                    predicate=profile.predicate,
+                    semantic_slot_key=profile.semantic_slot_key,
+                ),
+                retrieval_evaluated_at=retrieval_evaluated_at,
+                candidate_lineage_group=profile.lineage_group,
+                competitor_lineage_group=competitor.lineage_group,
+            )
+        )
+    return tuple(snapshots)
+
+
+def _attach_inhibition_snapshots(
+    results: Sequence[RecallResult],
+    snapshots_by_identity: Mapping[MemoryIdentity, tuple[RetrievalCompetitionSnapshot, ...]],
+) -> list[RecallResult]:
+    if not snapshots_by_identity:
+        return list(results)
+    updated: list[RecallResult] = []
+    for result in results:
+        identity = _result_identity(result)
+        snapshots = snapshots_by_identity.get(identity)
+        if not snapshots or result.diagnostics is None:
+            updated.append(result)
+            continue
+        updated.append(
+            replace(
+                result,
+                diagnostics=replace(result.diagnostics, inhibition_candidates=snapshots),
+            )
+        )
+    return updated
 
 
 def _result_identity(result: RecallResult) -> MemoryIdentity:
@@ -834,6 +915,8 @@ def apply_competition_pipeline(
     retrieval_threshold: float,
     latency_factor: float,
     latency_exponent: float,
+    capture_inhibition: bool = False,
+    retrieval_evaluated_at: datetime | None = None,
 ) -> tuple[list[RecallResult], dict[MemoryIdentity, float], CompetitionEvaluation | None]:
     """Freeze pre-interference state, evaluate competition, and optionally apply penalties."""
     if not config.enabled:
@@ -852,6 +935,12 @@ def apply_competition_pipeline(
         episode_by_id=episode_by_id,
         retrieval_context_provided=retrieval_context_provided,
         retrieval_threshold=retrieval_threshold,
+        capture_inhibition=capture_inhibition,
+        retrieval_evaluated_at=retrieval_evaluated_at,
+    )
+    frozen_scored = _attach_inhibition_snapshots(
+        frozen_scored,
+        evaluation.inhibition_candidates,
     )
 
     if not config.apply_interference:

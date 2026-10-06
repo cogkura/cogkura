@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -1408,6 +1410,7 @@ class BehavioralCompetitionEligibility:
     shared_query_entity_ids: tuple[str, ...]
     shared_query_features: tuple[str, ...]
     structural_anchor: BehavioralStructuralAnchor | None = None
+    scope_eligible: bool = False
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -1946,6 +1949,177 @@ class AssociationPath:
             raise ValidationError("seed_relevance must be between 0.0 and 1.0.")
 
 
+def canonical_inhibition_scope_key(
+    *,
+    structural_anchor: str,
+    subject_id: str | None,
+    entity_ids: tuple[str, ...],
+    predicate: str | None,
+    semantic_slot_key: str | None,
+    feature_ids: tuple[str, ...],
+) -> str:
+    """Stable SHA-256 scope key. Independent of input order and process hash salt."""
+    payload = {
+        "entity_ids": list(entity_ids),
+        "feature_ids": list(feature_ids),
+        "predicate": predicate,
+        "semantic_slot_key": semantic_slot_key,
+        "structural_anchor": structural_anchor,
+        "subject_id": subject_id,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _optional_scope_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+@dataclass(frozen=True, slots=True)
+class InhibitionScopeSignature:
+    """Retrieval-domain scope for a persistent inhibitory trace."""
+
+    structural_anchor: BehavioralStructuralAnchor
+    subject_id: str | None = None
+    entity_ids: tuple[str, ...] = ()
+    predicate: str | None = None
+    semantic_slot_key: str | None = None
+    feature_ids: tuple[str, ...] = ()
+    scope_key: str = ""
+
+    def __post_init__(self) -> None:
+        subject_id = _optional_scope_text(self.subject_id)
+        predicate = _optional_scope_text(self.predicate)
+        semantic_slot_key = _optional_scope_text(self.semantic_slot_key)
+        entity_ids = tuple(sorted({entity_id.strip() for entity_id in self.entity_ids}))
+        feature_ids = tuple(sorted({feature.strip() for feature in self.feature_ids}))
+        if any(not entity_id for entity_id in entity_ids):
+            raise ValidationError("entity_ids must not contain empty values.")
+        if any(not feature for feature in feature_ids):
+            raise ValidationError("feature_ids must not contain empty values.")
+        scope_key = canonical_inhibition_scope_key(
+            structural_anchor=self.structural_anchor.value,
+            subject_id=subject_id,
+            entity_ids=entity_ids,
+            predicate=predicate,
+            semantic_slot_key=semantic_slot_key,
+            feature_ids=feature_ids,
+        )
+        object.__setattr__(self, "subject_id", subject_id)
+        object.__setattr__(self, "predicate", predicate)
+        object.__setattr__(self, "semantic_slot_key", semantic_slot_key)
+        object.__setattr__(self, "entity_ids", entity_ids)
+        object.__setattr__(self, "feature_ids", feature_ids)
+        object.__setattr__(self, "scope_key", scope_key)
+
+    def to_canonical_dict(self) -> dict[str, object]:
+        """Canonical structural scope. Does not include raw query text."""
+        return {
+            "structural_anchor": self.structural_anchor.value,
+            "subject_id": self.subject_id,
+            "entity_ids": list(self.entity_ids),
+            "predicate": self.predicate,
+            "semantic_slot_key": self.semantic_slot_key,
+            "feature_ids": list(self.feature_ids),
+            "scope_key": self.scope_key,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalCompetitionSnapshot:
+    """Bounded competition evidence frozen on a recall result for later use recording."""
+
+    competitor_identity: MemoryIdentity
+    direction: CompetitionDirection
+    competition_strength: float
+    competitor_accessibility: float
+    scope_eligible: bool
+    scope: InhibitionScopeSignature
+    retrieval_evaluated_at: datetime
+    candidate_lineage_group: str | None = None
+    competitor_lineage_group: str | None = None
+
+    def __post_init__(self) -> None:
+        for label, score in (
+            ("competition_strength", self.competition_strength),
+            ("competitor_accessibility", self.competitor_accessibility),
+        ):
+            if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        if self.retrieval_evaluated_at.tzinfo is None:
+            raise ValidationError("retrieval_evaluated_at must be timezone-aware.")
+        object.__setattr__(
+            self, "retrieval_evaluated_at", self.retrieval_evaluated_at.astimezone(UTC)
+        )
+        for label, lineage in (
+            ("candidate_lineage_group", self.candidate_lineage_group),
+            ("competitor_lineage_group", self.competitor_lineage_group),
+        ):
+            if lineage is not None and not lineage.strip():
+                raise ValidationError(f"{label} must not be empty when provided.")
+
+
+@dataclass(frozen=True, slots=True)
+class InhibitoryTrace:
+    """Persistent record that a credible competitor lost selective retrieval."""
+
+    id: str
+    tenant_id: str
+    inhibited_identity: MemoryIdentity
+    selected_identity: MemoryIdentity
+    direction: CompetitionDirection
+    scope: InhibitionScopeSignature
+    competition_strength: float
+    competitor_accessibility: float
+    induction_pressure: float
+    retrieval_evaluated_at: datetime
+    induced_at: datetime
+    request_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise ValidationError("id must not be empty.")
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if self.request_id is not None and not self.request_id.strip():
+            raise ValidationError("request_id must not be empty when provided.")
+        for label, score in (
+            ("competition_strength", self.competition_strength),
+            ("competitor_accessibility", self.competitor_accessibility),
+            ("induction_pressure", self.induction_pressure),
+        ):
+            if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        for label, timestamp in (
+            ("retrieval_evaluated_at", self.retrieval_evaluated_at),
+            ("induced_at", self.induced_at),
+        ):
+            if timestamp.tzinfo is None:
+                raise ValidationError(f"{label} must be timezone-aware.")
+            object.__setattr__(self, label, timestamp.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class InhibitionConfig:
+    """Configuration for recording retrieval-induced inhibitory traces."""
+
+    enabled: bool = False
+    minimum_induction_pressure: float = 0.20
+    max_traces_per_use: int = 32
+
+    def __post_init__(self) -> None:
+        if (
+            not math.isfinite(self.minimum_induction_pressure)
+            or not 0.0 <= self.minimum_induction_pressure <= 1.0
+        ):
+            raise ValidationError("minimum_induction_pressure must be between 0.0 and 1.0.")
+        if self.max_traces_per_use <= 0:
+            raise ValidationError("max_traces_per_use must be greater than zero.")
+
+
 @dataclass(frozen=True, slots=True)
 class RetrievalDiagnostics:
     """Structured recall diagnostics for ranking and provenance analysis."""
@@ -2001,6 +2175,7 @@ class RetrievalDiagnostics:
     activation_before_interference: float | None = None
     rank_activation_before_interference: float | None = None
     crossed_activation_threshold_due_to_interference: bool = False
+    inhibition_candidates: tuple[RetrievalCompetitionSnapshot, ...] = ()
 
     def __post_init__(self) -> None:
         for label, value in (
