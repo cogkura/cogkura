@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 from cogkura.models import InhibitoryTrace, MemoryIdentity
@@ -56,6 +56,40 @@ class InMemoryInhibitionStore(InhibitionStore):
         return tuple(
             sorted(matched, key=lambda trace: (trace.induced_at, trace.scope.scope_key, trace.id))
         )
+
+    async def list_for_memories(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        after: datetime | None = None,
+        before_or_at: datetime,
+        limit_per_memory: int | None = None,
+    ) -> Mapping[MemoryIdentity, tuple[InhibitoryTrace, ...]]:
+        if not identities:
+            return {}
+        identity_set = set(identities)
+        cutoff = before_or_at.astimezone(UTC)
+        lower = after.astimezone(UTC) if after is not None else None
+        grouped: dict[MemoryIdentity, list[InhibitoryTrace]] = {
+            identity: [] for identity in identities
+        }
+        for trace in self._traces:
+            if trace.tenant_id != tenant_id or trace.inhibited_identity not in identity_set:
+                continue
+            if trace.induced_at > cutoff:
+                continue
+            if lower is not None and trace.induced_at <= lower:
+                continue
+            grouped[trace.inhibited_identity].append(trace)
+        limited: dict[MemoryIdentity, tuple[InhibitoryTrace, ...]] = {}
+        for identity, traces in grouped.items():
+            ordered = sorted(traces, key=lambda item: (-item.induced_at.timestamp(), item.id))
+            if limit_per_memory is not None:
+                ordered = ordered[:limit_per_memory]
+            if ordered:
+                limited[identity] = tuple(ordered)
+        return limited
 
     async def clear(self, *, tenant_id: str) -> None:
         self._traces = [trace for trace in self._traces if trace.tenant_id != tenant_id]

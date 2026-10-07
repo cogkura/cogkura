@@ -321,9 +321,22 @@ See [`design-competition-behavioral-eligibility-0.17.2.md`](design-competition-b
 - When `InhibitionConfig.enabled` is true, each returned result carries a bounded snapshot of scope-eligible competitors, using pre-interference presentation accessibility.
 - `record_access()` and `record_context_use()` may persist an `InhibitoryTrace` for an unselected competitor. `recall()` and the other presentation APIs do not.
 - `record_access()` distinguishes consumed memories from reinforced memories. `min_score` (or `access_minimum_score`) decides whether a result counts as used. Positive-reference burst limiting decides whether that consumed memory also receives a new activation reference. A burst-throttled memory remains consumed for inhibition.
-- `Memory.list_inhibition_traces()` reads those traces. Recall does not.
+- `Memory.list_inhibition_traces()` reads those traces. Recall does not consult them unless `apply_to_recall` is true.
 
 See [`design-retrieval-inhibition-0.17.3.md`](design-retrieval-inhibition-0.17.3.md).
+
+## 0.17.4 persistent inhibition application
+
+When `apply_to_recall` is true, matching traces reduce activation after context reinstatement and semantic admission, and before transient interference:
+
+```text
+remaining = induction_pressure * 2 ** (-elapsed / recovery_half_life_seconds)
+I_persistent = -inhibition_weight * noisy_or(remaining)
+```
+
+`activation_before_interference` is the activation after that penalty. Scope mismatch contributes nothing. `as_of` is the inhibition clock; `valid_at` is not.
+
+See [`design-inhibition-application-0.17.4.md`](design-inhibition-application-0.17.4.md).
 
 ## Storage
 

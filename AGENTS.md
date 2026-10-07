@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.17.3.1` inhibition recording hardening (consumed set is independent of positive-reference burst limiting; traces still are not applied to recall)
+- Current release focus: `0.17.4` persistent inhibition application (opt-in scope-matched half-life recovery; default `apply_to_recall=False`)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

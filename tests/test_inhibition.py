@@ -252,3 +252,69 @@ async def test_in_memory_as_of_and_order() -> None:
     assert [trace.id for trace in visible] == [
         trace.id for trace in expected if trace.induced_at <= cutoff
     ]
+
+
+@pytest.mark.asyncio
+async def test_list_for_memories_bounds_and_isolates_tenants() -> None:
+    store = InMemoryInhibitionStore()
+    older = _manual_trace(
+        trace_id="00000000-0000-0000-0000-000000000011",
+        induced_at=_T,
+        scope=_scope(BehavioralStructuralAnchor.SEMANTIC_SLOT, semantic_slot_key="slot"),
+    )
+    newer = _manual_trace(
+        trace_id="00000000-0000-0000-0000-000000000012",
+        induced_at=_T + timedelta(hours=3),
+        scope=_scope(BehavioralStructuralAnchor.SEMANTIC_SLOT, semantic_slot_key="slot"),
+    )
+    other_tenant = InhibitoryTrace(
+        id="00000000-0000-0000-0000-000000000013",
+        tenant_id="other",
+        inhibited_identity=_loser(),
+        selected_identity=MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="ep"),
+        direction=CompetitionDirection.PROACTIVE,
+        scope=older.scope,
+        competition_strength=0.5,
+        competitor_accessibility=0.5,
+        induction_pressure=0.5,
+        retrieval_evaluated_at=_T,
+        induced_at=_T + timedelta(hours=4),
+    )
+    episode = _manual_trace(
+        trace_id="00000000-0000-0000-0000-000000000014",
+        induced_at=_T,
+        scope=older.scope,
+        inhibited_key="episode-key",
+    )
+    episode = InhibitoryTrace(
+        id=episode.id,
+        tenant_id=episode.tenant_id,
+        inhibited_identity=MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="episode-key"),
+        selected_identity=episode.selected_identity,
+        direction=episode.direction,
+        scope=episode.scope,
+        competition_strength=episode.competition_strength,
+        competitor_accessibility=episode.competitor_accessibility,
+        induction_pressure=episode.induction_pressure,
+        retrieval_evaluated_at=episode.retrieval_evaluated_at,
+        induced_at=episode.induced_at,
+    )
+    await store.append_traces([older, newer, other_tenant, episode])
+    empty = await store.list_for_memories(
+        tenant_id="tenant",
+        identities=[],
+        before_or_at=_T + timedelta(days=1),
+    )
+    assert empty == {}
+    listed = await store.list_for_memories(
+        tenant_id="tenant",
+        identities=[
+            _loser(),
+            MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="episode-key"),
+        ],
+        after=_T + timedelta(hours=1),
+        before_or_at=_T + timedelta(days=1),
+        limit_per_memory=1,
+    )
+    assert [trace.id for trace in listed[_loser()]] == [newer.id]
+    assert MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="episode-key") not in listed

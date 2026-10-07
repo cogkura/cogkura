@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.4] - 2026-10-07
+
+### Added
+
+- Deterministic inhibition-scope matching, half-life recovery, and batched `list_for_memories` reads.
+- Bounded persistent-inhibition aggregation, `ActivationComponents.inhibition`, retrieval diagnostics, and inspect rank deltas.
+
+### Changed
+
+- When `InhibitionConfig.apply_to_recall` is true, matching inhibitory traces reduce future accessibility inside their retrieval scope.
+- Transient interference uses post-persistent-inhibition competitor accessibility.
+
+### Preserved
+
+- Application defaults to off and does not query the inhibition store.
+- Trace recording stays independently configurable. Retrieval does not mutate traces.
+- Forgetting, reconsolidation, and the working-memory algorithm are unchanged. Migration `010` remains sufficient.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.4`).
+
 ## [0.17.3.1] - 2026-10-07
 
 ### Fixed

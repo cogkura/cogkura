@@ -83,6 +83,8 @@ from cogkura.models import (
     ForgettingConfig,
     ForgettingResult,
     InhibitionConfig,
+    InhibitionScopeMatch,
+    InhibitionScopeMatchReason,
     InhibitionScopeSignature,
     InhibitoryTrace,
     InterferenceContribution,
@@ -104,6 +106,8 @@ from cogkura.models import (
     MetamemoryConfig,
     MetamemoryItem,
     MetamemorySignals,
+    PersistentInhibitionContribution,
+    PersistentInhibitionDiagnostics,
     RecallInspectionCandidate,
     RecallInspectionDisposition,
     RecallInspectionResult,
@@ -183,7 +187,11 @@ __all__ = [
     "CompetitionMatcher",
     "CompetitionRunDiagnostics",
     "InhibitionConfig",
+    "InhibitionScopeMatch",
+    "InhibitionScopeMatchReason",
     "InhibitionScopeSignature",
+    "PersistentInhibitionContribution",
+    "PersistentInhibitionDiagnostics",
     "InhibitoryTrace",
     "RetrievalCompetitionSnapshot",
     "DeterministicBehavioralCompetitionPolicy",
@@ -304,4 +312,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.17.3.1"
+__version__ = "0.17.4"

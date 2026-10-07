@@ -1817,6 +1817,7 @@ class ActivationComponents:
     total: float
     current_state: float = 0.0
     context_reinstatement: float = 0.0
+    inhibition: float = 0.0
     interference: float = 0.0
 
     def __post_init__(self) -> None:
@@ -1828,10 +1829,13 @@ class ActivationComponents:
             ("total", self.total),
             ("current_state", self.current_state),
             ("context_reinstatement", self.context_reinstatement),
+            ("inhibition", self.inhibition),
             ("interference", self.interference),
         ):
             if not math.isfinite(value):
                 raise ValidationError(f"{label} must be finite.")
+        if self.inhibition > 0.0:
+            raise ValidationError("inhibition must not be positive.")
         if self.interference > 0.0:
             raise ValidationError("interference must not be positive.")
 
@@ -2104,11 +2108,16 @@ class InhibitoryTrace:
 
 @dataclass(frozen=True, slots=True)
 class InhibitionConfig:
-    """Configuration for recording retrieval-induced inhibitory traces."""
+    """Configuration for recording and optionally applying inhibitory traces."""
 
     enabled: bool = False
     minimum_induction_pressure: float = 0.20
     max_traces_per_use: int = 32
+    apply_to_recall: bool = False
+    inhibition_weight: float = 0.25
+    recovery_half_life_seconds: float = 604_800.0
+    minimum_remaining_strength: float = 0.01
+    max_traces_per_memory: int = 64
 
     def __post_init__(self) -> None:
         if (
@@ -2118,6 +2127,99 @@ class InhibitionConfig:
             raise ValidationError("minimum_induction_pressure must be between 0.0 and 1.0.")
         if self.max_traces_per_use <= 0:
             raise ValidationError("max_traces_per_use must be greater than zero.")
+        if not math.isfinite(self.inhibition_weight) or not 0.0 <= self.inhibition_weight <= 1.0:
+            raise ValidationError("inhibition_weight must be between 0.0 and 1.0.")
+        if self.recovery_half_life_seconds <= 0:
+            raise ValidationError("recovery_half_life_seconds must be greater than zero.")
+        if (
+            not math.isfinite(self.minimum_remaining_strength)
+            or not 0.0 < self.minimum_remaining_strength <= 1.0
+        ):
+            raise ValidationError(
+                "minimum_remaining_strength must be greater than 0.0 and at most 1.0."
+            )
+        if self.max_traces_per_memory <= 0:
+            raise ValidationError("max_traces_per_memory must be greater than zero.")
+
+
+class InhibitionScopeMatchReason(StrEnum):
+    """Why a stored inhibition scope did or did not match the current retrieval."""
+
+    SEMANTIC_SLOT_MATCH = "semantic_slot_match"
+    SUBJECT_PREDICATE_MATCH = "subject_predicate_match"
+    QUERY_SCOPE_MATCH = "query_scope_match"
+    MEMORY_SCOPE_MISMATCH = "memory_scope_mismatch"
+    QUERY_ENTITY_MISMATCH = "query_entity_mismatch"
+    QUERY_PREDICATE_MISMATCH = "query_predicate_mismatch"
+    QUERY_FEATURE_MISMATCH = "query_feature_mismatch"
+
+
+@dataclass(frozen=True, slots=True)
+class InhibitionScopeMatch:
+    """Inspectable result of matching one trace scope to the current retrieval."""
+
+    matched: bool
+    reason: InhibitionScopeMatchReason
+    structural_anchor: BehavioralStructuralAnchor
+    matched_entity_ids: tuple[str, ...] = ()
+    matched_features: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PersistentInhibitionContribution:
+    """One scope-matched trace contributing to persistent inhibition."""
+
+    trace_id: str
+    selected_identity: MemoryIdentity
+    direction: CompetitionDirection
+    scope_key: str
+    induction_pressure: float
+    age_seconds: float
+    remaining_strength: float
+
+    def __post_init__(self) -> None:
+        if not self.trace_id.strip():
+            raise ValidationError("trace_id must not be empty.")
+        if not self.scope_key.strip():
+            raise ValidationError("scope_key must not be empty.")
+        for label, value in (
+            ("induction_pressure", self.induction_pressure),
+            ("remaining_strength", self.remaining_strength),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
+        if self.age_seconds < 0 or not math.isfinite(self.age_seconds):
+            raise ValidationError("age_seconds must be finite and non-negative.")
+
+
+@dataclass(frozen=True, slots=True)
+class PersistentInhibitionDiagnostics:
+    """Bounded explanation of persistent inhibition on one candidate."""
+
+    stored_trace_count: int
+    evaluated_trace_count: int
+    matched_trace_count: int
+    effective_trace_count: int
+    inhibition_pressure: float
+    penalty: float
+    contributions: tuple[PersistentInhibitionContribution, ...] = ()
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("stored_trace_count", self.stored_trace_count),
+            ("evaluated_trace_count", self.evaluated_trace_count),
+            ("matched_trace_count", self.matched_trace_count),
+            ("effective_trace_count", self.effective_trace_count),
+        ):
+            if value < 0:
+                raise ValidationError(f"{label} must not be negative.")
+        if (
+            not math.isfinite(self.inhibition_pressure)
+            or not 0.0 <= self.inhibition_pressure <= 1.0
+        ):
+            raise ValidationError("inhibition_pressure must be between 0.0 and 1.0.")
+        if not math.isfinite(self.penalty) or self.penalty > 0.0:
+            raise ValidationError("penalty must be finite and must not be positive.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -2176,6 +2278,10 @@ class RetrievalDiagnostics:
     rank_activation_before_interference: float | None = None
     crossed_activation_threshold_due_to_interference: bool = False
     inhibition_candidates: tuple[RetrievalCompetitionSnapshot, ...] = ()
+    persistent_inhibition: PersistentInhibitionDiagnostics | None = None
+    activation_before_inhibition: float | None = None
+    rank_activation_before_inhibition: float | None = None
+    crossed_activation_threshold_due_to_inhibition: bool = False
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -2361,6 +2467,9 @@ class RecallInspectionCandidate:
     rank_before_interference: int | None = None
     rank_after_interference: int | None = None
     interference_rank_delta: int | None = None
+    rank_before_inhibition: int | None = None
+    rank_after_inhibition: int | None = None
+    inhibition_rank_delta: int | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.activation):
@@ -2381,6 +2490,10 @@ class RecallInspectionCandidate:
             raise ValidationError(
                 "rank_after_interference must be greater than zero when provided."
             )
+        if self.rank_before_inhibition is not None and self.rank_before_inhibition <= 0:
+            raise ValidationError("rank_before_inhibition must be greater than zero when provided.")
+        if self.rank_after_inhibition is not None and self.rank_after_inhibition <= 0:
+            raise ValidationError("rank_after_inhibition must be greater than zero when provided.")
         if self.association_role is not None and not self.association_role.strip():
             raise ValidationError("association_role must not be empty when provided.")
 

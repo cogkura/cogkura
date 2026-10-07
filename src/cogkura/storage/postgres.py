@@ -2921,6 +2921,53 @@ class PostgresInhibitionStore(InhibitionStore):
             rows = result.mappings().all()
         return [_inhibition_trace_from_row(cast(Mapping[str, Any], row)) for row in rows]
 
+    async def list_for_memories(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        after: datetime | None = None,
+        before_or_at: datetime,
+        limit_per_memory: int | None = None,
+    ) -> Mapping[MemoryIdentity, tuple[InhibitoryTrace, ...]]:
+        if not identities:
+            return {}
+        clauses: list[str] = []
+        params: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "before_or_at": before_or_at,
+            "after": after,
+        }
+        for index, identity in enumerate(identities):
+            clauses.append(
+                f"(inhibited_memory_kind = :kind_{index} AND inhibited_memory_key = :key_{index})"
+            )
+            params[f"kind_{index}"] = identity.memory_kind.value
+            params[f"key_{index}"] = identity.memory_key
+        identity_filter = " OR ".join(clauses)
+        query = f"""
+            SELECT *
+            FROM {self._table("memory_inhibition_traces")}
+            WHERE tenant_id = :tenant_id
+              AND induced_at <= :before_or_at
+              AND (:after IS NULL OR induced_at > :after)
+              AND ({identity_filter})
+            ORDER BY induced_at DESC, id ASC
+        """
+        async with self._engine.connect() as conn:
+            result = await conn.execute(text(query), params)
+            rows = result.mappings().all()
+        grouped: dict[MemoryIdentity, list[InhibitoryTrace]] = {}
+        for row in rows:
+            trace = _inhibition_trace_from_row(cast(Mapping[str, Any], row))
+            grouped.setdefault(trace.inhibited_identity, []).append(trace)
+        limited: dict[MemoryIdentity, tuple[InhibitoryTrace, ...]] = {}
+        for identity, traces in grouped.items():
+            selected = traces if limit_per_memory is None else traces[:limit_per_memory]
+            if selected:
+                limited[identity] = tuple(selected)
+        return limited
+
     async def clear(self, *, tenant_id: str) -> None:
         async with self._engine.begin() as conn:
             await conn.execute(

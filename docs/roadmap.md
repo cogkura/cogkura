@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.4 — Persistent inhibition application (done)
+
+- Opt-in scope-matched half-life recovery. Default `apply_to_recall=False` does not read the store.
+- Persistent penalty is separate from transient interference and is applied first.
+- [`docs/design-inhibition-application-0.17.4.md`](design-inhibition-application-0.17.4.md).
+
 ## 0.17.3.1 — Inhibition recording hardening (done)
 
 - `record_access()` keeps a consumed set after `min_score` and a reinforcement set after burst limiting.

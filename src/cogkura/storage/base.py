@@ -314,5 +314,16 @@ class InhibitionStore(Protocol):
     ) -> Sequence[InhibitoryTrace]:
         """List traces that inhibit one memory, oldest induction first."""
 
+    async def list_for_memories(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        after: datetime | None = None,
+        before_or_at: datetime,
+        limit_per_memory: int | None = None,
+    ) -> Mapping[MemoryIdentity, tuple[InhibitoryTrace, ...]]:
+        """Load recent traces for many memories in one batch."""
+
     async def clear(self, *, tenant_id: str) -> None:
         """Remove inhibitory traces for a tenant."""

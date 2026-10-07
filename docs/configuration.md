@@ -100,8 +100,13 @@ Recording is off by default. Enabling it requires `CompetitionConfig.enabled=tru
 | `enabled` | `false` | Record inhibitory traces on explicit use |
 | `minimum_induction_pressure` | `0.20` | Skip traces below `strength × pre-interference accessibility` |
 | `max_traces_per_use` | `32` | Hard cap for one `record_access` / `record_context_use` call |
+| `apply_to_recall` | `false` | Read matching traces during retrieval. Off does not query the store |
+| `inhibition_weight` | `0.25` | Scale of the bounded persistent penalty |
+| `recovery_half_life_seconds` | `604800` | Exponential recovery half-life from `induced_at` |
+| `minimum_remaining_strength` | `0.01` | Ignore recovered traces below this strength |
+| `max_traces_per_memory` | `64` | Newest traces loaded per candidate |
 
-Stored traces are not read during retrieval in `0.17.3`. Activation references and inhibition traces are written separately; a repeated `request_id` converges in each store.
+Stored traces are not read during retrieval unless `apply_to_recall` is true. Activation references and inhibition traces are written separately; a repeated `request_id` converges in each store.
 
 `record_access()` keeps two sets. Consumed memories are the results that pass `min_score` or `access_minimum_score`, and they drive inhibition. Reinforced memories are the consumed memories that also pass `access_burst_limit`, and they receive activation references. Burst limiting does not remove a memory from the consumed set.
 

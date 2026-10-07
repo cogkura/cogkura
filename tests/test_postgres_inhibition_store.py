@@ -191,3 +191,43 @@ async def test_postgres_as_of_order_and_scope_round_trip(memory_engine: AsyncEng
         trace.id for trace in expected if trace.induced_at <= cutoff
     ]
     await store.clear(tenant_id="tenant")
+
+
+@pytest.mark.asyncio
+async def test_postgres_list_for_memories_matches_bounds(memory_engine: AsyncEngine) -> None:
+    store = PostgresInhibitionStore(memory_engine)
+    await store.clear(tenant_id="tenant")
+    scope = _scope(
+        BehavioralStructuralAnchor.SEMANTIC_SLOT,
+        subject_id="payments-api",
+        predicate="deployment_system",
+        semantic_slot_key="slot",
+    )
+    older = _stored(
+        trace_id="00000000-0000-0000-0000-000000000021",
+        induced_at=_T,
+        scope=scope,
+    )
+    newer = _stored(
+        trace_id="00000000-0000-0000-0000-000000000022",
+        induced_at=_T + timedelta(hours=3),
+        scope=scope,
+    )
+    await store.append_traces([older, newer])
+    listed = await store.list_for_memories(
+        tenant_id="tenant",
+        identities=[_loser()],
+        after=_T + timedelta(hours=1),
+        before_or_at=_T + timedelta(days=1),
+        limit_per_memory=1,
+    )
+    assert [trace.id for trace in listed[_loser()]] == [newer.id]
+    assert (
+        await store.list_for_memories(
+            tenant_id="tenant",
+            identities=[],
+            before_or_at=_T,
+        )
+        == {}
+    )
+    await store.clear(tenant_id="tenant")

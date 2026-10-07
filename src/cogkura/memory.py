@@ -28,6 +28,7 @@ from cogkura.algorithms.context_matching import (
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
 from cogkura.algorithms.inhibition import build_inhibitory_traces
+from cogkura.algorithms.inhibition_application import recovery_lookback_seconds
 from cogkura.algorithms.learning import (
     DeterministicLearningProcessor,
     LearningProcessor,
@@ -596,6 +597,11 @@ class Memory:
             competition_config=self._competition_config,
             competition_matcher=self._competition_matcher,
             inhibition_config=self._inhibition_config,
+            inhibition_traces=await self._inhibition_traces_for_retrieval(
+                tenant_id=tenant_id,
+                identities=identities,
+                as_of=evaluation_time,
+            ),
         )
         if not forgotten_identities:
             return _with_inspection_retrieval_context(
@@ -746,6 +752,11 @@ class Memory:
             competition_config=self._competition_config,
             competition_matcher=self._competition_matcher,
             inhibition_config=self._inhibition_config,
+            inhibition_traces=await self._inhibition_traces_for_retrieval(
+                tenant_id=tenant_id,
+                identities=identities,
+                as_of=evaluation_time,
+            ),
         )
         return ranked
 
@@ -987,6 +998,26 @@ class Memory:
             )
             if inhibitory_traces:
                 await self._inhibition_store.append_traces(inhibitory_traces)
+
+    async def _inhibition_traces_for_retrieval(
+        self,
+        *,
+        tenant_id: str,
+        identities: Sequence[MemoryIdentity],
+        as_of: datetime,
+    ) -> Mapping[MemoryIdentity, tuple[InhibitoryTrace, ...]]:
+        """Load traces for application. Skip the store when application is off."""
+        if not self._inhibition_config.apply_to_recall or not identities:
+            return {}
+        lookback = recovery_lookback_seconds(self._inhibition_config)
+        traces = await self._inhibition_store.list_for_memories(
+            tenant_id=tenant_id,
+            identities=identities,
+            after=as_of - timedelta(seconds=lookback),
+            before_or_at=as_of,
+            limit_per_memory=self._inhibition_config.max_traces_per_memory,
+        )
+        return dict(traces)
 
     async def _reinforcement_results(
         self,

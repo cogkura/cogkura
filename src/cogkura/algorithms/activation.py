@@ -40,6 +40,11 @@ from cogkura.algorithms.context_reinstatement import (
     ContextReinstatementPolicy,
     DeterministicContextReinstatementPolicy,
 )
+from cogkura.algorithms.inhibition_application import (
+    DeterministicInhibitionScopeMatcher,
+    apply_persistent_inhibition,
+    assign_inhibition_ranks,
+)
 from cogkura.algorithms.retrieval_features import (
     canonical_content_features,
     distinctive_content_features,
@@ -69,6 +74,7 @@ from cogkura.models import (
     ContextReinstatement,
     ContextReinstatementReason,
     InhibitionConfig,
+    InhibitoryTrace,
     LearnedAssociation,
     MemoryIdentity,
     MemoryKind,
@@ -227,6 +233,7 @@ class DeclarativeActivator(Protocol):
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
         inhibition_config: InhibitionConfig | None = None,
+        inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
     ) -> list[RecallResult]:
         """Rank candidates by activation and return those above threshold."""
 
@@ -253,6 +260,7 @@ class InspectableDeclarativeActivator(DeclarativeActivator, Protocol):
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
         inhibition_config: InhibitionConfig | None = None,
+        inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return inspection dispositions."""
 
@@ -467,6 +475,7 @@ class ACTRDeclarativeActivator:
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
         inhibition_config: InhibitionConfig | None = None,
+        inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
     ) -> list[RecallResult]:
         effective_competition_config = competition_config or CompetitionConfig()
         effective_inhibition_config = inhibition_config or InhibitionConfig()
@@ -622,6 +631,19 @@ class ACTRDeclarativeActivator:
             cue,
             exclude_tokens=config.current_state_cue_tokens,
         )
+        if effective_inhibition_config.apply_to_recall:
+            scored, rank_by_identity = apply_persistent_inhibition(
+                scored,
+                rank_by_identity,
+                inhibition_traces or {},
+                config=effective_inhibition_config,
+                query_scope=behavioral_query_scope,
+                matcher=DeterministicInhibitionScopeMatcher(),
+                evaluated_at=as_of,
+                retrieval_threshold=config.retrieval_threshold,
+                latency_factor=config.latency_factor,
+                latency_exponent=config.latency_exponent,
+            )
         scored, rank_by_identity, _ = apply_competition_pipeline(
             scored,
             rank_by_identity,
@@ -697,6 +719,7 @@ class ACTRDeclarativeActivator:
         competition_config: CompetitionConfig | None = None,
         competition_matcher: CompetitionMatcher | None = None,
         inhibition_config: InhibitionConfig | None = None,
+        inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
     ) -> RecallInspectionResult:
         """Evaluate all candidates and return terminal recall dispositions."""
         effective_competition_config = competition_config or CompetitionConfig()
@@ -854,6 +877,19 @@ class ACTRDeclarativeActivator:
             cue,
             exclude_tokens=config.current_state_cue_tokens,
         )
+        if effective_inhibition_config.apply_to_recall:
+            scored, rank_by_identity = apply_persistent_inhibition(
+                scored,
+                rank_by_identity,
+                inhibition_traces or {},
+                config=effective_inhibition_config,
+                query_scope=behavioral_query_scope,
+                matcher=DeterministicInhibitionScopeMatcher(),
+                evaluated_at=as_of,
+                retrieval_threshold=config.retrieval_threshold,
+                latency_factor=config.latency_factor,
+                latency_exponent=config.latency_exponent,
+            )
         competition_evaluation: CompetitionEvaluation | None = None
         scored, rank_by_identity, competition_evaluation = apply_competition_pipeline(
             scored,
@@ -1046,6 +1082,22 @@ class ACTRDeclarativeActivator:
             )
             if effective_competition_config.apply_interference:
                 attributed = apply_inspection_interference_attribution(attributed)
+            returned_candidates = sorted(
+                [
+                    candidate
+                    for candidate in attributed
+                    if candidate.disposition is RecallInspectionDisposition.RETURNED
+                ],
+                key=lambda item: item.rank or 0,
+            )
+            rejected_candidates = [
+                candidate
+                for candidate in attributed
+                if candidate.disposition is not RecallInspectionDisposition.RETURNED
+            ]
+
+        if effective_inhibition_config.apply_to_recall:
+            attributed = assign_inhibition_ranks(attributed)
             returned_candidates = sorted(
                 [
                     candidate

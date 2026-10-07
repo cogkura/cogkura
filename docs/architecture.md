@@ -182,7 +182,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.17.3)
+## Current implementation boundary (0.17.4)
 
 Implemented:
 
@@ -195,7 +195,7 @@ Implemented:
 - metamemory assessment and recall inspection
 - **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); **`concept_ids` reserved** on default encoder
 - **retrieval-context matching, reinstatement, semantic support propagation, and contextual metamemory** (0.16.1–0.16.5); architecture frozen after 0.16.5
-- **cue-competition diagnostics** (0.17.0), **opt-in transient interference** (0.17.1), **behavioural eligibility** (0.17.2), and **inhibitory trace recording** (0.17.3) on explicit use; traces are not read during retrieval; default diagnostic-only and inhibition off
+- **cue-competition diagnostics** (0.17.0), **opt-in transient interference** (0.17.1), **behavioural eligibility** (0.17.2), **inhibitory trace recording** (0.17.3), and **opt-in persistent inhibition** (0.17.4). Application is off unless `apply_to_recall` is true
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
