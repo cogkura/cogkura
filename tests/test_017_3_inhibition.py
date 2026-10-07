@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -9,13 +10,17 @@ import pytest
 from cogkura import Memory, ObservationInput
 from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
 from cogkura.models import (
+    ActivationConfig,
+    ActivationReferenceKind,
     CompetitionConfig,
     CompetitionDirection,
     InhibitionConfig,
     MemoryIdentity,
     MemoryKind,
+    MemoryReference,
     WorkingMemoryConfig,
 )
+from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 
 _TENANT = "inhibition-tenant"
@@ -102,6 +107,12 @@ async def test_presentation_apis_do_not_record_traces() -> None:
     query = "payments-api deployment_system"
     await memory.recall(query, tenant_id=_TENANT, as_of=_T, limit=10)
     await memory.inspect_recall(query, tenant_id=_TENANT, as_of=_T, limit=10)
+    await memory.select_working_memory(
+        query,
+        tenant_id=_TENANT,
+        as_of=_T,
+        prompt_budget_tokens=512,
+    )
     await memory.prepare_context(query, tenant_id=_TENANT, as_of=_T, prompt_budget_tokens=512)
     await memory.assess_memory(query, tenant_id=_TENANT, as_of=_T)
     semantics = await memory.list_semantic_memories(tenant_id=_TENANT)
@@ -366,9 +377,213 @@ async def test_historical_recall_cannot_inhibit_future_competitor() -> None:
         assert traces == ()
 
 
+async def _reference_count(store: InMemoryActivationStore, identity: MemoryIdentity) -> int:
+    traces = await store.list_reference_traces(
+        tenant_id=_TENANT,
+        identities=[identity],
+        before_or_at=_T + timedelta(days=1),
+    )
+    return len(traces.get(identity, ()))
+
+
+async def _seed_burst(store: InMemoryActivationStore, identity: MemoryIdentity) -> None:
+    await store.append_references(
+        [
+            MemoryReference(
+                tenant_id=_TENANT,
+                memory_kind=identity.memory_kind,
+                memory_key=identity.memory_key,
+                reference_kind=ActivationReferenceKind.RETRIEVED,
+                referenced_at=_T - timedelta(minutes=5),
+            )
+        ]
+    )
+
+
+def _burst_memory(store: InMemoryActivationStore) -> Memory:
+    return _memory(
+        activation_store=store,
+        activation_config=ActivationConfig(
+            access_burst_limit=1,
+            access_burst_window_seconds=3600.0,
+        ),
+    )
+
+
 @pytest.mark.asyncio
-async def test_record_context_use_uses_the_same_path() -> None:
-    memory = _memory(working_memory_config=WorkingMemoryConfig(max_items=1))
+async def test_burst_throttled_co_consumption_does_not_inhibit() -> None:
+    store = InMemoryActivationStore()
+    memory = _burst_memory(store)
+    await _seed_deployment_pair(memory)
+    results = await memory.recall(
+        "payments-api deployment_system",
+        tenant_id=_TENANT,
+        as_of=_T,
+        limit=10,
+    )
+    selected_a = _selected(results, "github_actions")
+    selected_b = _selected(results, "jenkins")
+    identity_a = MemoryIdentity(
+        memory_kind=selected_a.memory_kind,
+        memory_key=selected_a.memory.memory_key,
+    )
+    identity_b = MemoryIdentity(
+        memory_kind=selected_b.memory_kind,
+        memory_key=selected_b.memory.memory_key,
+    )
+    await _seed_burst(store, identity_a)
+    await memory.record_access([selected_a, selected_b], tenant_id=_TENANT, referenced_at=_T)
+    assert await _reference_count(store, identity_a) == 1
+    assert await _reference_count(store, identity_b) == 1
+    for identity in (identity_a, identity_b):
+        traces = await memory.list_inhibition_traces(
+            tenant_id=_TENANT,
+            memory_kind=identity.memory_kind,
+            memory_key=identity.memory_key,
+        )
+        assert traces == ()
+
+
+@pytest.mark.asyncio
+async def test_burst_throttled_selection_still_inhibits_competitor() -> None:
+    store = InMemoryActivationStore()
+    memory = _burst_memory(store)
+    await _seed_deployment_pair(memory)
+    results = await memory.recall(
+        "payments-api deployment_system",
+        tenant_id=_TENANT,
+        as_of=_T,
+        limit=10,
+    )
+    selected = _selected(results, "github_actions")
+    competitor = _selected(results, "jenkins")
+    selected_identity = MemoryIdentity(
+        memory_kind=selected.memory_kind,
+        memory_key=selected.memory.memory_key,
+    )
+    await _seed_burst(store, selected_identity)
+    await memory.record_access([selected], tenant_id=_TENANT, referenced_at=_T)
+    assert await _reference_count(store, selected_identity) == 1
+    traces = await memory.list_inhibition_traces(
+        tenant_id=_TENANT,
+        memory_kind=competitor.memory_kind,
+        memory_key=competitor.memory.memory_key,
+    )
+    assert len(traces) == 1
+    assert traces[0].selected_identity == selected_identity
+
+
+@pytest.mark.asyncio
+async def test_retry_after_reference_write_still_records_inhibition() -> None:
+    store = InMemoryActivationStore()
+    memory = _burst_memory(store)
+    await _seed_deployment_pair(memory)
+    results = await memory.recall(
+        "payments-api deployment_system",
+        tenant_id=_TENANT,
+        as_of=_T,
+        limit=10,
+    )
+    selected = _selected(results, "github_actions")
+    competitor = _selected(results, "jenkins")
+    selected_identity = MemoryIdentity(
+        memory_kind=selected.memory_kind,
+        memory_key=selected.memory.memory_key,
+    )
+    await store.append_references(
+        [
+            MemoryReference(
+                tenant_id=_TENANT,
+                memory_kind=selected_identity.memory_kind,
+                memory_key=selected_identity.memory_key,
+                reference_kind=ActivationReferenceKind.RETRIEVED,
+                referenced_at=_T - timedelta(minutes=1),
+                request_id="request-123",
+            )
+        ]
+    )
+    await memory.record_access(
+        [selected],
+        tenant_id=_TENANT,
+        referenced_at=_T,
+        request_id="request-123",
+    )
+    await memory.record_access(
+        [selected],
+        tenant_id=_TENANT,
+        referenced_at=_T,
+        request_id="request-123",
+    )
+    assert await _reference_count(store, selected_identity) == 1
+    traces = await memory.list_inhibition_traces(
+        tenant_id=_TENANT,
+        memory_kind=competitor.memory_kind,
+        memory_key=competitor.memory.memory_key,
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == "request-123"
+
+
+@pytest.mark.asyncio
+async def test_min_score_excludes_result_from_consumed_set() -> None:
+    memory = _memory()
+    await _seed_deployment_pair(memory)
+    results = await memory.recall(
+        "payments-api deployment_system",
+        tenant_id=_TENANT,
+        as_of=_T,
+        limit=10,
+    )
+    selected = _selected(results, "github_actions")
+    competitor = replace(_selected(results, "jenkins"), score=0.05)
+    assert selected.score >= 0.5
+    await memory.record_access(
+        [selected, competitor],
+        tenant_id=_TENANT,
+        referenced_at=_T,
+        min_score=0.5,
+    )
+    traces = await memory.list_inhibition_traces(
+        tenant_id=_TENANT,
+        memory_kind=competitor.memory_kind,
+        memory_key=competitor.memory.memory_key,
+    )
+    assert len(traces) == 1
+    assert traces[0].selected_identity.memory_key == selected.memory.memory_key
+    selected_traces = await memory.list_inhibition_traces(
+        tenant_id=_TENANT,
+        memory_kind=selected.memory_kind,
+        memory_key=selected.memory.memory_key,
+    )
+    assert selected_traces == ()
+
+
+@pytest.mark.asyncio
+async def test_retroactive_trace_direction() -> None:
+    memory = _memory()
+    await _seed_deployment_pair(memory)
+    results = await memory.recall(
+        "payments-api deployment_system",
+        tenant_id=_TENANT,
+        as_of=_T,
+        limit=10,
+    )
+    older = _selected(results, "jenkins")
+    newer = _selected(results, "github_actions")
+    await memory.record_access([older], tenant_id=_TENANT, referenced_at=_T)
+    traces = await memory.list_inhibition_traces(
+        tenant_id=_TENANT,
+        memory_kind=newer.memory_kind,
+        memory_key=newer.memory.memory_key,
+    )
+    assert len(traces) == 1
+    assert traces[0].direction is CompetitionDirection.RETROACTIVE
+    assert traces[0].selected_identity.memory_key == older.memory.memory_key
+
+
+@pytest.mark.asyncio
+async def test_record_context_use_creates_one_trace() -> None:
+    memory = _memory(working_memory_config=WorkingMemoryConfig(max_items=1, enable_chunking=False))
     await _seed_deployment_pair(memory)
     context = await memory.prepare_context(
         "payments-api deployment_system",
@@ -376,19 +591,22 @@ async def test_record_context_use_uses_the_same_path() -> None:
         as_of=_T,
         prompt_budget_tokens=512,
     )
-    await memory.record_context_use(context, referenced_at=_T)
     consumed_keys = {result.memory.memory_key for result in context.recall_results}
+    assert len(consumed_keys) == 1
+    await memory.record_context_use(context, referenced_at=_T)
     semantics = await memory.list_semantic_memories(tenant_id=_TENANT)
-    for item in semantics:
-        if item.memory_key in consumed_keys:
-            continue
-        traces = await memory.list_inhibition_traces(
-            tenant_id=_TENANT,
-            memory_kind=MemoryKind.SEMANTIC,
-            memory_key=item.memory_key,
+    unconsumed = [item for item in semantics if item.memory_key not in consumed_keys]
+    traces = []
+    for item in unconsumed:
+        traces.extend(
+            await memory.list_inhibition_traces(
+                tenant_id=_TENANT,
+                memory_kind=MemoryKind.SEMANTIC,
+                memory_key=item.memory_key,
+            )
         )
-        if traces:
-            assert traces[0].selected_identity.memory_key in consumed_keys
+    assert len(traces) == 1
+    assert traces[0].selected_identity.memory_key in consumed_keys
 
 
 @pytest.mark.asyncio

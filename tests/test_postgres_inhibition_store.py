@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -77,4 +77,117 @@ async def test_postgres_inhibition_round_trip_and_request_idempotency(
     assert listed[0].direction is CompetitionDirection.CO_TEMPORAL
     assert listed[0].scope.scope_key == trace.scope.scope_key
     assert listed[0].induction_pressure == pytest.approx(0.56)
+    await store.clear(tenant_id="tenant")
+
+
+def _scope(anchor: BehavioralStructuralAnchor, **kwargs: object) -> InhibitionScopeSignature:
+    return InhibitionScopeSignature(structural_anchor=anchor, **kwargs)  # type: ignore[arg-type]
+
+
+def _stored(
+    *,
+    trace_id: str,
+    induced_at: datetime,
+    scope: InhibitionScopeSignature,
+    request_id: str | None = None,
+) -> InhibitoryTrace:
+    return InhibitoryTrace(
+        id=trace_id,
+        tenant_id="tenant",
+        inhibited_identity=MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="loser"),
+        selected_identity=MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="winner"),
+        direction=CompetitionDirection.RETROACTIVE,
+        scope=scope,
+        competition_strength=0.8,
+        competitor_accessibility=0.5,
+        induction_pressure=0.4,
+        retrieval_evaluated_at=_T,
+        induced_at=induced_at,
+        request_id=request_id,
+    )
+
+
+def _loser() -> MemoryIdentity:
+    return MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="loser")
+
+
+@pytest.mark.asyncio
+async def test_postgres_repeated_use_without_request_id(memory_engine: AsyncEngine) -> None:
+    store = PostgresInhibitionStore(memory_engine)
+    await store.clear(tenant_id="tenant")
+    scope = _scope(
+        BehavioralStructuralAnchor.SEMANTIC_SLOT,
+        subject_id="payments-api",
+        predicate="deployment_system",
+        semantic_slot_key="slot",
+    )
+    first = _stored(
+        trace_id="00000000-0000-0000-0000-00000000000a",
+        induced_at=_T,
+        scope=scope,
+    )
+    second = _stored(
+        trace_id="00000000-0000-0000-0000-00000000000b",
+        induced_at=_T + timedelta(seconds=1),
+        scope=scope,
+    )
+    await store.append_traces([first])
+    await store.append_traces([second])
+    listed = await store.list_for_memory(tenant_id="tenant", identity=_loser())
+    assert [trace.id for trace in listed] == [first.id, second.id]
+    await store.clear(tenant_id="tenant")
+
+
+@pytest.mark.asyncio
+async def test_postgres_as_of_order_and_scope_round_trip(memory_engine: AsyncEngine) -> None:
+    store = PostgresInhibitionStore(memory_engine)
+    await store.clear(tenant_id="tenant")
+    fixtures = (
+        _stored(
+            trace_id="00000000-0000-0000-0000-000000000003",
+            induced_at=_T + timedelta(hours=2),
+            scope=_scope(
+                BehavioralStructuralAnchor.SEMANTIC_SLOT,
+                subject_id="payments-api",
+                predicate="deployment_system",
+                semantic_slot_key="slot-b",
+            ),
+        ),
+        _stored(
+            trace_id="00000000-0000-0000-0000-000000000001",
+            induced_at=_T,
+            scope=_scope(
+                BehavioralStructuralAnchor.QUERY_SCOPE,
+                entity_ids=("payments-api",),
+                feature_ids=("deploy",),
+            ),
+        ),
+        _stored(
+            trace_id="00000000-0000-0000-0000-000000000002",
+            induced_at=_T,
+            scope=_scope(
+                BehavioralStructuralAnchor.SUBJECT_PREDICATE,
+                subject_id="payments-api",
+                predicate="deployment_system",
+                entity_ids=("payments-api",),
+            ),
+        ),
+    )
+    await store.append_traces(fixtures)
+    listed = await store.list_for_memory(tenant_id="tenant", identity=_loser())
+    expected = sorted(
+        fixtures, key=lambda trace: (trace.induced_at, trace.scope.scope_key, trace.id)
+    )
+    assert [trace.id for trace in listed] == [trace.id for trace in expected]
+    by_id = {trace.id: trace for trace in listed}
+    for original in fixtures:
+        hydrated = by_id[original.id]
+        assert hydrated.scope.to_canonical_dict() == original.scope.to_canonical_dict()
+        assert hydrated.scope.scope_key == original.scope.scope_key
+        assert hydrated.scope.structural_anchor is original.scope.structural_anchor
+    cutoff = _T + timedelta(hours=1)
+    visible = await store.list_for_memory(tenant_id="tenant", identity=_loser(), as_of=cutoff)
+    assert [trace.id for trace in visible] == [
+        trace.id for trace in expected if trace.induced_at <= cutoff
+    ]
     await store.clear(tenant_id="tenant")

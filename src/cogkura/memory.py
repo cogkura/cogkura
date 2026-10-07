@@ -942,71 +942,44 @@ class Memory:
         score_floor = (
             min_score if min_score is not None else self._activation_config.access_minimum_score
         )
-        filtered = list(results)
+        consumed = list(results)
         if score_floor is not None:
-            filtered = [result for result in filtered if result.score >= score_floor]
-        if not filtered:
+            consumed = [result for result in consumed if result.score >= score_floor]
+        if not consumed:
             return
 
-        burst_limit = self._activation_config.access_burst_limit
-        if burst_limit is not None:
-            window = self._activation_config.access_burst_window_seconds
-            identities = [
-                MemoryIdentity(
-                    memory_kind=result.memory_kind,
-                    memory_key=_memory_key_from_result(result),
-                )
-                for result in filtered
-            ]
-            traces = await self._activation_store.list_reference_traces(
-                tenant_id=tenant_id,
-                identities=identities,
-                before_or_at=timestamp,
-            )
-            burst_filtered: list[RecallResult] = []
-            for result in filtered:
-                identity = MemoryIdentity(
-                    memory_kind=result.memory_kind,
-                    memory_key=_memory_key_from_result(result),
-                )
-                recent_count = sum(
-                    1
-                    for trace in traces.get(identity, ())
-                    if (timestamp - trace.referenced_at).total_seconds() <= window
-                )
-                if recent_count >= burst_limit:
-                    continue
-                burst_filtered.append(result)
-            filtered = burst_filtered
-            if not filtered:
-                return
-
-        references = [
-            MemoryReference(
-                tenant_id=tenant_id,
-                memory_kind=result.memory_kind,
-                memory_key=_memory_key_from_result(result),
-                reference_kind=reference_kind,
-                referenced_at=timestamp,
-                request_id=request_id,
-            )
-            for result in filtered
-        ]
-        await self._activation_store.append_references(references)
-        await self._dynamics_store.reactivate(
+        reinforcement_results = await self._reinforcement_results(
+            consumed,
             tenant_id=tenant_id,
-            identities=[
-                MemoryIdentity(
+            timestamp=timestamp,
+        )
+        if reinforcement_results:
+            references = [
+                MemoryReference(
+                    tenant_id=tenant_id,
                     memory_kind=result.memory_kind,
                     memory_key=_memory_key_from_result(result),
+                    reference_kind=reference_kind,
+                    referenced_at=timestamp,
+                    request_id=request_id,
                 )
-                for result in filtered
-            ],
-            at=timestamp,
-        )
+                for result in reinforcement_results
+            ]
+            await self._activation_store.append_references(references)
+            await self._dynamics_store.reactivate(
+                tenant_id=tenant_id,
+                identities=[
+                    MemoryIdentity(
+                        memory_kind=result.memory_kind,
+                        memory_key=_memory_key_from_result(result),
+                    )
+                    for result in reinforcement_results
+                ],
+                at=timestamp,
+            )
         if self._inhibition_config.enabled:
             inhibitory_traces = build_inhibitory_traces(
-                filtered,
+                consumed,
                 tenant_id=tenant_id,
                 config=self._inhibition_config,
                 induced_at=timestamp,
@@ -1014,6 +987,49 @@ class Memory:
             )
             if inhibitory_traces:
                 await self._inhibition_store.append_traces(inhibitory_traces)
+
+    async def _reinforcement_results(
+        self,
+        consumed: Sequence[RecallResult],
+        *,
+        tenant_id: str,
+        timestamp: datetime,
+    ) -> list[RecallResult]:
+        """Drop memories that already hit the positive-reference burst limit.
+
+        Burst limiting does not change whether a memory was consumed.
+        """
+        burst_limit = self._activation_config.access_burst_limit
+        if burst_limit is None:
+            return list(consumed)
+        window = self._activation_config.access_burst_window_seconds
+        identities = [
+            MemoryIdentity(
+                memory_kind=result.memory_kind,
+                memory_key=_memory_key_from_result(result),
+            )
+            for result in consumed
+        ]
+        traces = await self._activation_store.list_reference_traces(
+            tenant_id=tenant_id,
+            identities=identities,
+            before_or_at=timestamp,
+        )
+        reinforcement: list[RecallResult] = []
+        for result in consumed:
+            identity = MemoryIdentity(
+                memory_kind=result.memory_kind,
+                memory_key=_memory_key_from_result(result),
+            )
+            recent_count = sum(
+                1
+                for trace in traces.get(identity, ())
+                if (timestamp - trace.referenced_at).total_seconds() <= window
+            )
+            if recent_count >= burst_limit:
+                continue
+            reinforcement.append(result)
+        return reinforcement
 
     async def list_inhibition_traces(
         self,

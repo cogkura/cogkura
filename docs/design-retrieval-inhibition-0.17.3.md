@@ -30,6 +30,20 @@ Snapshots are frozen from the original competition evaluation. `record_access` d
 
 Activation references and inhibitory traces are separate store calls. A repeated `request_id` for the same selected identity, inhibited identity, and scope is a no-op in both stores, so a retry converges. There is no cross-store transaction in this release.
 
+`0.17.3.1` separates the two write sets inside `record_access()`:
+
+```text
+consumed memories
+    results after min_score / access_minimum_score
+    used to decide selective-retrieval inhibition
+
+reinforced memories
+    consumed memories that also pass positive-reference burst limiting
+    used for activation references and forgetting reactivation
+```
+
+`min_score` determines whether a result is considered used. Burst limiting does not. An empty reinforcement set does not skip inhibition recording, so a retry can still persist the trace after the positive reference is already present.
+
 ## Out of scope
 
 Applying traces to activation, decay, aggregation, compaction, expiry, metamemory flags, and traces created by presentation or working-memory rejection.

@@ -103,6 +103,8 @@ Recording is off by default. Enabling it requires `CompetitionConfig.enabled=tru
 
 Stored traces are not read during retrieval in `0.17.3`. Activation references and inhibition traces are written separately; a repeated `request_id` converges in each store.
 
+`record_access()` keeps two sets. Consumed memories are the results that pass `min_score` or `access_minimum_score`, and they drive inhibition. Reinforced memories are the consumed memories that also pass `access_burst_limit`, and they receive activation references. Burst limiting does not remove a memory from the consumed set.
+
 ### Working memory (`WorkingMemoryConfig`)
 
 | Knob | Default | Role |

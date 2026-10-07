@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -13,6 +13,7 @@ from cogkura.models import (
     CompetitionDirection,
     InhibitionConfig,
     InhibitionScopeSignature,
+    InhibitoryTrace,
     MemoryIdentity,
     MemoryKind,
     RecallResult,
@@ -145,3 +146,109 @@ async def test_in_memory_request_id_is_idempotent() -> None:
         identity=MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="loser"),
     )
     assert len(listed) == 1
+
+
+def _scope(anchor: BehavioralStructuralAnchor, **kwargs: object) -> InhibitionScopeSignature:
+    return InhibitionScopeSignature(structural_anchor=anchor, **kwargs)  # type: ignore[arg-type]
+
+
+def _manual_trace(
+    *,
+    trace_id: str,
+    induced_at: datetime,
+    scope: InhibitionScopeSignature,
+    request_id: str | None = None,
+    inhibited_key: str = "loser",
+) -> InhibitoryTrace:
+    return InhibitoryTrace(
+        id=trace_id,
+        tenant_id="tenant",
+        inhibited_identity=MemoryIdentity(
+            memory_kind=MemoryKind.SEMANTIC, memory_key=inhibited_key
+        ),
+        selected_identity=MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="winner"),
+        direction=CompetitionDirection.RETROACTIVE,
+        scope=scope,
+        competition_strength=0.8,
+        competitor_accessibility=0.5,
+        induction_pressure=0.4,
+        retrieval_evaluated_at=_T,
+        induced_at=induced_at,
+        request_id=request_id,
+    )
+
+
+def _listing_fixtures() -> tuple[InhibitoryTrace, ...]:
+    return (
+        _manual_trace(
+            trace_id="00000000-0000-0000-0000-000000000003",
+            induced_at=_T + timedelta(hours=2),
+            scope=_scope(
+                BehavioralStructuralAnchor.SEMANTIC_SLOT,
+                subject_id="payments-api",
+                predicate="deployment_system",
+                semantic_slot_key="slot-b",
+            ),
+        ),
+        _manual_trace(
+            trace_id="00000000-0000-0000-0000-000000000001",
+            induced_at=_T,
+            scope=_scope(
+                BehavioralStructuralAnchor.QUERY_SCOPE,
+                entity_ids=("payments-api",),
+                feature_ids=("deploy",),
+            ),
+        ),
+        _manual_trace(
+            trace_id="00000000-0000-0000-0000-000000000002",
+            induced_at=_T,
+            scope=_scope(
+                BehavioralStructuralAnchor.SUBJECT_PREDICATE,
+                subject_id="payments-api",
+                predicate="deployment_system",
+                entity_ids=("payments-api",),
+            ),
+        ),
+    )
+
+
+def _loser() -> MemoryIdentity:
+    return MemoryIdentity(memory_kind=MemoryKind.SEMANTIC, memory_key="loser")
+
+
+@pytest.mark.asyncio
+async def test_in_memory_repeated_use_without_request_id() -> None:
+    store = InMemoryInhibitionStore()
+    first = _manual_trace(
+        trace_id="00000000-0000-0000-0000-00000000000a",
+        induced_at=_T,
+        scope=_scope(BehavioralStructuralAnchor.SEMANTIC_SLOT, semantic_slot_key="slot"),
+        request_id=None,
+    )
+    second = _manual_trace(
+        trace_id="00000000-0000-0000-0000-00000000000b",
+        induced_at=_T + timedelta(seconds=1),
+        scope=first.scope,
+        request_id=None,
+    )
+    await store.append_traces([first])
+    await store.append_traces([second])
+    listed = await store.list_for_memory(tenant_id="tenant", identity=_loser())
+    assert [trace.id for trace in listed] == [first.id, second.id]
+
+
+@pytest.mark.asyncio
+async def test_in_memory_as_of_and_order() -> None:
+    store = InMemoryInhibitionStore()
+    fixtures = _listing_fixtures()
+    await store.append_traces(fixtures)
+    listed = await store.list_for_memory(tenant_id="tenant", identity=_loser())
+    expected = sorted(
+        fixtures, key=lambda trace: (trace.induced_at, trace.scope.scope_key, trace.id)
+    )
+    assert [trace.id for trace in listed] == [trace.id for trace in expected]
+    cutoff = _T + timedelta(hours=1)
+    visible = await store.list_for_memory(tenant_id="tenant", identity=_loser(), as_of=cutoff)
+    assert [trace.id for trace in visible] == [
+        trace.id for trace in expected if trace.induced_at <= cutoff
+    ]

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.3.1] - 2026-10-07
+
+### Fixed
+
+- Separated explicit-use consumption from positive ACT-R burst limiting during inhibition induction.
+- Co-consumed memories remain co-consumed even when one is burst-throttled for activation-reference writes.
+- Request-id retries can still converge on inhibitory traces when positive-reference writes are already present.
+
+### Tests
+
+- Added burst-limit/inhibition interaction coverage.
+- Added explicit retroactive induction, `min_score`, working-memory read-only, and stronger context-use coverage.
+- Expanded PostgreSQL and in-memory inhibition-store parity tests for repeated use, `as_of` listing, scope round-trip, and listing order.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.3.1`).
+- No migration change. Stored traces remain retrieval-neutral.
+
 ## [0.17.3] - 2026-10-06
 
 ### Added

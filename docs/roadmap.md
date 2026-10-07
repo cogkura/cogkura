@@ -183,6 +183,11 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.3.1 — Inhibition recording hardening (done)
+
+- `record_access()` keeps a consumed set after `min_score` and a reinforcement set after burst limiting.
+- Inhibition is induced from the consumed set, including when no new activation reference is written.
+
 ## 0.17.3 — Retrieval-induced inhibitory traces (done)
 
 - Scope eligibility is separate from temporal transient-interference eligibility. Co-temporal pairs can be scope-eligible without interference pressure.

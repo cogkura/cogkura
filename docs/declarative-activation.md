@@ -320,6 +320,7 @@ See [`design-competition-behavioral-eligibility-0.17.2.md`](design-competition-b
 - `scope_eligible` passes the 0.17.2 precision gates. `eligible` additionally requires a proactive or retroactive direction, so transient interference is unchanged.
 - When `InhibitionConfig.enabled` is true, each returned result carries a bounded snapshot of scope-eligible competitors, using pre-interference presentation accessibility.
 - `record_access()` and `record_context_use()` may persist an `InhibitoryTrace` for an unselected competitor. `recall()` and the other presentation APIs do not.
+- `record_access()` distinguishes consumed memories from reinforced memories. `min_score` (or `access_minimum_score`) decides whether a result counts as used. Positive-reference burst limiting decides whether that consumed memory also receives a new activation reference. A burst-throttled memory remains consumed for inhibition.
 - `Memory.list_inhibition_traces()` reads those traces. Recall does not.
 
 See [`design-retrieval-inhibition-0.17.3.md`](design-retrieval-inhibition-0.17.3.md).
