@@ -29,6 +29,7 @@ from cogkura.models import (
     RetrievalCompetitionSnapshot,
     RetrievalDiagnostics,
     SemanticDerivationRelation,
+    SemanticMemoryStatus,
     StoredEpisode,
     StoredSemanticMemory,
     TransientInterferenceDiagnostics,
@@ -59,6 +60,7 @@ class CompetitionProfile:
     cue_fit: float
     effective_cue_fit: float
     lineage_group: str | None
+    supported_semantic_keys: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,6 +202,60 @@ def _lineage_group(
     return None
 
 
+def _active_support_slot(
+    diagnostics: RetrievalDiagnostics,
+) -> tuple[str | None, tuple[str, ...]]:
+    """Return the shared active support slot and the semantic keys that provide it."""
+    active = [
+        item
+        for item in diagnostics.support_provenance
+        if item.semantic_status is SemanticMemoryStatus.ACTIVE
+    ]
+    slots = {item.semantic_slot_key for item in active}
+    if len(slots) != 1:
+        return None, ()
+    slot = next(iter(slots))
+    keys = tuple(sorted({item.semantic_memory_key for item in active}))
+    return slot, keys
+
+
+def _lift_episode_cue_fit(
+    profiles: list[CompetitionProfile],
+) -> list[CompetitionProfile]:
+    """Use supported semantic retrieval fit when an episode's own fit is weaker."""
+    semantic_cue_fit = {
+        profile.identity.memory_key: profile.cue_fit
+        for profile in profiles
+        if profile.memory_kind is MemoryKind.SEMANTIC
+    }
+    lifted: list[CompetitionProfile] = []
+    for profile in profiles:
+        if profile.memory_kind is not MemoryKind.EPISODE or not profile.supported_semantic_keys:
+            lifted.append(profile)
+            continue
+        supported = [
+            semantic_cue_fit[key]
+            for key in profile.supported_semantic_keys
+            if key in semantic_cue_fit
+        ]
+        if not supported:
+            lifted.append(profile)
+            continue
+        lifted_fit = max(profile.cue_fit, max(supported))
+        if lifted_fit == profile.cue_fit:
+            lifted.append(profile)
+            continue
+        factor = 1.0 if profile.cue_fit == 0.0 else profile.effective_cue_fit / profile.cue_fit
+        lifted.append(
+            replace(
+                profile,
+                cue_fit=lifted_fit,
+                effective_cue_fit=lifted_fit * factor,
+            )
+        )
+    return lifted
+
+
 def _profile_from_result(
     result: RecallResult,
     *,
@@ -214,6 +270,7 @@ def _profile_from_result(
     subject_entity_id: str | None = None
     predicate: str | None = None
     semantic_slot_key = diagnostics.semantic_slot_key
+    supported_semantic_keys: tuple[str, ...] = ()
     entity_ids: tuple[str, ...] = ()
     if isinstance(memory, StoredSemanticMemory):
         subject_entity_id = memory.subject_entity_id
@@ -226,6 +283,9 @@ def _profile_from_result(
         entity_ids = tuple(
             sorted({entity.entity_id for entity in memory.entities if entity.entity_id})
         )
+        support_slot, supported_semantic_keys = _active_support_slot(diagnostics)
+        if semantic_slot_key is None:
+            semantic_slot_key = support_slot
     retrieval_features = tuple(
         sorted(
             set(diagnostics.matched_direct_features)
@@ -263,6 +323,7 @@ def _profile_from_result(
             diagnostics=diagnostics,
             episode_slot_index=episode_slot_index,
         ),
+        supported_semantic_keys=supported_semantic_keys,
     )
 
 
@@ -280,6 +341,7 @@ def _profile_from_candidate(
     subject_entity_id: str | None = None
     predicate: str | None = None
     semantic_slot_key = diagnostics.semantic_slot_key
+    supported_semantic_keys: tuple[str, ...] = ()
     entity_ids: tuple[str, ...] = ()
     if isinstance(memory, StoredSemanticMemory):
         subject_entity_id = memory.subject_entity_id
@@ -292,6 +354,9 @@ def _profile_from_candidate(
         entity_ids = tuple(
             sorted({entity.entity_id for entity in memory.entities if entity.entity_id})
         )
+        support_slot, supported_semantic_keys = _active_support_slot(diagnostics)
+        if semantic_slot_key is None:
+            semantic_slot_key = support_slot
     retrieval_features = tuple(
         sorted(
             set(diagnostics.matched_direct_features)
@@ -329,6 +394,7 @@ def _profile_from_candidate(
             diagnostics=diagnostics,
             episode_slot_index=episode_slot_index,
         ),
+        supported_semantic_keys=supported_semantic_keys,
     )
 
 
@@ -684,6 +750,9 @@ def evaluate_competition(
         profiles.append(profile)
         profile_by_identity[profile.identity] = profile
         accessibility_by_identity[profile.identity] = result.activation
+
+    profiles = _lift_episode_cue_fit(profiles)
+    profile_by_identity = {profile.identity: profile for profile in profiles}
 
     index = _build_index(profiles)
     competition_by_identity: dict[MemoryIdentity, CompetitionDiagnostics] = {}

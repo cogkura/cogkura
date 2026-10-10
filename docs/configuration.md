@@ -90,7 +90,7 @@ Contextual metamemory is observational. It does not change activation, ranking, 
 | `proactive_weight` | `0.20` | Engineering calibration for proactive noisy-OR penalty |
 | `retroactive_weight` | `0.20` | Engineering calibration for retroactive noisy-OR penalty |
 
-With default `apply_interference=false`, competition remains diagnostic-only (as in `0.17.0`); eligibility reasons are still attached when `enabled=true`. When `apply_interference=true`, recall activation, score, and order may change from **behaviourally eligible** pairs only; explicit semantic admission from pre-interference activation is preserved.
+With default `apply_interference=false`, competition remains diagnostic-only (as in `0.17.0`); eligibility reasons are still attached when `enabled=true`. When `apply_interference=true`, recall activation, score, and order may change from **behaviourally eligible** pairs only; explicit semantic admission from pre-interference activation is preserved. As of `0.17.6`, same-slot and same-subject/same-predicate pairs compare relationship strength with `minimum_behavioral_strength`, and episodes can inherit one shared active support slot. Cue fit remains a separate gate. Transient interference is retained.
 
 ### Inhibition (`InhibitionConfig`)
 

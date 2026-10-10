@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.6] - 2026-10-10
+
+### Fixed
+
+- Transient interference reachability for clearly query-specific behaviourally eligible competitors.
+- Structured retrieval evidence propagation into behavioural competition eligibility: episodes inherit a shared active support slot, and same-slot or same-subject/same-predicate pairs gate strength on relationship strength rather than applying cue fit twice.
+
+### Added
+
+- Deterministic end-to-end reachability coverage for proactive and retroactive transient interference.
+- Controlled positive and negative transient-interference regression matrix.
+- Explicit transient-interference reachability findings.
+
+### Preserved
+
+- Behavioural precision safeguards and negative-control isolation.
+- Transient interference formula and default `apply_interference=False`.
+- Persistent inhibition ordering and storage schema.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.6`).
+- Transient interference is retained and validated.
+
 ## [0.17.5] - 2026-10-10
 
 ### Added

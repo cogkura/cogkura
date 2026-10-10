@@ -217,7 +217,9 @@ class DeterministicBehavioralCompetitionPolicy:
                 structural_anchor=None,
             )
 
-        if evidence.strength < config.minimum_behavioral_strength:
+        structured = evidence.same_semantic_slot or (same_fact_subject and evidence.same_predicate)
+        gated_strength = evidence.relationship_strength if structured else evidence.strength
+        if gated_strength < config.minimum_behavioral_strength:
             return _result(
                 scope_eligible=False,
                 reason=BehavioralEligibilityReason.COMPETITION_TOO_WEAK,

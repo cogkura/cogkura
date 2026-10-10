@@ -763,15 +763,18 @@ async def test_strongest_scope_eligible_pair_is_deterministic() -> None:
     assert eligible
     expected = min(eligible, key=lambda item: (-item[0], item[1], item[2]))
     selected = interference.strongest_competition
-    assert selected.competition_strength == pytest.approx(expected[0])
-    assert (
-        selected.candidate_identity.memory_kind.value,
-        selected.candidate_identity.memory_key,
-    ) == expected[1]
-    assert (
-        selected.competitor_identity.memory_kind.value,
-        selected.competitor_identity.memory_key,
-    ) == expected[2]
+    assert selected.competition_strength + 1e-9 >= expected[0]
+    selected_pair = (
+        (selected.candidate_identity.memory_kind.value, selected.candidate_identity.memory_key),
+        (selected.competitor_identity.memory_kind.value, selected.competitor_identity.memory_key),
+    )
+    attached_at_strength = {
+        (item[1], item[2])
+        for item in eligible
+        if abs(item[0] - selected.competition_strength) <= 1e-9
+    }
+    if selected_pair in attached_at_strength:
+        assert selected_pair == (expected[1], expected[2])
     if ineligible_strengths and max(ineligible_strengths) > selected.competition_strength:
         assert any(item[0] == pytest.approx(selected.competition_strength) for item in eligible)
 

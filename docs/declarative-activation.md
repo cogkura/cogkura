@@ -346,6 +346,12 @@ Scope-eligible competition sets `COMPETING_MEMORIES`. Transient pressure or thre
 
 See [`design-interference-observability-0.17.5.md`](design-interference-observability-0.17.5.md).
 
+## 0.17.6 transient interference reachability
+
+Transient interference is retained and validated. Episodes that share one active support slot use that slot in competition matching, and may use the supported semantic's cue fit. Same-slot and same-subject/same-predicate eligibility compares relationship strength with `minimum_behavioral_strength`; cue fit remains a separate check. Proactive and retroactive penalties stay negative-only and default off.
+
+See [`design-transient-interference-reachability-0.17.6.md`](design-transient-interference-reachability-0.17.6.md) and [`findings/0.17.6-transient-interference-reachability.md`](findings/0.17.6-transient-interference-reachability.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

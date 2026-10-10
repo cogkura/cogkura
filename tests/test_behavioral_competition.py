@@ -107,6 +107,7 @@ def _evidence(
     *,
     direction: CompetitionDirection = CompetitionDirection.PROACTIVE,
     strength: float = 0.8,
+    relationship_strength: float = 0.9,
     candidate_cue_fit: float = 0.85,
     competitor_cue_fit: float = 0.85,
     same_subject: bool = True,
@@ -128,7 +129,7 @@ def _evidence(
         same_predicate=same_predicate,
         shared_entity_ids=("payments-api",),
         shared_features=("deployment", "system"),
-        relationship_strength=0.9,
+        relationship_strength=relationship_strength,
         joint_cue_fit=0.85,
     )
 
@@ -257,7 +258,12 @@ def test_weak_strength_rejected() -> None:
     reason = _evaluate(
         candidate,
         competitor,
-        _evidence(strength=0.5, same_semantic_slot=True, same_predicate=True),
+        _evidence(
+            strength=0.5,
+            relationship_strength=0.5,
+            same_semantic_slot=True,
+            same_predicate=True,
+        ),
         scope,
     )
     assert reason is BehavioralEligibilityReason.COMPETITION_TOO_WEAK

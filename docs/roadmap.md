@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.6 — Transient interference reachability (done)
+
+- Transient interference is retained and validated. `apply_interference` stays default off.
+- Episodes inherit a shared active support slot, and structured pairs no longer apply cue fit twice at the behavioural strength gate.
+- [`docs/design-transient-interference-reachability-0.17.6.md`](design-transient-interference-reachability-0.17.6.md) and [`docs/findings/0.17.6-transient-interference-reachability.md`](findings/0.17.6-transient-interference-reachability.md).
+
 ## 0.17.5 — Interference observability (done)
 
 - Query-level `RetrievalInterferenceObservability` on `inspect_recall` and `MemoryAssessment`, from the pre-threshold discrimination set of one retrieval.
