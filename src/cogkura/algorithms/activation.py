@@ -45,6 +45,7 @@ from cogkura.algorithms.inhibition_application import (
     apply_persistent_inhibition,
     assign_inhibition_ranks,
 )
+from cogkura.algorithms.interference_observability import summarize_retrieval_interference
 from cogkura.algorithms.retrieval_features import (
     canonical_content_features,
     distinctive_content_features,
@@ -87,6 +88,7 @@ from cogkura.models import (
     RetrievalCue,
     RetrievalDiagnostics,
     RetrievalEligibility,
+    RetrievalInterferenceObservability,
     SemanticCardinality,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
@@ -427,6 +429,14 @@ def build_episode_slot_index_from_results(
     return index
 
 
+@dataclass(frozen=True, slots=True)
+class _RankedRetrieval:
+    """Internal ranked recall plus the interference summary from the same evaluation."""
+
+    results: tuple[RecallResult, ...]
+    interference: RetrievalInterferenceObservability | None
+
+
 class ACTRDeclarativeActivator:
     """Deterministic ACT-R declarative activation (base-level + partial matching)."""
 
@@ -477,6 +487,51 @@ class ACTRDeclarativeActivator:
         inhibition_config: InhibitionConfig | None = None,
         inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
     ) -> list[RecallResult]:
+        """Rank candidates by activation and return those above threshold."""
+        return list(
+            self.rank_evaluated(
+                candidates=candidates,
+                cue=cue,
+                references=references,
+                as_of=as_of,
+                config=config,
+                limit=limit,
+                learned_associations=learned_associations,
+                episode_support_index=episode_support_index,
+                valid_at=valid_at,
+                episode_slot_index=episode_slot_index,
+                entity_relationships=entity_relationships,
+                subject_id=subject_id,
+                episode_by_id=episode_by_id,
+                competition_config=competition_config,
+                competition_matcher=competition_matcher,
+                inhibition_config=inhibition_config,
+                inhibition_traces=inhibition_traces,
+            ).results
+        )
+
+    def rank_evaluated(
+        self,
+        *,
+        candidates: Sequence[ActivationCandidate],
+        cue: RetrievalCue,
+        references: Mapping[MemoryIdentity, Sequence[ActivationReferenceTrace]],
+        as_of: datetime,
+        config: ActivationConfig,
+        limit: int,
+        learned_associations: Sequence[LearnedAssociation] = (),
+        episode_support_index: Mapping[str, frozenset[SemanticMemoryStatus]] | None = None,
+        valid_at: datetime | None = None,
+        episode_slot_index: Mapping[str, str] | None = None,
+        entity_relationships: Sequence[StoredEntityRelationship] = (),
+        subject_id: str | None = None,
+        episode_by_id: Mapping[str, StoredEpisode] | None = None,
+        competition_config: CompetitionConfig | None = None,
+        competition_matcher: CompetitionMatcher | None = None,
+        inhibition_config: InhibitionConfig | None = None,
+        inhibition_traces: Mapping[MemoryIdentity, Sequence[InhibitoryTrace]] | None = None,
+    ) -> _RankedRetrieval:
+        """Rank candidates and summarize interference from the same evaluation."""
         effective_competition_config = competition_config or CompetitionConfig()
         effective_inhibition_config = inhibition_config or InhibitionConfig()
         effective_competition_matcher = competition_matcher or self._competition_matcher
@@ -644,7 +699,7 @@ class ACTRDeclarativeActivator:
                 latency_factor=config.latency_factor,
                 latency_exponent=config.latency_exponent,
             )
-        scored, rank_by_identity, _ = apply_competition_pipeline(
+        scored, rank_by_identity, competition_evaluation = apply_competition_pipeline(
             scored,
             rank_by_identity,
             config=effective_competition_config,
@@ -661,6 +716,12 @@ class ACTRDeclarativeActivator:
             latency_exponent=config.latency_exponent,
             capture_inhibition=effective_inhibition_config.enabled,
             retrieval_evaluated_at=as_of,
+        )
+        interference = summarize_retrieval_interference(
+            scored,
+            competition_evaluation,
+            competition_config=effective_competition_config,
+            inhibition_config=effective_inhibition_config,
         )
 
         eligible = [
@@ -689,14 +750,16 @@ class ACTRDeclarativeActivator:
                 ]
 
         if config.enable_duplicate_collapse:
-            return _collapse_results(
+            results = _collapse_results(
                 ordered,
                 limit=limit,
                 config=config,
                 support_index=support_index,
                 slot_index=slot_index,
             )
-        return ordered[:limit]
+        else:
+            results = ordered[:limit]
+        return _RankedRetrieval(results=tuple(results), interference=interference)
 
     def inspect(
         self,
@@ -908,6 +971,12 @@ class ACTRDeclarativeActivator:
             latency_exponent=config.latency_exponent,
             capture_inhibition=effective_inhibition_config.enabled,
             retrieval_evaluated_at=as_of,
+        )
+        interference = summarize_retrieval_interference(
+            scored,
+            competition_evaluation,
+            competition_config=effective_competition_config,
+            inhibition_config=effective_inhibition_config,
         )
 
         disposition_by_identity: dict[MemoryIdentity, RecallInspectionDisposition] = {}
@@ -1128,6 +1197,7 @@ class ACTRDeclarativeActivator:
             relationship_paths_used=relevance_context.relationship_paths_used,
             context=context_diagnostics,
             competition=competition_run_diagnostics,
+            interference=interference,
         )
 
 

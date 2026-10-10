@@ -50,7 +50,19 @@ Independent dimensions (never collapsed into one score):
 
 Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`, `MISSING_KNOWLEDGE`, and `NO_RETRIEVED_MEMORY` are emitted in a fixed order when thresholds are crossed.
 
-`MISSING_KNOWLEDGE` (`0.13`) fires when recall returns weak or low-coverage results and no retrieved ACTIVE semantic matches the cue slot (predicate, entities, or current-state tokens). A full pool of unrelated weak hits still abstains; empty pools emit `NO_RETRIEVED_MEMORY` only.
+`MISSING_KNOWLEDGE` (`0.13`) fires when recall returns weak or low-coverage results and no retrieved ACTIVE semantic matches the cue slot (predicate, entities, or current-state tokens). A full pool of unrelated weak hits still abstains. An empty pool emits `NO_RETRIEVED_MEMORY`. Interference flags may accompany that flag when competition, transient interference, or persistent inhibition explains the empty retrieval. Those flags describe retrieval state. They do not mean a memory is false, an answer is wrong, or a memory should be deleted.
+
+`COMPETING_MEMORIES` (`0.17.5`) means credible query-scope competition exists: at least one scope-eligible competition relationship. Raw diagnostic competition that fails the behavioural scope gate does not set it. It does not mean the memories contradict each other, and it does not set `CONFLICTING_SEMANTIC_MEMORY` or `MISSING_KNOWLEDGE`.
+
+`HIGH_INTERFERENCE` (`0.17.5`) means current proactive or retroactive transient interference is high enough to meet `MetamemoryConfig.high_interference_pressure_threshold` (default `0.50`), or it pushed a candidate below the retrieval threshold. Competition alone does not set it.
+
+`RETRIEVAL_INHIBITION_ACTIVE` (`0.17.5`) means persistent retrieval-induced inhibition is actively reducing accessibility in the current retrieval. Stored traces that are not applied, and matched traces that have recovered below the effective cutoff, do not set it. There is no `HIGH_INHIBITION` severity flag in this release.
+
+## Interference observability (`0.17.5`)
+
+`inspect_recall().interference` and `assess_memory().interference` carry the same `RetrievalInterferenceObservability` summary. It is aggregated from the pre-threshold discrimination set of one retrieval evaluation, so a candidate dropped below threshold remains visible in the summary even when it is absent from final recall. `None` on a pressure means that mechanism was not evaluated. `0.0` means it was evaluated and had no effect.
+
+`DeterministicMemoryMonitor` only classifies that precomputed summary. It does not read inhibition, activation, or semantic stores. `recall()` results are unchanged.
 
 ## Read-only guarantees
 

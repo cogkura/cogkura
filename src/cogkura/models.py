@@ -1603,6 +1603,109 @@ class CompetitionRunDiagnostics:
                 raise ValidationError("rejected_by_reason counts must not be negative.")
 
 
+class RetrievalInterferenceState(StrEnum):
+    """Query-level classification of interference and inhibition on one retrieval."""
+
+    NOT_EVALUATED = "not_evaluated"
+    CLEAR = "clear"
+    COMPETING = "competing"
+    TRANSIENT_INTERFERENCE = "transient_interference"
+    PERSISTENT_INHIBITION = "persistent_inhibition"
+    COMBINED = "combined"
+
+
+@dataclass(frozen=True, slots=True)
+class StrongestCompetitionDiagnostics:
+    """Strongest scope-eligible directed competition relationship."""
+
+    candidate_identity: MemoryIdentity
+    competitor_identity: MemoryIdentity
+    direction: CompetitionDirection
+    competition_strength: float
+    activation_margin: float | None
+
+    def __post_init__(self) -> None:
+        if (
+            not math.isfinite(self.competition_strength)
+            or not 0.0 <= self.competition_strength <= 1.0
+        ):
+            raise ValidationError("competition_strength must be finite and between 0.0 and 1.0.")
+        if self.activation_margin is not None and (
+            not math.isfinite(self.activation_margin) or self.activation_margin < 0.0
+        ):
+            raise ValidationError("activation_margin must be None or finite and non-negative.")
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalInterferenceObservability:
+    """Query-level summary of competition, transient interference, and persistent inhibition."""
+
+    state: RetrievalInterferenceState
+    competition_evaluated: bool
+    transient_interference_evaluated: bool
+    persistent_inhibition_evaluated: bool
+    diagnostic_relationship_count: int
+    scope_eligible_relationship_count: int
+    transient_eligible_relationship_count: int
+    competing_candidate_count: int
+    transiently_affected_candidate_count: int
+    persistently_inhibited_candidate_count: int
+    threshold_suppressed_by_interference_count: int
+    threshold_suppressed_by_inhibition_count: int
+    effective_inhibition_trace_count: int
+    inactive_matched_inhibition_trace_count: int
+    max_competition_strength: float | None
+    max_transient_pressure: float | None
+    max_transient_penalty_magnitude: float | None
+    max_persistent_inhibition_pressure: float | None
+    max_persistent_inhibition_penalty_magnitude: float | None
+    strongest_competition: StrongestCompetitionDiagnostics | None
+
+    def __post_init__(self) -> None:
+        for label, count in (
+            ("diagnostic_relationship_count", self.diagnostic_relationship_count),
+            ("scope_eligible_relationship_count", self.scope_eligible_relationship_count),
+            ("transient_eligible_relationship_count", self.transient_eligible_relationship_count),
+            ("competing_candidate_count", self.competing_candidate_count),
+            ("transiently_affected_candidate_count", self.transiently_affected_candidate_count),
+            (
+                "persistently_inhibited_candidate_count",
+                self.persistently_inhibited_candidate_count,
+            ),
+            (
+                "threshold_suppressed_by_interference_count",
+                self.threshold_suppressed_by_interference_count,
+            ),
+            (
+                "threshold_suppressed_by_inhibition_count",
+                self.threshold_suppressed_by_inhibition_count,
+            ),
+            ("effective_inhibition_trace_count", self.effective_inhibition_trace_count),
+            (
+                "inactive_matched_inhibition_trace_count",
+                self.inactive_matched_inhibition_trace_count,
+            ),
+        ):
+            if count < 0:
+                raise ValidationError(f"{label} must not be negative.")
+        for label, value in (
+            ("max_competition_strength", self.max_competition_strength),
+            ("max_transient_pressure", self.max_transient_pressure),
+            ("max_persistent_inhibition_pressure", self.max_persistent_inhibition_pressure),
+        ):
+            if value is not None and (not math.isfinite(value) or not 0.0 <= value <= 1.0):
+                raise ValidationError(f"{label} must be None or finite and between 0.0 and 1.0.")
+        for label, value in (
+            ("max_transient_penalty_magnitude", self.max_transient_penalty_magnitude),
+            (
+                "max_persistent_inhibition_penalty_magnitude",
+                self.max_persistent_inhibition_penalty_magnitude,
+            ),
+        ):
+            if value is not None and (not math.isfinite(value) or value < 0.0):
+                raise ValidationError(f"{label} must be None or finite and non-negative.")
+
+
 @dataclass(frozen=True, slots=True)
 class CompetitionConfig:
     """Configuration for observational cue-competition diagnostics."""
@@ -2518,6 +2621,7 @@ class RecallInspectionResult:
     retrieval_context: RetrievalContext | None = None
     context: RetrievalContextDiagnostics | None = None
     competition: CompetitionRunDiagnostics | None = None
+    interference: RetrievalInterferenceObservability | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -3219,6 +3323,7 @@ class MetamemoryConfig:
     missing_knowledge_coverage_threshold: float = 0.35
     missing_knowledge_strength_threshold: float = 0.45
     context_underspecified_margin: float = 0.0
+    high_interference_pressure_threshold: float = 0.50
 
     def __post_init__(self) -> None:
         if self.candidate_pool_size <= 0:
@@ -3239,6 +3344,10 @@ class MetamemoryConfig:
             ("missing_knowledge_coverage_threshold", self.missing_knowledge_coverage_threshold),
             ("missing_knowledge_strength_threshold", self.missing_knowledge_strength_threshold),
             ("context_underspecified_margin", self.context_underspecified_margin),
+            (
+                "high_interference_pressure_threshold",
+                self.high_interference_pressure_threshold,
+            ),
         ):
             if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
                 raise ValidationError(f"{label} must be finite and between 0.0 and 1.0.")
@@ -3267,6 +3376,9 @@ class MemoryAssessmentFlag(StrEnum):
     LOW_LEARNED_UTILITY = "low_learned_utility"
     STALE_EVIDENCE = "stale_evidence"
     MISSING_KNOWLEDGE = "missing_knowledge"
+    COMPETING_MEMORIES = "competing_memories"
+    HIGH_INTERFERENCE = "high_interference"
+    RETRIEVAL_INHIBITION_ACTIVE = "retrieval_inhibition_active"
 
 
 @dataclass(frozen=True, slots=True)
@@ -3385,6 +3497,7 @@ class MemoryAssessment:
     newest_evidence_at: datetime | None
     oldest_evidence_at: datetime | None
     context: RetrievalContextDiagnostics | None = None
+    interference: RetrievalInterferenceObservability | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():

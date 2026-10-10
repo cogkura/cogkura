@@ -11,6 +11,7 @@ from typing import Any
 from cogkura.algorithms.activation import (
     ACTRDeclarativeActivator,
     DeclarativeActivator,
+    _RankedRetrieval,
     build_episode_slot_index,
     build_episode_support_index,
     build_episode_support_provenance_index,
@@ -89,6 +90,7 @@ from cogkura.models import (
     RecallInspectionResult,
     RecallResult,
     RetrievalCue,
+    RetrievalInterferenceObservability,
     SemanticConsolidationResult,
     SemanticDerivationRelation,
     SemanticMemoryStatus,
@@ -144,6 +146,7 @@ class _PreparedRetrieval:
     results: tuple[RecallResult, ...]
     learning_states: tuple[StoredMemoryLearningState, ...]
     learning_utilities: Mapping[MemoryIdentity, float] | None
+    interference: RetrievalInterferenceObservability | None = None
 
 
 class Memory:
@@ -454,7 +457,7 @@ class Memory:
 
         cue = _normalise_cue(query, subject_id=subject_id, retrieval_context=retrieval_context)
         evaluation_time = _evaluation_time(as_of)
-        return await self._rank_declarative_results(
+        ranked = await self._rank_declarative_results(
             cue=cue,
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -464,6 +467,7 @@ class Memory:
             semantic_statuses=semantic_statuses,
             include_forgotten=include_forgotten,
         )
+        return list(ranked.results)
 
     async def inspect_recall(
         self,
@@ -663,7 +667,7 @@ class Memory:
         valid_at: datetime | None,
         semantic_statuses: frozenset[SemanticMemoryStatus] | None,
         include_forgotten: bool,
-    ) -> list[RecallResult]:
+    ) -> _RankedRetrieval:
         if valid_at is not None and valid_at.tzinfo is None:
             raise ValidationError("valid_at must be timezone-aware.")
         episodes, semantic_memories = await asyncio.gather(
@@ -734,7 +738,35 @@ class Memory:
                 identities=identities,
             ),
         )
-        entity_relationships = await self._entity_relationship_store.list(tenant_id=tenant_id)
+        entity_relationships = tuple(
+            await self._entity_relationship_store.list(tenant_id=tenant_id)
+        )
+        episode_by_id = {episode.id: episode for episode in episodes}
+        inhibition_traces = await self._inhibition_traces_for_retrieval(
+            tenant_id=tenant_id,
+            identities=identities,
+            as_of=evaluation_time,
+        )
+        if isinstance(self._declarative_activator, ACTRDeclarativeActivator):
+            return self._declarative_activator.rank_evaluated(
+                candidates=candidates,
+                cue=cue,
+                references=references,
+                as_of=evaluation_time,
+                config=self._activation_config,
+                limit=limit,
+                learned_associations=learned_associations,
+                episode_support_index=episode_support_index,
+                valid_at=valid_at,
+                episode_slot_index=episode_slot_index,
+                entity_relationships=entity_relationships,
+                subject_id=subject_id,
+                episode_by_id=episode_by_id,
+                competition_config=self._competition_config,
+                competition_matcher=self._competition_matcher,
+                inhibition_config=self._inhibition_config,
+                inhibition_traces=inhibition_traces,
+            )
         ranked = self._declarative_activator.rank(
             candidates=candidates,
             cue=cue,
@@ -746,19 +778,15 @@ class Memory:
             episode_support_index=episode_support_index,
             valid_at=valid_at,
             episode_slot_index=episode_slot_index,
-            entity_relationships=tuple(entity_relationships),
+            entity_relationships=entity_relationships,
             subject_id=subject_id,
-            episode_by_id={episode.id: episode for episode in episodes},
+            episode_by_id=episode_by_id,
             competition_config=self._competition_config,
             competition_matcher=self._competition_matcher,
             inhibition_config=self._inhibition_config,
-            inhibition_traces=await self._inhibition_traces_for_retrieval(
-                tenant_id=tenant_id,
-                identities=identities,
-                as_of=evaluation_time,
-            ),
+            inhibition_traces=inhibition_traces,
         )
-        return ranked
+        return _RankedRetrieval(results=tuple(ranked), interference=None)
 
     async def select_working_memory(
         self,
@@ -1564,7 +1592,7 @@ class Memory:
         )
         goal_cue = _normalize_goal_cue(goal, query_cue)
         evaluation_time = _evaluation_time(as_of)
-        results = await self._rank_declarative_results(
+        ranked = await self._rank_declarative_results(
             cue=query_cue,
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -1574,6 +1602,7 @@ class Memory:
             semantic_statuses=semantic_statuses,
             include_forgotten=include_forgotten,
         )
+        results = ranked.results
         learning_states: tuple[StoredMemoryLearningState, ...] = ()
         learning_utilities: Mapping[MemoryIdentity, float] | None = None
         if self._learning_config.enabled and results:
@@ -1596,9 +1625,10 @@ class Memory:
             goal_cue=goal_cue,
             evaluation_time=evaluation_time,
             valid_at=valid_at,
-            results=tuple(results),
+            results=results,
             learning_states=learning_states,
             learning_utilities=learning_utilities,
+            interference=ranked.interference,
         )
 
     def _select_working_memory_from_results(
@@ -1645,6 +1675,7 @@ class Memory:
             activation_config=self._activation_config,
             learning_utilities=prepared.learning_utilities,
             learning_states=prepared.learning_states,
+            interference=prepared.interference,
         )
 
     def _attach_context_matches_to_results(

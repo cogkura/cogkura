@@ -189,14 +189,14 @@ async def test_prepare_context_single_declarative_rank() -> None:
         _episode(memory_key="rank-once", statement="operational complexity")
     )
     rank_calls = 0
-    original_rank = memory._declarative_activator.rank
+    original_rank = memory._declarative_activator.rank_evaluated
 
-    def counting_rank(*args: object, **kwargs: object) -> list:
+    def counting_rank(*args: object, **kwargs: object) -> object:
         nonlocal rank_calls
         rank_calls += 1
         return original_rank(*args, **kwargs)
 
-    memory._declarative_activator.rank = counting_rank  # type: ignore[method-assign]
+    memory._declarative_activator.rank_evaluated = counting_rank  # type: ignore[method-assign]
     await memory.prepare_context(
         "operational complexity",
         tenant_id="company_123",

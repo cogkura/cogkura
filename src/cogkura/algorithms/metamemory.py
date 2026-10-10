@@ -34,6 +34,7 @@ from cogkura.models import (
     MetamemorySignals,
     RecallResult,
     RetrievalCue,
+    RetrievalInterferenceObservability,
     SemanticMemoryStatus,
     StoredEpisode,
     StoredMemoryLearningState,
@@ -43,6 +44,9 @@ from cogkura.models import (
 _FLAG_ORDER: tuple[MemoryAssessmentFlag, ...] = (
     MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,
     MemoryAssessmentFlag.MISSING_KNOWLEDGE,
+    MemoryAssessmentFlag.COMPETING_MEMORIES,
+    MemoryAssessmentFlag.HIGH_INTERFERENCE,
+    MemoryAssessmentFlag.RETRIEVAL_INHIBITION_ACTIVE,
     MemoryAssessmentFlag.LOW_CUE_COVERAGE,
     MemoryAssessmentFlag.LOW_RETRIEVAL_STRENGTH,
     MemoryAssessmentFlag.LOW_EVIDENCE_CONFIDENCE,
@@ -79,6 +83,7 @@ class MemoryMonitor(Protocol):
         activation_config: ActivationConfig,
         learning_utilities: Mapping[MemoryIdentity, float] | None = None,
         learning_states: Sequence[StoredMemoryLearningState] = (),
+        interference: RetrievalInterferenceObservability | None = None,
     ) -> MemoryAssessment:
         """Assess retrieved memory state without storage I/O."""
         ...
@@ -106,11 +111,23 @@ class DeterministicMemoryMonitor:
         activation_config: ActivationConfig,
         learning_utilities: Mapping[MemoryIdentity, float] | None = None,
         learning_states: Sequence[StoredMemoryLearningState] = (),
+        interference: RetrievalInterferenceObservability | None = None,
     ) -> MemoryAssessment:
         evaluation_time = as_of.astimezone(UTC)
         context_key = learning_context_key(goal)
 
         if not candidates:
+            signals = MetamemorySignals(
+                cue_coverage=0.0,
+                top_retrieval_strength=0.0,
+                mean_retrieval_strength=0.0,
+                evidence_confidence=None,
+                semantic_conflict=0.0,
+                provenance_diversity=0.0,
+                forgetting_pressure=None,
+                learned_utility=None,
+                freshness=None,
+            )
             return MemoryAssessment(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
@@ -118,18 +135,13 @@ class DeterministicMemoryMonitor:
                 goal=goal,
                 assessed_at=evaluation_time,
                 valid_at=valid_at,
-                signals=MetamemorySignals(
-                    cue_coverage=0.0,
-                    top_retrieval_strength=0.0,
-                    mean_retrieval_strength=0.0,
-                    evidence_confidence=None,
-                    semantic_conflict=0.0,
-                    provenance_diversity=0.0,
-                    forgetting_pressure=None,
-                    learned_utility=None,
-                    freshness=None,
+                signals=signals,
+                flags=_build_flags(
+                    signals=signals,
+                    config=config,
+                    has_candidates=False,
+                    interference=interference,
                 ),
-                flags=(MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,),
                 items=(),
                 retrieved_count=0,
                 episode_count=0,
@@ -147,6 +159,7 @@ class DeterministicMemoryMonitor:
                     candidates=(),
                     underspecified_margin=config.context_underspecified_margin,
                 ),
+                interference=interference,
             )
 
         item_diagnostics = [
@@ -230,6 +243,7 @@ class DeterministicMemoryMonitor:
             query=query,
             activation_config=activation_config,
             valid_at=valid_at,
+            interference=interference,
         )
 
         report_limit = min(config.max_report_items, len(candidates))
@@ -297,6 +311,7 @@ class DeterministicMemoryMonitor:
                 candidates=candidates,
                 underspecified_margin=config.context_underspecified_margin,
             ),
+            interference=interference,
         )
 
 
@@ -381,6 +396,30 @@ def _retrieval_weighted_mean(pairs: Sequence[tuple[float, float]]) -> float:
     return sum(value for _, value in pairs) / len(pairs)
 
 
+def _interference_flags(
+    interference: RetrievalInterferenceObservability | None,
+    *,
+    config: MetamemoryConfig,
+) -> set[MemoryAssessmentFlag]:
+    if interference is None:
+        return set()
+    active: set[MemoryAssessmentFlag] = set()
+    if interference.scope_eligible_relationship_count > 0:
+        active.add(MemoryAssessmentFlag.COMPETING_MEMORIES)
+    pressure = interference.max_transient_pressure
+    if interference.transient_interference_evaluated and (
+        (pressure is not None and pressure >= config.high_interference_pressure_threshold)
+        or interference.threshold_suppressed_by_interference_count > 0
+    ):
+        active.add(MemoryAssessmentFlag.HIGH_INTERFERENCE)
+    if (
+        interference.persistently_inhibited_candidate_count > 0
+        and interference.effective_inhibition_trace_count > 0
+    ):
+        active.add(MemoryAssessmentFlag.RETRIEVAL_INHIBITION_ACTIVE)
+    return active
+
+
 def _build_flags(
     *,
     signals: MetamemorySignals,
@@ -390,11 +429,14 @@ def _build_flags(
     query: RetrievalCue | None = None,
     activation_config: ActivationConfig | None = None,
     valid_at: datetime | None = None,
+    interference: RetrievalInterferenceObservability | None = None,
 ) -> tuple[MemoryAssessmentFlag, ...]:
-    if not has_candidates:
-        return (MemoryAssessmentFlag.NO_RETRIEVED_MEMORY,)
-
     active: set[MemoryAssessmentFlag] = set()
+    if not has_candidates:
+        active.add(MemoryAssessmentFlag.NO_RETRIEVED_MEMORY)
+        active.update(_interference_flags(interference, config=config))
+        return tuple(flag for flag in _FLAG_ORDER if flag in active)
+
     if query is not None and activation_config is not None:
         answerability = _assess_answerability(
             candidates,
@@ -438,6 +480,7 @@ def _build_flags(
         active.add(MemoryAssessmentFlag.LOW_LEARNED_UTILITY)
     if signals.freshness is not None and signals.freshness < config.stale_evidence_threshold:
         active.add(MemoryAssessmentFlag.STALE_EVIDENCE)
+    active.update(_interference_flags(interference, config=config))
 
     return tuple(flag for flag in _FLAG_ORDER if flag in active)
 

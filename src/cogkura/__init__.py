@@ -119,6 +119,8 @@ from cogkura.models import (
     RetrievalCue,
     RetrievalDiagnostics,
     RetrievalEligibility,
+    RetrievalInterferenceObservability,
+    RetrievalInterferenceState,
     SemanticCardinality,
     SemanticConsolidationResult,
     SemanticDerivationInput,
@@ -144,6 +146,7 @@ from cogkura.models import (
     StoredMemoryLearningState,
     StoredSemanticMemory,
     StoredSemanticRevision,
+    StrongestCompetitionDiagnostics,
     SupportProvenance,
     TransientInterferenceDiagnostics,
     WorkingMemoryChunk,
@@ -269,6 +272,8 @@ __all__ = [
     "RetrievalContextState",
     "RetrievalDiagnostics",
     "RetrievalEligibility",
+    "RetrievalInterferenceObservability",
+    "RetrievalInterferenceState",
     "RetrievalCue",
     "SemanticCardinality",
     "SemanticConsolidationResult",
@@ -293,6 +298,7 @@ __all__ = [
     "SemanticSupportContextReason",
     "SemanticUpdateRelation",
     "SemanticWriteStatus",
+    "StrongestCompetitionDiagnostics",
     "StoredEpisode",
     "StoredEntityRelationship",
     "StoredMemoryLearningState",
@@ -312,4 +318,4 @@ __all__ = [
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
 ]
-__version__ = "0.17.4"
+__version__ = "0.17.5"

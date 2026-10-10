@@ -88,6 +88,8 @@ async def main() -> None:
     if assessment.signals.learned_utility is not None:
         print(f"Learned utility:         {assessment.signals.learned_utility:.2f}")
     print("Flags:", ", ".join(flag.value for flag in assessment.flags) or "none")
+    if assessment.interference is not None:
+        print(f"Interference state:      {assessment.interference.state.value}")
 
 
 if __name__ == "__main__":

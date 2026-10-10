@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.5] - 2026-10-10
+
+### Added
+
+- Query-level interference and inhibition observability on `inspect_recall()`.
+- `MemoryAssessment.interference`.
+- `RetrievalInterferenceState` and strongest credible competition diagnostics.
+- Competition, interference, and inhibition aggregate counts and pressures.
+- Metamemory flags `COMPETING_MEMORIES`, `HIGH_INTERFERENCE`, and `RETRIEVAL_INHIBITION_ACTIVE`.
+- Configurable `MetamemoryConfig.high_interference_pressure_threshold`.
+
+### Changed
+
+- Metamemory can explain interference and inhibition even when affected candidates fall below the final retrieval threshold.
+- No-result assessments can include interference and inhibition flags alongside `NO_RETRIEVED_MEMORY`.
+
+### Preserved
+
+- Retrieval behaviour, competition eligibility, transient interference, persistent inhibition, and trace recording.
+- Default configuration and storage schema. Migration `010_retrieval_inhibition.sql` remains current.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.5`).
+
 ## [0.17.4] - 2026-10-07
 
 ### Added

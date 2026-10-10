@@ -338,6 +338,14 @@ I_persistent = -inhibition_weight * noisy_or(remaining)
 
 See [`design-inhibition-application-0.17.4.md`](design-inhibition-application-0.17.4.md).
 
+## 0.17.5 interference observability
+
+`inspect_recall().interference` and `assess_memory().interference` share one `RetrievalInterferenceObservability` summary. It is built from the candidates that reached interference and inhibition evaluation, before threshold filtering and result limiting. Per-candidate `CompetitionDiagnostics` and `PersistentInhibitionDiagnostics` remain the detailed explanation.
+
+Scope-eligible competition sets `COMPETING_MEMORIES`. Transient pressure or threshold suppression sets `HIGH_INTERFERENCE`. An effective persistent penalty sets `RETRIEVAL_INHIBITION_ACTIVE`. A disabled mechanism stays `None` on its pressures rather than `0.0`. The summary does not change `recall()`.
+
+See [`design-interference-observability-0.17.5.md`](design-interference-observability-0.17.5.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

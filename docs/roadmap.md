@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.5 — Interference observability (done)
+
+- Query-level `RetrievalInterferenceObservability` on `inspect_recall` and `MemoryAssessment`, from the pre-threshold discrimination set of one retrieval.
+- Metamemory flags `COMPETING_MEMORIES`, `HIGH_INTERFERENCE`, and `RETRIEVAL_INHIBITION_ACTIVE`. Retrieval behaviour is unchanged.
+- [`docs/design-interference-observability-0.17.5.md`](design-interference-observability-0.17.5.md).
+
 ## 0.17.4 — Persistent inhibition application (done)
 
 - Opt-in scope-matched half-life recovery. Default `apply_to_recall=False` does not read the store.

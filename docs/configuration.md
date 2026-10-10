@@ -69,8 +69,9 @@ See [`docs/declarative-activation.md`](declarative-activation.md) for the full a
 | Knob | Default | Role |
 |------|---------|------|
 | `context_underspecified_margin` | `0.0` | Inspect/metamemory classification only: top-two context-strength margin at or below this value → `context_underspecified` when ≥2 comparable candidates match (`0.0` = exact ties) |
+| `high_interference_pressure_threshold` | `0.50` | Classification only: transient directional pressure at or above this value sets `HIGH_INTERFERENCE`. Threshold suppression sets the flag even below this value. It does not change interference |
 
-Contextual metamemory is observational. It does not change activation, ranking, or working-memory selection. Canonical discrimination is `inspect_recall`; `assess_memory.context` uses the narrower recall pool.
+Contextual metamemory is observational. It does not change activation, ranking, or working-memory selection. Canonical discrimination for context is `inspect_recall`; `assess_memory.context` uses the narrower recall pool. Query-level interference observability is different: `inspect_recall().interference` and `assess_memory().interference` share the pre-threshold discrimination set.
 
 ### Competition (`CompetitionConfig`)
 

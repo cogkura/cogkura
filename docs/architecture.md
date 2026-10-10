@@ -124,6 +124,10 @@ COMPETITION + INTERFERENCE (0.17.0 diagnostics, 0.17.1 behaviour, 0.17.2 eligibi
 Shared evaluate_competition on RecallResult after admission, before threshold/sort
 Behavioral eligibility on accepted pairs; optional transient interference when apply_interference=true (eligible pairs only)
 RecallInspectionCandidate.competition + RecallInspectionResult.competition counters
+
+QUERY OBSERVABILITY (0.17.5)
+RetrievalInterferenceObservability on inspect_recall and MemoryAssessment
+Summarized from the pre-threshold discrimination set of one evaluation; recall results unchanged
 ```
 
 **Engineering weights (not cognitive-science constants):**
@@ -151,7 +155,7 @@ Decision order: not provided → unavailable → conflict → underspecified →
 
 **Known intentional limitations (0.16 freeze):** exact normalized matching only; no fuzzy/synonym matching; no embeddings; no negative mismatch activation; no automatic context extraction or clarification; custom attributes excluded from primary match score.
 
-Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources.
+Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources · **`0.17.3`** inhibitory trace recording · **`0.17.4`** opt-in persistent inhibition · **`0.17.5`** query-level interference observability.
 
 **Competition vs other mechanisms:** reconsolidation decides semantic authority; forgetting models accessibility; contextual reinstatement adjusts accessibility from encoding context; **`0.17.0+` competition** identifies cue rivalry; **`0.17.1` interference** (when enabled) applies bounded retrieval-local negative activation; **`0.17.2` eligibility** restricts which diagnostic rivals may contribute interference (diagnostic counts unchanged).
 
@@ -182,7 +186,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.17.4)
+## Current implementation boundary (0.17.5)
 
 Implemented:
 
@@ -196,6 +200,7 @@ Implemented:
 - **encoding-context capture** on observations and episodes (`ObservationContext`, `MemoryContextSignature`); **`concept_ids` reserved** on default encoder
 - **retrieval-context matching, reinstatement, semantic support propagation, and contextual metamemory** (0.16.1–0.16.5); architecture frozen after 0.16.5
 - **cue-competition diagnostics** (0.17.0), **opt-in transient interference** (0.17.1), **behavioural eligibility** (0.17.2), **inhibitory trace recording** (0.17.3), and **opt-in persistent inhibition** (0.17.4). Application is off unless `apply_to_recall` is true
+- **query-level interference observability** (0.17.5) on `inspect_recall` and `assess_memory`. The summary does not change retrieval, and disabled mechanisms are not read just to populate it
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
