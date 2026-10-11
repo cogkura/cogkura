@@ -155,7 +155,7 @@ Decision order: not provided → unavailable → conflict → underspecified →
 
 **Known intentional limitations (0.16 freeze):** exact normalized matching only; no fuzzy/synonym matching; no embeddings; no negative mismatch activation; no automatic context extraction or clarification; custom attributes excluded from primary match score.
 
-Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources · **`0.17.3`** inhibitory trace recording · **`0.17.4`** opt-in persistent inhibition · **`0.17.5`** query-level interference observability · **`0.17.6`** transient interference retained and validated.
+Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources · **`0.17.3`** inhibitory trace recording · **`0.17.4`** opt-in persistent inhibition · **`0.17.5`** query-level interference observability · **`0.17.6`** transient interference retained and validated · **`0.17.6.1`** co-consumption by active semantic lineage · **`0.17.7`** interference and inhibition architecture freeze.
 
 **Competition vs other mechanisms:** reconsolidation decides semantic authority; forgetting models accessibility; contextual reinstatement adjusts accessibility from encoding context; **`0.17.0+` competition** identifies cue rivalry; **`0.17.1` interference** (when enabled) applies bounded retrieval-local negative activation; **`0.17.2` eligibility** restricts which diagnostic rivals may contribute interference (diagnostic counts unchanged).
 
@@ -186,7 +186,25 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.17.6.1)
+## Interference and inhibition (frozen in 0.17.7)
+
+Retrieval evaluates mechanisms in this order:
+
+1. Context reinstatement adjusts accessibility.
+2. Persistent inhibition, when `apply_to_recall` is true, applies a scope-matched penalty.
+3. Competition identifies rivals, and behavioural eligibility decides which of those rivals may affect retrieval.
+4. Transient interference, when `apply_interference` is true, applies a retrieval-local proactive or retroactive penalty.
+5. The retrieval threshold and working-memory selection run on the resulting activations.
+
+Explicit use writes reinforcement and inhibitory traces as separate records. `recall`, `inspect_recall`, `assess_memory`, and `prepare_context` do not write traces.
+
+`0.17.7` freezes this flow at the `0.17.6.1` retrieval contract. Both behavioural switches stay off. A later behavioural change needs a new design note.
+
+Deferred: trace compaction, automatic deletion, cancellation, turning either switch on by default, and adaptive or model-based competition.
+
+See [`design-interference-inhibition-architecture-freeze-0.17.7.md`](design-interference-inhibition-architecture-freeze-0.17.7.md).
+
+## Current implementation boundary (0.17.7)
 
 Implemented:
 
@@ -203,6 +221,7 @@ Implemented:
 - **query-level interference observability** (0.17.5) on `inspect_recall` and `assess_memory`. The summary does not change retrieval, and disabled mechanisms are not read just to populate it
 - **transient interference reachability** (0.17.6). The mechanism is retained and validated; `apply_interference` stays default off
 - **co-consumption inhibition** (0.17.6.1). Active semantic lineage, not semantic-slot membership, decides whether an alternate representation was consumed
+- **interference and inhibition architecture freeze** (0.17.7). The flow above is the contract; retrieval behaviour matches `0.17.6.1`
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 

@@ -352,6 +352,10 @@ Transient interference is retained and validated. Episodes that share one active
 
 See [`design-transient-interference-reachability-0.17.6.md`](design-transient-interference-reachability-0.17.6.md) and [`findings/0.17.6-transient-interference-reachability.md`](findings/0.17.6-transient-interference-reachability.md).
 
+## 0.17.7 architecture freeze
+
+`0.17.6.1` co-consumption and the `0.17.0`–`0.17.6` interference and inhibition behaviour are frozen. Retrieval matches `0.17.6.1`. `apply_interference` and `apply_to_recall` stay off. The evaluation order and deferred work are in [`design-interference-inhibition-architecture-freeze-0.17.7.md`](design-interference-inhibition-architecture-freeze-0.17.7.md).
+
 ## Storage
 
 Migration `008_entity_relationships.sql` adds `cogkura.entity_relationships`.

@@ -109,6 +109,8 @@ Recording is off by default. Enabling it requires `CompetitionConfig.enabled=tru
 
 Stored traces are not read during retrieval unless `apply_to_recall` is true. Activation references and inhibition traces are written separately; a repeated `request_id` converges in each store.
 
+Competition and inhibition weights, strength floors, cue-fit floors, and the recovery half-life are engineering parameters, not biological constants. `tests/test_interference_inhibition_architecture_freeze.py` checks that these documented defaults match `CompetitionConfig()` and `InhibitionConfig()`.
+
 `record_access()` keeps two sets. Consumed memories are the results that pass `min_score` or `access_minimum_score`, and they drive inhibition. Reinforced memories are the consumed memories that also pass `access_burst_limit`, and they receive activation references. Burst limiting does not remove a memory from the consumed set.
 
 ### Working memory (`WorkingMemoryConfig`)

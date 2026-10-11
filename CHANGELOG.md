@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.7] - 2026-10-11
+
+### Added
+
+- Architecture-freeze suite [`tests/test_interference_inhibition_architecture_freeze.py`](tests/test_interference_inhibition_architecture_freeze.py) locking the `0.17` interference and inhibition contracts.
+- PostgreSQL parity test that a stored trace changes recall only when `apply_to_recall` is true.
+- Design note [`docs/design-interference-inhibition-architecture-freeze-0.17.7.md`](docs/design-interference-inhibition-architecture-freeze-0.17.7.md) and findings [`docs/findings/0.17.7-interference-inhibition-architecture-freeze.md`](docs/findings/0.17.7-interference-inhibition-architecture-freeze.md).
+
+### Changed
+
+- [`docs/architecture.md`](docs/architecture.md) records the frozen retrieval flow: context, persistent inhibition, competition and eligibility, transient interference, then threshold and working memory.
+- Documented competition and inhibition weights, floors, and the recovery half-life are engineering parameters, checked against `CompetitionConfig()` and `InhibitionConfig()`.
+
+### Preserved
+
+- Retrieval behaviour matches `0.17.6.1`.
+- `apply_interference` and `apply_to_recall` stay `false`.
+- No formula, weight, eligibility, default, or schema change.
+- No trace compaction, automatic deletion, or cancellation.
+
+### Notes
+
+- Behavioural changes after this release need a new design note.
+- Package `__version__` aligned with `pyproject.toml` (`0.17.7`).
+
 ## [0.17.6.1] - 2026-10-11
 
 ### Fixed

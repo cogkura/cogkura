@@ -7,11 +7,24 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from test_017_6_transient_reachability import (
+    _T as REACH_T,
+)
+from test_017_6_transient_reachability import (
+    _TENANT as REACH_TENANT,
+)
+from test_017_6_transient_reachability import (
+    _memory,
+    _seed_deployment_episodes,
+    _stores,
+)
 
 from cogkura.migrations import apply_migrations
 from cogkura.models import (
     BehavioralStructuralAnchor,
+    CompetitionConfig,
     CompetitionDirection,
+    InhibitionConfig,
     InhibitionScopeSignature,
     InhibitoryTrace,
     MemoryIdentity,
@@ -231,3 +244,83 @@ async def test_postgres_list_for_memories_matches_bounds(memory_engine: AsyncEng
         == {}
     )
     await store.clear(tenant_id="tenant")
+
+
+@pytest.mark.asyncio
+async def test_postgres_recall_applies_stored_trace_only_when_enabled(
+    memory_engine: AsyncEngine,
+) -> None:
+    store = PostgresInhibitionStore(memory_engine)
+    await store.clear(tenant_id=REACH_TENANT)
+    stores = _stores()
+    stores["inhibition_store"] = store
+    off = _memory(
+        **stores,
+        competition_config=CompetitionConfig(enabled=False),
+        inhibition_config=InhibitionConfig(
+            enabled=False,
+            apply_to_recall=False,
+            inhibition_weight=1.0,
+        ),
+    )
+    await _seed_deployment_episodes(off)
+    query = "payments-api deployment_system"
+    baseline = await off.recall(query, tenant_id=REACH_TENANT, as_of=REACH_T, limit=10)
+    jenkins = next(
+        result
+        for result in baseline
+        if result.memory_kind is MemoryKind.SEMANTIC and "jenkins" in result.memory.statement
+    )
+    github = next(
+        result
+        for result in baseline
+        if result.memory_kind is MemoryKind.SEMANTIC and "github_actions" in result.memory.statement
+    )
+    await store.append_traces(
+        [
+            InhibitoryTrace(
+                id="00000000-0000-0000-0000-000000000177",
+                tenant_id=REACH_TENANT,
+                inhibited_identity=MemoryIdentity(
+                    memory_kind=MemoryKind.SEMANTIC,
+                    memory_key=jenkins.memory.memory_key,
+                ),
+                selected_identity=MemoryIdentity(
+                    memory_kind=MemoryKind.SEMANTIC,
+                    memory_key=github.memory.memory_key,
+                ),
+                direction=CompetitionDirection.PROACTIVE,
+                scope=InhibitionScopeSignature(
+                    structural_anchor=BehavioralStructuralAnchor.SEMANTIC_SLOT,
+                    subject_id="payments-api",
+                    predicate="deployment_system",
+                    semantic_slot_key=jenkins.memory.slot_key,
+                ),
+                competition_strength=0.8,
+                competitor_accessibility=1.0,
+                induction_pressure=0.8,
+                retrieval_evaluated_at=REACH_T,
+                induced_at=REACH_T,
+            )
+        ]
+    )
+    disabled = await off.recall(query, tenant_id=REACH_TENANT, as_of=REACH_T, limit=10)
+    untouched = next(
+        result for result in disabled if result.memory.memory_key == jenkins.memory.memory_key
+    )
+    assert untouched.components.inhibition == 0.0
+    enabled = _memory(
+        **stores,
+        competition_config=CompetitionConfig(enabled=False),
+        inhibition_config=InhibitionConfig(
+            enabled=False,
+            apply_to_recall=True,
+            inhibition_weight=1.0,
+        ),
+    )
+    applied = await enabled.recall(query, tenant_id=REACH_TENANT, as_of=REACH_T, limit=10)
+    affected = next(
+        result for result in applied if result.memory.memory_key == jenkins.memory.memory_key
+    )
+    assert affected.components.inhibition < 0.0
+    await store.clear(tenant_id=REACH_TENANT)

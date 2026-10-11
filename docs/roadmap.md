@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.7 — Interference and inhibition architecture freeze (done)
+
+- Retrieval behaviour matches `0.17.6.1`. `apply_interference` and `apply_to_recall` stay off.
+- One invariant suite locks competition, eligibility, transient interference, co-consumption, and persistent inhibition. Behavioural changes after this release need a new design note.
+- [`docs/design-interference-inhibition-architecture-freeze-0.17.7.md`](design-interference-inhibition-architecture-freeze-0.17.7.md) and [`docs/findings/0.17.7-interference-inhibition-architecture-freeze.md`](findings/0.17.7-interference-inhibition-architecture-freeze.md).
+
 ## 0.17.6.1 — Co-consumption inhibition hardening (done)
 
 - Consumed memories are not inhibited through another representation of the same active semantic lineage.

@@ -64,6 +64,8 @@ Diagnostic flags such as `LOW_RETRIEVAL_STRENGTH`, `CONFLICTING_SEMANTIC_MEMORY`
 
 `DeterministicMemoryMonitor` only classifies that precomputed summary. It does not read inhibition, activation, or semantic stores. `recall()` results are unchanged.
 
+`0.17.7` freezes this observability with the rest of the interference and inhibition line. Flag meanings stay as above. See [`design-interference-inhibition-architecture-freeze-0.17.7.md`](design-interference-inhibition-architecture-freeze-0.17.7.md).
+
 ## Read-only guarantees
 
 `assess_memory()` does not call `record_access()`, `apply_forgetting()`, `learn()`, or any store writes. Monitoring does not rehearse or mutate memory.
