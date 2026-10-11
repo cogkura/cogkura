@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.6.1] - 2026-10-11
+
+### Fixed
+
+- Retrieval-induced inhibition now recognises co-consumed logical memory representations across semantic and support identities.
+- Co-consumed semantic memories cannot inhibit alternate support representations of one another.
+- The consumed closure uses active semantic lineage rather than broad semantic-slot membership.
+
+### Preserved
+
+- Exact identity co-consumption exclusion.
+- Behavioural competition eligibility.
+- Transient interference behaviour.
+- Induction pressure.
+- Persistent inhibition application and recovery.
+- Access burst semantics.
+- Request-id idempotency.
+- Storage schema.
+
+### Notes
+
+- Package `__version__` aligned with `pyproject.toml` (`0.17.6.1`).
+- Existing inhibitory traces are not rewritten.
+
 ## [0.17.6] - 2026-10-10
 
 ### Fixed

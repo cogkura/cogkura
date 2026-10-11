@@ -22,7 +22,9 @@ from cogkura.models import (
     SemanticCardinality,
     SemanticMemoryStatus,
     SemanticPolarity,
+    StoredEpisode,
     StoredSemanticMemory,
+    SupportProvenance,
 )
 from cogkura.storage.in_memory_inhibition import InMemoryInhibitionStore
 
@@ -318,3 +320,322 @@ async def test_list_for_memories_bounds_and_isolates_tenants() -> None:
     )
     assert [trace.id for trace in listed[_loser()]] == [newer.id]
     assert MemoryIdentity(memory_kind=MemoryKind.EPISODE, memory_key="episode-key") not in listed
+
+
+_CONFIG = InhibitionConfig(enabled=True, minimum_induction_pressure=0.2)
+
+
+def _episode(
+    memory_key: str,
+    provenance: tuple[SupportProvenance, ...] = (),
+) -> RecallResult:
+    diagnostics = RetrievalDiagnostics(
+        rank_activation=0.0,
+        accessibility_partial=0.0,
+        ranking_partial=0.0,
+        conjunction=0.0,
+        text_coverage=0.5,
+        text_cue_fit=0.5,
+        temporal_mode="current",
+        support_provenance=provenance,
+    )
+    return RecallResult(
+        memory_kind=MemoryKind.EPISODE,
+        memory=StoredEpisode(
+            id=memory_key,
+            tenant_id="tenant",
+            subject_id="operator",
+            memory_key=memory_key,
+            statement=memory_key,
+            started_at=_T,
+            ended_at=_T,
+            confidence=0.9,
+            importance=0.5,
+            is_active=True,
+            evidence=(),
+            entities=(),
+            metadata={},
+            created_at=_T,
+            updated_at=_T,
+        ),
+        activation=1.0,
+        score=0.8,
+        latency_seconds=0.1,
+        components=ActivationComponents(0.0, 0.0, 0.0, 0.0, 1.0),
+        reason="test",
+        diagnostics=diagnostics,
+    )
+
+
+def _support(memory_key: str, status: SemanticMemoryStatus) -> SupportProvenance:
+    return SupportProvenance(
+        semantic_memory_key=memory_key,
+        semantic_revision_key=f"rev-{memory_key}",
+        semantic_slot_key="shared-slot",
+        semantic_status=status,
+        contribution_score=1.0,
+    )
+
+
+def _lineage_snapshot(
+    *,
+    competitor_key: str,
+    competitor_kind: MemoryKind = MemoryKind.SEMANTIC,
+    competitor_lineage: str | None,
+    candidate_lineage: str | None = None,
+) -> RetrievalCompetitionSnapshot:
+    return RetrievalCompetitionSnapshot(
+        competitor_identity=MemoryIdentity(
+            memory_kind=competitor_kind,
+            memory_key=competitor_key,
+        ),
+        direction=CompetitionDirection.PROACTIVE,
+        competition_strength=0.8,
+        competitor_accessibility=0.8,
+        scope_eligible=True,
+        scope=InhibitionScopeSignature(
+            structural_anchor=BehavioralStructuralAnchor.SEMANTIC_SLOT,
+            subject_id="payments-api",
+            predicate="cache_backend",
+            semantic_slot_key="shared-slot",
+        ),
+        retrieval_evaluated_at=_T,
+        candidate_lineage_group=candidate_lineage,
+        competitor_lineage_group=competitor_lineage,
+    )
+
+
+def _with_snapshots(
+    result: RecallResult,
+    snapshots: tuple[RetrievalCompetitionSnapshot, ...],
+) -> RecallResult:
+    assert result.diagnostics is not None
+    return RecallResult(
+        memory_kind=result.memory_kind,
+        memory=result.memory,
+        activation=result.activation,
+        score=result.score,
+        latency_seconds=result.latency_seconds,
+        components=result.components,
+        reason=result.reason,
+        diagnostics=RetrievalDiagnostics(
+            rank_activation=result.diagnostics.rank_activation,
+            accessibility_partial=result.diagnostics.accessibility_partial,
+            ranking_partial=result.diagnostics.ranking_partial,
+            conjunction=result.diagnostics.conjunction,
+            text_coverage=result.diagnostics.text_coverage,
+            text_cue_fit=result.diagnostics.text_cue_fit,
+            temporal_mode=result.diagnostics.temporal_mode,
+            support_provenance=result.diagnostics.support_provenance,
+            inhibition_candidates=snapshots,
+        ),
+    )
+
+
+def _logical(traces: tuple) -> list[tuple[str, str, str]]:
+    return sorted(
+        (
+            trace.selected_identity.memory_key,
+            trace.inhibited_identity.memory_key,
+            trace.scope.scope_key,
+        )
+        for trace in traces
+    )
+
+
+def _induce(consumed: list[RecallResult]) -> tuple:
+    return build_inhibitory_traces(
+        consumed,
+        tenant_id="tenant",
+        config=_CONFIG,
+        induced_at=_T,
+        request_id=None,
+    )
+
+
+def test_exact_co_consumption_creates_no_traces() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (_lineage_snapshot(competitor_key="memcached", competitor_lineage="semantic:memcached"),),
+    )
+    memcached = _with_snapshots(
+        _result("memcached", ()),
+        (_lineage_snapshot(competitor_key="redis", competitor_lineage="semantic:redis"),),
+    )
+    assert _induce([redis, memcached]) == ()
+
+
+def test_co_consumed_semantics_do_not_inhibit_support_representations() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached-episode",
+                competitor_kind=MemoryKind.EPISODE,
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:redis",
+            ),
+        ),
+    )
+    memcached = _with_snapshots(
+        _result("memcached", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="redis-episode",
+                competitor_kind=MemoryKind.EPISODE,
+                competitor_lineage="semantic:redis",
+                candidate_lineage="semantic:memcached",
+            ),
+        ),
+    )
+    assert _induce([redis, memcached]) == ()
+    assert _induce([memcached, redis]) == ()
+
+
+def test_mixed_episode_and_semantic_co_consumption_skips_both_lineages() -> None:
+    redis_episode = _with_snapshots(
+        _episode("redis-episode", (_support("redis", SemanticMemoryStatus.ACTIVE),)),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached-episode",
+                competitor_kind=MemoryKind.EPISODE,
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:redis",
+            ),
+        ),
+    )
+    memcached = _with_snapshots(
+        _result("memcached", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="redis-episode",
+                competitor_kind=MemoryKind.EPISODE,
+                competitor_lineage="semantic:redis",
+                candidate_lineage="semantic:memcached",
+            ),
+        ),
+    )
+    assert _induce([redis_episode, memcached]) == ()
+
+
+def test_single_consumption_still_inhibits_same_slot_competitor() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached-episode",
+                competitor_kind=MemoryKind.EPISODE,
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:redis",
+            ),
+        ),
+    )
+    traces = _induce([redis])
+    assert len(traces) == 1
+    assert traces[0].inhibited_identity.memory_key == "memcached-episode"
+    assert traces[0].selected_identity.memory_key == "redis"
+
+
+def test_same_slot_does_not_count_as_consumed() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached",
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:redis",
+            ),
+        ),
+    )
+    traces = _induce([redis])
+    assert [trace.inhibited_identity.memory_key for trace in traces] == ["memcached"]
+
+
+def test_two_consumed_memories_can_still_inhibit_a_third() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached",
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:redis",
+            ),
+            _lineage_snapshot(
+                competitor_key="dragonfly",
+                competitor_lineage="semantic:dragonfly",
+                candidate_lineage="semantic:redis",
+            ),
+        ),
+    )
+    memcached = _with_snapshots(
+        _result("memcached", ()),
+        (
+            _lineage_snapshot(
+                competitor_key="redis",
+                competitor_lineage="semantic:redis",
+                candidate_lineage="semantic:memcached",
+            ),
+            _lineage_snapshot(
+                competitor_key="dragonfly",
+                competitor_lineage="semantic:dragonfly",
+                candidate_lineage="semantic:memcached",
+            ),
+        ),
+    )
+    traces = _induce([redis, memcached])
+    inhibited = {trace.inhibited_identity.memory_key for trace in traces}
+    assert inhibited == {"dragonfly"}
+    assert _logical(traces) == _logical(_induce([memcached, redis]))
+
+
+def test_superseded_support_does_not_expand_consumed_closure() -> None:
+    episode = _with_snapshots(
+        _episode("old-episode", (_support("memcached", SemanticMemoryStatus.SUPERSEDED),)),
+        (
+            _lineage_snapshot(
+                competitor_key="memcached",
+                competitor_lineage="semantic:memcached",
+                candidate_lineage="semantic:old",
+            ),
+        ),
+    )
+    traces = _induce([episode])
+    assert [trace.inhibited_identity.memory_key for trace in traces] == ["memcached"]
+
+
+def test_multiple_active_support_lineages_are_both_consumed() -> None:
+    episode = _with_snapshots(
+        _episode(
+            "shared-episode",
+            (
+                _support("redis", SemanticMemoryStatus.ACTIVE),
+                _support("memcached", SemanticMemoryStatus.ACTIVE),
+                _support("redis", SemanticMemoryStatus.ACTIVE),
+            ),
+        ),
+        (
+            _lineage_snapshot(
+                competitor_key="redis-other",
+                competitor_lineage="semantic:redis",
+            ),
+            _lineage_snapshot(
+                competitor_key="memcached-other",
+                competitor_lineage="semantic:memcached",
+            ),
+            _lineage_snapshot(
+                competitor_key="dragonfly",
+                competitor_lineage="semantic:dragonfly",
+            ),
+        ),
+    )
+    traces = _induce([episode])
+    assert [trace.inhibited_identity.memory_key for trace in traces] == ["dragonfly"]
+
+
+def test_absent_result_does_not_enter_consumed_closure() -> None:
+    redis = _with_snapshots(
+        _result("redis", ()),
+        (_lineage_snapshot(competitor_key="memcached", competitor_lineage="semantic:memcached"),),
+    )
+    traces = _induce([redis])
+    assert [trace.inhibited_identity.memory_key for trace in traces] == ["memcached"]

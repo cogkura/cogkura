@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.17.6` transient interference reachability (retained and validated; `apply_interference` stays default off)
+- Current release focus: `0.17.6.1` co-consumption inhibition hardening (active semantic lineage, not semantic-slot membership)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

@@ -9,3 +9,5 @@ Episodes that support one shared active semantic slot now carry that slot into c
 Proactive and retroactive penalties are reachable for temporally ordered payments-api deployment memories. Different predicates, other services, shared entities, broad subjects, co-temporal pairs, same lineage, superseded semantics, future memories, and unrelated high-accessibility memories do not receive a transient penalty.
 
 Findings: [`0.17.6-transient-interference-reachability.md`](findings/0.17.6-transient-interference-reachability.md).
+
+`0.17.6.1` does not change this transient behaviour. Co-consumed logical representations are excluded only when recording inhibitory traces. See [`design-co-consumption-inhibition-hardening-0.17.6.1.md`](design-co-consumption-inhibition-hardening-0.17.6.1.md).

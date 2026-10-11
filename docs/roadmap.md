@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.17.6.1 — Co-consumption inhibition hardening (done)
+
+- Consumed memories are not inhibited through another representation of the same active semantic lineage.
+- Same semantic slot does not count as consumption. Transient interference is unchanged.
+- [`docs/design-co-consumption-inhibition-hardening-0.17.6.1.md`](design-co-consumption-inhibition-hardening-0.17.6.1.md).
+
 ## 0.17.6 — Transient interference reachability (done)
 
 - Transient interference is retained and validated. `apply_interference` stays default off.

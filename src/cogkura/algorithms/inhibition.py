@@ -16,6 +16,9 @@ from cogkura.models import (
     MemoryIdentity,
     RecallResult,
     RetrievalCompetitionSnapshot,
+    SemanticMemoryStatus,
+    StoredEpisode,
+    StoredSemanticMemory,
 )
 
 
@@ -58,6 +61,26 @@ def _result_identity(result: RecallResult) -> MemoryIdentity:
     return MemoryIdentity(memory_kind=result.memory_kind, memory_key=result.memory.memory_key)
 
 
+def consumed_representation_groups(result: RecallResult) -> frozenset[str]:
+    """Active semantic lineages represented by one consumed result.
+
+    Exact identity is tracked separately. Semantic slot keys are not lineages.
+    """
+    memory = result.memory
+    if isinstance(memory, StoredSemanticMemory):
+        return frozenset({f"semantic:{memory.memory_key}"})
+    if not isinstance(memory, StoredEpisode):
+        return frozenset()
+    diagnostics = result.diagnostics
+    if diagnostics is None:
+        return frozenset()
+    return frozenset(
+        f"semantic:{item.semantic_memory_key}"
+        for item in diagnostics.support_provenance
+        if item.semantic_status is SemanticMemoryStatus.ACTIVE
+    )
+
+
 def build_inhibitory_traces(
     consumed: Sequence[RecallResult],
     *,
@@ -67,11 +90,15 @@ def build_inhibitory_traces(
     request_id: str | None,
 ) -> tuple[InhibitoryTrace, ...]:
     """Select bounded inhibitory traces for one explicit use event."""
-    consumed_ids = {_result_identity(result) for result in consumed}
-    pending: list[tuple[float, RetrievalCompetitionSnapshot, MemoryIdentity]] = []
     for selected in consumed:
         if selected.memory.tenant_id != tenant_id:
             raise ValidationError("recall result tenant_id must match record_access tenant_id.")
+    consumed_ids = {_result_identity(result) for result in consumed}
+    consumed_lineage_groups = {
+        group for result in consumed for group in consumed_representation_groups(result)
+    }
+    pending: list[tuple[float, RetrievalCompetitionSnapshot, MemoryIdentity]] = []
+    for selected in consumed:
         diagnostics = selected.diagnostics
         if diagnostics is None:
             continue
@@ -80,6 +107,11 @@ def build_inhibitory_traces(
             if not snapshot.scope_eligible:
                 continue
             if snapshot.competitor_identity in consumed_ids:
+                continue
+            if (
+                snapshot.competitor_lineage_group is not None
+                and snapshot.competitor_lineage_group in consumed_lineage_groups
+            ):
                 continue
             if (
                 snapshot.candidate_lineage_group is not None

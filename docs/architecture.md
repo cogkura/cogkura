@@ -186,7 +186,7 @@ examples/
 docs/
 ```
 
-## Current implementation boundary (0.17.6)
+## Current implementation boundary (0.17.6.1)
 
 Implemented:
 
@@ -202,6 +202,7 @@ Implemented:
 - **cue-competition diagnostics** (0.17.0), **opt-in transient interference** (0.17.1), **behavioural eligibility** (0.17.2), **inhibitory trace recording** (0.17.3), and **opt-in persistent inhibition** (0.17.4). Application is off unless `apply_to_recall` is true
 - **query-level interference observability** (0.17.5) on `inspect_recall` and `assess_memory`. The summary does not change retrieval, and disabled mechanisms are not read just to populate it
 - **transient interference reachability** (0.17.6). The mechanism is retained and validated; `apply_interference` stays default off
+- **co-consumption inhibition** (0.17.6.1). Active semantic lineage, not semantic-slot membership, decides whether an alternate representation was consumed
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 
