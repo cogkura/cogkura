@@ -7,6 +7,7 @@ from types import MappingProxyType
 from uuid import uuid4
 
 from cogkura.models import (
+    EpisodeEvidenceInput,
     EpisodeInput,
     EpisodeWriteStatus,
     StoredEpisode,
@@ -104,6 +105,20 @@ class InMemoryEpisodeStore(EpisodeStore):
         if limit is not None:
             return results[:limit]
         return results
+
+    async def get_evidence_many(
+        self,
+        *,
+        tenant_id: str,
+        episode_ids: set[str],
+    ) -> dict[str, tuple[EpisodeEvidenceInput, ...]]:
+        if not episode_ids:
+            return {}
+        return {
+            episode.id: episode.evidence
+            for episode in self._episodes.values()
+            if episode.tenant_id == tenant_id and episode.id in episode_ids
+        }
 
     async def deactivate_missing(
         self,

@@ -6,7 +6,9 @@ from cogkura.observations.models import (
     IngestStatus,
     ObservationDecision,
     ObservationInput,
+    ObservationRevisionIdentity,
     StoredObservation,
+    StoredObservationRevision,
 )
 from cogkura.observations.pipeline import ObservationPipeline
 from cogkura.observations.policies import DefaultObservationPolicy, ObservationPolicy
@@ -18,8 +20,10 @@ __all__ = [
     "ObservationContext",
     "ObservationDecision",
     "ObservationInput",
+    "ObservationRevisionIdentity",
     "ObservationPipeline",
     "ObservationPolicy",
     "RetrievalContext",
     "StoredObservation",
+    "StoredObservationRevision",
 ]

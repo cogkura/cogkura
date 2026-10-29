@@ -183,6 +183,13 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.18.0 — Source identity and provenance monitoring (done)
+
+- Read-only `Memory.resolve_provenance(context)` with typed source attribution and explicit selected versus chunk-member representation.
+- Tenant-scoped exact revision resolution for in-memory and PostgreSQL observation stores; no schema migration.
+- Source identity, diversity, revision currency, missing-evidence states, and deterministic evidence bounds without retrieval or consolidation changes.
+- [`docs/design-source-provenance-0.18.0.md`](design-source-provenance-0.18.0.md) and [`docs/findings/0.18.0-source-provenance.md`](findings/0.18.0-source-provenance.md).
+
 ## 0.17.7 — Interference and inhibition architecture freeze (done)
 
 - Retrieval behaviour matches `0.17.6.1`. `apply_interference` and `apply_to_recall` stay off.

@@ -67,6 +67,7 @@ from cogkura.models import (
     ActivationReferenceKind,
     ActivationReferenceTrace,
     CompetitionConfig,
+    ContextProvenance,
     EpisodeEncodingResult,
     ForgettingConfig,
     ForgettingResult,
@@ -111,6 +112,7 @@ from cogkura.observations.relationships import (
     parse_entity_relationship_inputs,
 )
 from cogkura.observations.retention import ObservationRetentionMode
+from cogkura.provenance import DEFAULT_MAX_PROVENANCE_EVIDENCE, SourceProvenanceResolver
 from cogkura.sources.base import SourceConnector
 from cogkura.storage import (
     ActivationStore,
@@ -955,6 +957,23 @@ class Memory:
             request_id=request_id,
             min_score=min_score,
         )
+
+    async def resolve_provenance(
+        self,
+        context: MemoryContext,
+        *,
+        max_evidence: int = DEFAULT_MAX_PROVENANCE_EVIDENCE,
+    ) -> ContextProvenance:
+        """Resolve bounded historical attribution for prepared context.
+
+        This read-only operation does not alter recall, ranking, rendering,
+        activation references, learning, or any other cognitive state.
+        """
+        resolver = SourceProvenanceResolver(
+            observation_store=self._observation_store,
+            episode_store=self._episode_store,
+        )
+        return await resolver.resolve(context, max_evidence=max_evidence)
 
     async def record_access(
         self,

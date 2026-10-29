@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-10-29
+
+### Added
+
+- Read-only `Memory.resolve_provenance(context)` with public `ContextProvenance`, `MemoryProvenance`, and `SourceEvidence` models.
+- Exact, tenant-scoped `ObservationStore.get_revisions_many()` implementations for in-memory and PostgreSQL stores, plus batched episodic evidence reads for semantic relation resolution.
+- Deterministic source identity/diversity, revision currency, direct and derivation-backed evidence relations, missing-evidence states, and explicit bounded-result truncation.
+- Source-provenance regression coverage and design/findings documentation.
+
+### Preserved
+
+- `prepare_context()`, recall ranking, semantic consolidation, reconsolidation, learning, inhibition, interference, and `MemoryContext.render()` are unchanged.
+- No schema migration, source fetching, source-content exposure, or authority weighting.
+- A newer source revision is not interpreted as current truth or authority.
+
+### Notes
+
+- `metadata["source_ref"]` is an optional, untrusted source locator; Core never follows it.
+- Package `__version__` aligned with `pyproject.toml` (`0.18.0`).
+
 ## [0.17.7] - 2026-10-11
 
 ### Added

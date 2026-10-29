@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from cogkura.models import (
     ActivationReferenceTrace,
+    EpisodeEvidenceInput,
     InhibitoryTrace,
     LearningPlan,
     LearningWriteResult,
@@ -33,7 +34,13 @@ if TYPE_CHECKING:
         StoredEpisode,
         StoredSemanticMemory,
     )
-from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
+from cogkura.observations.models import (
+    IngestStatus,
+    ObservationInput,
+    ObservationRevisionIdentity,
+    StoredObservation,
+    StoredObservationRevision,
+)
 from cogkura.observations.retention import RetainedObservation
 
 
@@ -73,6 +80,18 @@ class ObservationStore(Protocol):
         observation_ids: set[str],
     ) -> Sequence[StoredObservation]:
         """Load tenant-scoped observations by Cogkura observation ID."""
+
+    async def get_revisions_many(
+        self,
+        *,
+        tenant_id: str,
+        references: Sequence[ObservationRevisionIdentity],
+    ) -> Mapping[ObservationRevisionIdentity, StoredObservationRevision]:
+        """Load exact tenant-scoped historical observation revisions.
+
+        Missing keys are intentional: callers must distinguish an unavailable
+        revision from a current observation and must not substitute the latter.
+        """
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove all observations for a tenant."""
@@ -119,6 +138,14 @@ class EpisodeStore(Protocol):
         limit: int | None = None,
     ) -> list[StoredEpisode]:
         """List tenant-scoped episodes."""
+
+    async def get_evidence_many(
+        self,
+        *,
+        tenant_id: str,
+        episode_ids: set[str],
+    ) -> Mapping[str, tuple[EpisodeEvidenceInput, ...]]:
+        """Load evidence for tenant-scoped episode IDs in one bounded read."""
 
     async def deactivate_missing(
         self,

@@ -10,7 +10,13 @@ from typing import Any
 from uuid import uuid4
 
 from cogkura.observations.encoding_context import ObservationContext, observation_contexts_equal
-from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
+from cogkura.observations.models import (
+    IngestStatus,
+    ObservationInput,
+    ObservationRevisionIdentity,
+    StoredObservation,
+    StoredObservationRevision,
+)
 from cogkura.observations.retention import RetainedObservation
 from cogkura.storage.base import CheckpointStore, ObservationStore
 
@@ -197,6 +203,51 @@ class InMemoryObservationStore(ObservationStore):
             for observation in self._observations.values()
             if observation.tenant_id == tenant_id and observation.id in observation_ids
         ]
+
+    async def get_revisions_many(
+        self,
+        *,
+        tenant_id: str,
+        references: Sequence[ObservationRevisionIdentity],
+    ) -> dict[ObservationRevisionIdentity, StoredObservationRevision]:
+        if not references:
+            return {}
+        requested = set(references)
+        observations_by_id = {
+            observation.id: observation
+            for observation in self._observations.values()
+            if observation.tenant_id == tenant_id
+        }
+        resolved: dict[ObservationRevisionIdentity, StoredObservationRevision] = {}
+        for reference in sorted(
+            requested,
+            key=lambda item: (item.observation_id, item.observation_revision),
+        ):
+            observation = observations_by_id.get(reference.observation_id)
+            if observation is None:
+                continue
+            revision = next(
+                (
+                    item
+                    for item in self._revisions.get(reference.observation_id, ())
+                    if item.revision_number == reference.observation_revision
+                ),
+                None,
+            )
+            if revision is None:
+                continue
+            resolved[reference] = StoredObservationRevision(
+                identity=reference,
+                tenant_id=tenant_id,
+                source_namespace=observation.source_namespace,
+                source_record_id=observation.source_record_id,
+                source_version=revision.source_version,
+                metadata=MappingProxyType(dict(revision.metadata)),
+                observed_at=revision.observed_at,
+                current_revision=observation.current_revision,
+                is_deleted=observation.is_deleted,
+            )
+        return resolved
 
     async def clear(self, *, tenant_id: str) -> None:
         keys = [key for key in self._observations if key[0] == tenant_id]

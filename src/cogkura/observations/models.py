@@ -110,6 +110,55 @@ class StoredObservation:
 
 
 @dataclass(frozen=True, slots=True)
+class ObservationRevisionIdentity:
+    """Stable identity of an observation revision used as memory evidence."""
+
+    observation_id: str
+    observation_revision: int
+
+    def __post_init__(self) -> None:
+        if not self.observation_id.strip():
+            raise ValidationError("observation_id must not be empty.")
+        if self.observation_revision <= 0:
+            raise ValidationError("observation_revision must be greater than zero.")
+
+
+@dataclass(frozen=True, slots=True)
+class StoredObservationRevision:
+    """Revision-specific observation data safe to use for provenance resolution.
+
+    Source identity and current-revision state come from the owning observation row.
+    ``source_version``, ``metadata``, and ``observed_at`` come from the exact
+    revision row.  This deliberately does not expose current-only fields, such
+    as ``source_type``, as though they were historical facts.
+    """
+
+    identity: ObservationRevisionIdentity
+    tenant_id: str
+    source_namespace: str
+    source_record_id: str
+    source_version: str | None
+    metadata: Mapping[str, Any]
+    observed_at: datetime
+    current_revision: int
+    is_deleted: bool
+
+    def __post_init__(self) -> None:
+        if not self.tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not self.source_namespace.strip():
+            raise ValidationError("source_namespace must not be empty.")
+        if not self.source_record_id.strip():
+            raise ValidationError("source_record_id must not be empty.")
+        if self.observed_at.tzinfo is None:
+            raise ValidationError("observed_at must be timezone-aware.")
+        if self.current_revision <= 0:
+            raise ValidationError("current_revision must be greater than zero.")
+        object.__setattr__(self, "observed_at", self.observed_at.astimezone(UTC))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
 class ObservationDecision:
     """Policy evaluation result for an observation."""
 

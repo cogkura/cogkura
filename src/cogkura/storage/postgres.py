@@ -54,7 +54,13 @@ from cogkura.models import (
     memory_context_signatures_equal,
 )
 from cogkura.observations.encoding_context import ObservationContext, observation_contexts_equal
-from cogkura.observations.models import IngestStatus, ObservationInput, StoredObservation
+from cogkura.observations.models import (
+    IngestStatus,
+    ObservationInput,
+    ObservationRevisionIdentity,
+    StoredObservation,
+    StoredObservationRevision,
+)
 from cogkura.observations.retention import RetainedObservation
 from cogkura.storage.activation_compaction import compaction_representative_time
 from cogkura.storage.base import (
@@ -416,6 +422,83 @@ class PostgresObservationStore(ObservationStore):
             )
             rows = result.mappings().all()
         return [self._to_stored(row) for row in rows]
+
+    async def get_revisions_many(
+        self,
+        *,
+        tenant_id: str,
+        references: Sequence[ObservationRevisionIdentity],
+    ) -> Mapping[ObservationRevisionIdentity, StoredObservationRevision]:
+        """Resolve exact historical revisions without current-row substitution."""
+        unique = tuple(
+            sorted(
+                set(references),
+                key=lambda item: (item.observation_id, item.observation_revision),
+            )
+        )
+        if not unique:
+            return {}
+
+        predicates: list[str] = []
+        params: dict[str, Any] = {"tenant_id": tenant_id}
+        for index, reference in enumerate(unique):
+            observation_param = f"observation_id_{index}"
+            revision_param = f"revision_{index}"
+            predicates.append(
+                f"(revisions.observation_id = CAST(:{observation_param} AS uuid) "
+                f"AND revisions.revision_number = :{revision_param})"
+            )
+            params[observation_param] = reference.observation_id
+            params[revision_param] = reference.observation_revision
+
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        observations.id AS observation_id,
+                        observations.tenant_id,
+                        observations.source_namespace,
+                        observations.source_record_id,
+                        observations.current_revision,
+                        observations.is_deleted,
+                        revisions.revision_number,
+                        revisions.source_version,
+                        revisions.metadata,
+                        revisions.observed_at
+                    FROM {self._table("observations")} AS observations
+                    INNER JOIN {self._table("observation_revisions")} AS revisions
+                        ON revisions.observation_id = observations.id
+                    WHERE observations.tenant_id = :tenant_id
+                      AND ({" OR ".join(predicates)})
+                    ORDER BY observations.id, revisions.revision_number
+                    """
+                ),
+                params,
+            )
+            rows = result.mappings().all()
+
+        resolved: dict[ObservationRevisionIdentity, StoredObservationRevision] = {}
+        for row in rows:
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            identity = ObservationRevisionIdentity(
+                observation_id=str(row["observation_id"]),
+                observation_revision=int(row["revision_number"]),
+            )
+            resolved[identity] = StoredObservationRevision(
+                identity=identity,
+                tenant_id=row["tenant_id"],
+                source_namespace=row["source_namespace"],
+                source_record_id=row["source_record_id"],
+                source_version=row["source_version"],
+                metadata=MappingProxyType(dict(metadata)),
+                observed_at=row["observed_at"],
+                current_revision=int(row["current_revision"]),
+                is_deleted=bool(row["is_deleted"]),
+            )
+        return resolved
 
     async def clear(self, *, tenant_id: str) -> None:
         async with self._engine.begin() as conn:
@@ -831,6 +914,49 @@ class PostgresEpisodeStore(EpisodeStore):
         for memory_id in memory_ids:
             episodes.append(await self._load_episode(memory_id))
         return episodes
+
+    async def get_evidence_many(
+        self,
+        *,
+        tenant_id: str,
+        episode_ids: set[str],
+    ) -> Mapping[str, tuple[EpisodeEvidenceInput, ...]]:
+        if not episode_ids:
+            return {}
+        async with self._engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT
+                        memories.id AS episode_id,
+                        evidence.observation_id,
+                        evidence.observation_revision,
+                        evidence.sequence_number,
+                        evidence.contribution_score
+                    FROM {self._table("memories")} AS memories
+                    INNER JOIN {self._table("memory_evidence")} AS evidence
+                        ON evidence.memory_id = memories.id
+                    WHERE memories.tenant_id = :tenant_id
+                      AND memories.memory_type = 'episodic'
+                      AND memories.id = ANY(CAST(:episode_ids AS uuid[]))
+                    ORDER BY memories.id, evidence.sequence_number
+                    """
+                ),
+                {"tenant_id": tenant_id, "episode_ids": list(episode_ids)},
+            )
+            rows = result.mappings().all()
+        evidence_by_episode: dict[str, list[EpisodeEvidenceInput]] = {}
+        for row in rows:
+            episode_id = str(row["episode_id"])
+            evidence_by_episode.setdefault(episode_id, []).append(
+                EpisodeEvidenceInput(
+                    observation_id=str(row["observation_id"]),
+                    observation_revision=int(row["observation_revision"]),
+                    sequence_number=int(row["sequence_number"]),
+                    contribution_score=float(row["contribution_score"]),
+                )
+            )
+        return {key: tuple(value) for key, value in evidence_by_episode.items()}
 
     async def deactivate_missing(
         self,

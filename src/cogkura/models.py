@@ -1050,6 +1050,119 @@ class MemoryIdentity:
             raise ValidationError("memory_key must not be empty.")
 
 
+class SourceEvidenceRelation(StrEnum):
+    """Known relationship between a memory and one source observation."""
+
+    DIRECT_EPISODIC_EVIDENCE = "direct_episodic_evidence"
+    SEMANTIC_SUPPORT = "semantic_support"
+    SEMANTIC_CONTRADICTION = "semantic_contradiction"
+
+
+class SourceEvidenceResolutionStatus(StrEnum):
+    """Outcome of resolving one historical observation reference."""
+
+    RESOLVED = "resolved"
+    REVISION_UNAVAILABLE = "revision_unavailable"
+    SOURCE_UNAVAILABLE = "source_unavailable"
+    SOURCE_REF_MISSING = "source_ref_missing"
+
+
+class MemoryProvenanceRepresentation(StrEnum):
+    """How a memory participated in a prepared context."""
+
+    SELECTED_RENDERED = "selected_rendered"
+    CHUNK_MEMBER_NOT_INDEPENDENTLY_RENDERED = "chunk_member_not_independently_rendered"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceEvidence:
+    """Safe, revision-aware attribution for one memory evidence reference.
+
+    ``source_namespace`` and ``source_record_id`` are stable source identity.
+    Revision-specific attributes are populated only when the exact referenced
+    revision is available. No raw source content or arbitrary metadata is
+    exposed by this model.
+    """
+
+    observation_id: str
+    observation_revision: int
+    source_namespace: str | None
+    source_record_id: str | None
+    source_version: str | None
+    source_ref: str | None
+    observed_at: datetime | None
+    contribution_score: float
+    relation: SourceEvidenceRelation | None
+    resolution_status: SourceEvidenceResolutionStatus
+    is_latest_known_revision: bool | None
+
+    def __post_init__(self) -> None:
+        if not self.observation_id.strip():
+            raise ValidationError("observation_id must not be empty.")
+        if self.observation_revision <= 0:
+            raise ValidationError("observation_revision must be greater than zero.")
+        if self.source_namespace is not None and not self.source_namespace.strip():
+            raise ValidationError("source_namespace must not be empty when provided.")
+        if self.source_record_id is not None and not self.source_record_id.strip():
+            raise ValidationError("source_record_id must not be empty when provided.")
+        if self.source_ref is not None and not self.source_ref.strip():
+            raise ValidationError("source_ref must not be empty when provided.")
+        if self.observed_at is not None:
+            if self.observed_at.tzinfo is None:
+                raise ValidationError("observed_at must be timezone-aware when provided.")
+            object.__setattr__(self, "observed_at", self.observed_at.astimezone(UTC))
+        if not math.isfinite(self.contribution_score):
+            raise ValidationError("contribution_score must be finite.")
+        if not 0.0 <= self.contribution_score <= 1.0:
+            raise ValidationError("contribution_score must be between 0.0 and 1.0.")
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryProvenance:
+    """Provenance diagnostics for one selected or chunk-member memory."""
+
+    memory_identity: MemoryIdentity
+    representation: MemoryProvenanceRepresentation
+    sources: tuple[SourceEvidence, ...]
+    referenced_evidence_count: int
+    resolved_evidence_count: int
+    distinct_source_count: int
+    is_complete: bool
+    is_truncated: bool
+    warnings: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        for label, count in (
+            ("referenced_evidence_count", self.referenced_evidence_count),
+            ("resolved_evidence_count", self.resolved_evidence_count),
+            ("distinct_source_count", self.distinct_source_count),
+        ):
+            if count < 0:
+                raise ValidationError(f"{label} must not be negative.")
+        if self.resolved_evidence_count > self.referenced_evidence_count:
+            raise ValidationError(
+                "resolved_evidence_count cannot exceed referenced_evidence_count."
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ContextProvenance:
+    """Bounded source-provenance report for a prepared ``MemoryContext``."""
+
+    items: tuple[MemoryProvenance, ...]
+    source_count: int
+    unresolved_evidence_count: int
+    is_complete: bool
+    is_truncated: bool
+    warnings: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.source_count < 0:
+            raise ValidationError("source_count must not be negative.")
+        if self.unresolved_evidence_count < 0:
+            raise ValidationError("unresolved_evidence_count must not be negative.")
+
+
 @dataclass(frozen=True, slots=True)
 class MemoryReference:
     """Recorded access to a durable memory for base-level activation."""

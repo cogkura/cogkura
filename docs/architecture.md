@@ -128,6 +128,10 @@ RecallInspectionCandidate.competition + RecallInspectionResult.competition count
 QUERY OBSERVABILITY (0.17.5)
 RetrievalInterferenceObservability on inspect_recall and MemoryAssessment
 Summarized from the pre-threshold discrimination set of one evaluation; recall results unchanged
+
+SOURCE PROVENANCE (0.18.0)
+Prepared MemoryContext → revision-aware SourceProvenanceResolver → ContextProvenance
+Tenant-scoped, batched, bounded, and read-only; no feedback into retrieval
 ```
 
 **Engineering weights (not cognitive-science constants):**
@@ -155,7 +159,7 @@ Decision order: not provided → unavailable → conflict → underspecified →
 
 **Known intentional limitations (0.16 freeze):** exact normalized matching only; no fuzzy/synonym matching; no embeddings; no negative mismatch activation; no automatic context extraction or clarification; custom attributes excluded from primary match score.
 
-Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources · **`0.17.3`** inhibitory trace recording · **`0.17.4`** opt-in persistent inhibition · **`0.17.5`** query-level interference observability · **`0.17.6`** transient interference retained and validated · **`0.17.6.1`** co-consumption by active semantic lineage · **`0.17.7`** interference and inhibition architecture freeze.
+Release lineage: **`0.16.0`** encoding capture · **`0.16.1`** matching diagnostics · **`0.16.2`** episodic reinstatement · **`0.16.3`** semantic support propagation · **`0.16.4`** observability · **`0.16.5`** hardening and architecture freeze · **`0.17.0`** cue-competition diagnostics (observational) · **`0.17.1`** competition hardening and opt-in transient interference · **`0.17.2`** behavioural eligibility gate on interference sources · **`0.17.3`** inhibitory trace recording · **`0.17.4`** opt-in persistent inhibition · **`0.17.5`** query-level interference observability · **`0.17.6`** transient interference retained and validated · **`0.17.6.1`** co-consumption by active semantic lineage · **`0.17.7`** interference and inhibition architecture freeze · **`0.18.0`** revision-aware source provenance.
 
 **Competition vs other mechanisms:** reconsolidation decides semantic authority; forgetting models accessibility; contextual reinstatement adjusts accessibility from encoding context; **`0.17.0+` competition** identifies cue rivalry; **`0.17.1` interference** (when enabled) applies bounded retrieval-local negative activation; **`0.17.2` eligibility** restricts which diagnostic rivals may contribute interference (diagnostic counts unchanged).
 
@@ -204,7 +208,13 @@ Deferred: trace compaction, automatic deletion, cancellation, turning either swi
 
 See [`design-interference-inhibition-architecture-freeze-0.17.7.md`](design-interference-inhibition-architecture-freeze-0.17.7.md).
 
-## Current implementation boundary (0.17.7)
+## Source provenance (0.18.0)
+
+`Memory.resolve_provenance(context)` resolves the exact observation revisions referenced by selected context. The result is downstream of retrieval and contains only allow-listed identity and attribution fields; it does not expose source content, arbitrary metadata, or current-only source fields as historical facts. `SOURCE_UNAVAILABLE`, `REVISION_UNAVAILABLE`, and `SOURCE_REF_MISSING` remain distinct.
+
+Source identity is `(tenant_id, source_namespace, source_record_id)`. Revision evidence is `(observation_id, observation_revision)`. A revision older than the current observation is observable through `is_latest_known_revision`, but that signal is not an authority or factual-currentness claim. See [`design-source-provenance-0.18.0.md`](design-source-provenance-0.18.0.md).
+
+## Current implementation boundary (0.18.0)
 
 Implemented:
 
@@ -222,6 +232,7 @@ Implemented:
 - **transient interference reachability** (0.17.6). The mechanism is retained and validated; `apply_interference` stays default off
 - **co-consumption inhibition** (0.17.6.1). Active semantic lineage, not semantic-slot membership, decides whether an alternate representation was consumed
 - **interference and inhibition architecture freeze** (0.17.7). The flow above is the contract; retrieval behaviour matches `0.17.6.1`
+- **revision-aware source provenance** (0.18.0). A separate bounded API resolves selected context evidence without mutating cognitive state or changing render output
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 

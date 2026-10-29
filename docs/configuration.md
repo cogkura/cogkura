@@ -135,6 +135,7 @@ Applications supply:
 - `metadata["semantic_facts"]` for durable claims (`predicate`, `object_value`, `cardinality`, optional `valid_from` / `valid_until`, `confidence`)
 - `metadata["entity_ids"]` for episodic entity links
 - `metadata["relationships"]` for directed structure (`source_entity_id`, `relation_type`, `target_entity_id`)
+- optional `metadata["source_ref"]` for a stable, opaque external locator used by provenance resolution
 
 Guidance:
 
@@ -143,6 +144,10 @@ Guidance:
 - relationships are **supplied facts**, not inferred ontologies
 
 Future `cogkura-ingest` should use only these public paths. Core does not parse arbitrary external schemas.
+
+### Provenance resolution (0.18.0)
+
+`Memory.resolve_provenance(context, max_evidence=256)` has no persistent configuration and is deliberately separate from retrieval. `max_evidence` is a deterministic total output and lookup bound; results report truncation and total referenced evidence rather than silently dropping records. Source references are returned as untrusted identifiers only: Core does not open them, fetch them, or expose raw source content or arbitrary observation metadata.
 
 ## Cardinality and temporal semantics
 

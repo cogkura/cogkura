@@ -78,6 +78,46 @@ context = await memory.prepare_context(
 
 Use structured fields for custom prompts, evaluation, and observability. Use `render()` when a simple text block is enough.
 
+### Source provenance (0.18.0)
+
+Source attribution is an explicit, read-only second step, so ordinary context preparation does not add source-store reads:
+
+```python
+await memory.observe(
+    ObservationInput(
+        tenant_id="repository",
+        source_namespace="repository",
+        source_record_id="adr-0001",
+        source_version="1",
+        content="Migrations run during deployment.",
+        observed_at=now,
+        metadata={"source_ref": "docs/adr/0001.md"},
+    )
+)
+await memory.observe(
+    ObservationInput(
+        tenant_id="repository",
+        source_namespace="repository",
+        source_record_id="runbook-deploy",
+        source_version="7",
+        content="Deployments run migrations before traffic.",
+        observed_at=now,
+        metadata={"source_ref": "docs/runbooks/deploy.md"},
+    )
+)
+await memory.process(tenant_id="repository")
+
+context = await memory.prepare_context("How are migrations deployed?", tenant_id="repository")
+provenance = await memory.resolve_provenance(context)
+
+for item in provenance.items:
+    print(item.memory_identity, item.distinct_source_count, item.is_complete)
+    for source in item.sources:
+        print(source.source_ref, source.observation_revision, source.resolution_status)
+```
+
+`source_ref` is optional, untrusted application metadata. A missing locator does not remove resolved evidence. `is_latest_known_revision=False` means a newer source revision exists; it does not mean the memory is false or unauthoritative. Provenance does not change rendered context, recall, ranking, consolidation, or learning. See [`design-source-provenance-0.18.0.md`](design-source-provenance-0.18.0.md).
+
 ## Metamemory
 
 `prepare_context()` always includes `MemoryAssessment`. Check flags such as `MISSING_KNOWLEDGE` before invoking your model. Cogkura reports memory state; it does not decide business responses.
