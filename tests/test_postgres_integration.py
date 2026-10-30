@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from cogkura.memory import Memory
 from cogkura.migrations import apply_migrations
-from cogkura.observations.models import IngestStatus, ObservationInput
+from cogkura.models import MemoryKind, SourceEvidenceRelation, SourceEvidenceResolutionStatus
+from cogkura.observations.models import (
+    IngestStatus,
+    ObservationInput,
+    ObservationRevisionIdentity,
+)
 from cogkura.sources.postgres import PostgresTableSource
 from cogkura.storage.postgres import (
     PostgresCheckpointStore,
@@ -502,3 +507,141 @@ async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
     assert result.created == 1
     assert len(episodes) == 1
     assert len(episodes[0].evidence) == 2
+
+
+@pytest.mark.asyncio
+async def test_postgres_provenance_resolves_historical_revision_and_tenant_scope(
+    memory_engine: AsyncEngine,
+) -> None:
+    """Provenance reads exact PostgreSQL revision rows and remains tenant-scoped."""
+    observation_store = PostgresObservationStore(memory_engine)
+    memory = Memory(
+        observation_store=observation_store,
+        episode_store=PostgresEpisodeStore(memory_engine),
+    )
+    subject_id = f"provenance-revision-{uuid4().hex}"
+    record_id = f"adr-{uuid4().hex}"
+
+    await memory.observe(
+        ObservationInput(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            source_namespace="repository",
+            source_record_id=record_id,
+            source_version="1",
+            event_type="document",
+            content="Migrations run during deployment before traffic.",
+            observed_at=datetime(2026, 10, 1, tzinfo=UTC),
+            metadata={"source_ref": "docs/adr/original.md"},
+        )
+    )
+    await memory.encode_episodes(
+        tenant_id=TENANT,
+        subject_id=subject_id,
+        as_of=datetime(2026, 10, 2, tzinfo=UTC),
+    )
+    context = await memory.prepare_context(
+        "deployment migrations",
+        tenant_id=TENANT,
+        subject_id=subject_id,
+        as_of=datetime(2026, 10, 3, tzinfo=UTC),
+    )
+
+    await memory.observe(
+        ObservationInput(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            source_namespace="repository",
+            source_record_id=record_id,
+            source_version="2",
+            event_type="document",
+            content="Migrations run during deployment after verification.",
+            observed_at=datetime(2026, 10, 4, tzinfo=UTC),
+            metadata={"source_ref": "docs/adr/revised.md"},
+        )
+    )
+
+    source = (await memory.resolve_provenance(context)).items[0].sources[0]
+    assert source.observation_revision == 1
+    assert source.source_version == "1"
+    assert source.source_ref == "docs/adr/original.md"
+    assert source.is_latest_known_revision is False
+    assert source.resolution_status is SourceEvidenceResolutionStatus.RESOLVED
+
+    stored = await observation_store.get_by_source(
+        tenant_id=TENANT,
+        source_namespace="repository",
+        source_record_id=record_id,
+    )
+    assert stored is not None
+    reference = ObservationRevisionIdentity(stored.id, 1)
+    assert (
+        await observation_store.get_revisions_many(
+            tenant_id=f"other-{uuid4().hex}",
+            references=(reference,),
+        )
+        == {}
+    )
+
+
+@pytest.mark.asyncio
+async def test_postgres_provenance_resolves_semantic_support_evidence(
+    memory_engine: AsyncEngine,
+) -> None:
+    """Semantic provenance obtains SUPPORT evidence through PostgreSQL episodes."""
+    memory = Memory(
+        observation_store=PostgresObservationStore(memory_engine),
+        episode_store=PostgresEpisodeStore(memory_engine),
+    )
+    subject_id = f"provenance-semantic-{uuid4().hex}"
+    semantic_fact = {
+        "predicate": "deployment_policy",
+        "object_value": "migrations run",
+        "cardinality": "one",
+        "polarity": "affirm",
+    }
+    for record_id, observed_at in (
+        (f"adr-{uuid4().hex}", datetime(2026, 10, 1, tzinfo=UTC)),
+        (f"adr-{uuid4().hex}", datetime(2026, 10, 2, tzinfo=UTC)),
+    ):
+        await memory.observe(
+            ObservationInput(
+                tenant_id=TENANT,
+                subject_id=subject_id,
+                source_namespace="repository",
+                source_record_id=record_id,
+                source_version="1",
+                event_type="document",
+                content="Migrations run during deployment before traffic.",
+                observed_at=observed_at,
+                metadata={
+                    "source_ref": f"docs/adr/{record_id}.md",
+                    "semantic_facts": semantic_fact,
+                },
+            )
+        )
+
+    await memory.process(
+        tenant_id=TENANT,
+        subject_id=subject_id,
+        as_of=datetime(2026, 10, 3, tzinfo=UTC),
+    )
+    context = await memory.prepare_context(
+        "deployment policy",
+        tenant_id=TENANT,
+        subject_id=subject_id,
+        as_of=datetime(2026, 10, 4, tzinfo=UTC),
+    )
+
+    provenance = await memory.resolve_provenance(context)
+    semantic = next(
+        item for item in provenance.items if item.memory_identity.memory_kind is MemoryKind.SEMANTIC
+    )
+    assert semantic.distinct_source_count == 2
+    assert {source.relation for source in semantic.sources} == {
+        SourceEvidenceRelation.SEMANTIC_SUPPORT
+    }
+    assert all(
+        source.resolution_status is SourceEvidenceResolutionStatus.RESOLVED
+        for source in semantic.sources
+    )
