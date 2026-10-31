@@ -428,6 +428,100 @@ class SemanticCardinality(StrEnum):
     MANY = "many"
 
 
+class SemanticAuthorityBasis(StrEnum):
+    """Application-declared reason a single fact may bypass recurrence."""
+
+    APPLICATION_ASSERTED = "application_asserted"
+
+
+class SemanticPromotionBasis(StrEnum):
+    """Why a semantic claim was admitted to consolidation."""
+
+    RECURRENCE = "recurrence"
+    EXPLICIT_SOURCE_AUTHORITY = "explicit_source_authority"
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticFactAuthority:
+    """Explicit authority declaration bound to one semantic fact."""
+
+    basis: SemanticAuthorityBasis
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticPromotion:
+    """Persisted explanation of the route that first admitted a semantic claim."""
+
+    basis: SemanticPromotionBasis
+    observation_id: str | None = None
+    observation_revision: int | None = None
+    claim_key: str | None = None
+    support_count: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.observation_id is not None and not self.observation_id.strip():
+            raise ValidationError("observation_id must not be empty when provided.")
+        if self.observation_revision is not None and self.observation_revision <= 0:
+            raise ValidationError("observation_revision must be greater than zero.")
+        if self.claim_key is not None and not self.claim_key.strip():
+            raise ValidationError("claim_key must not be empty when provided.")
+        if self.support_count is not None and self.support_count < 0:
+            raise ValidationError("support_count must not be negative.")
+        if self.basis is SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY and (
+            self.observation_id is None
+            or self.observation_revision is None
+            or self.claim_key is None
+            or self.support_count is None
+        ):
+            raise ValidationError(
+                "Explicit source authority promotion requires the asserting observation revision."
+            )
+
+
+def semantic_promotion_from_metadata(metadata: Mapping[str, Any]) -> SemanticPromotion | None:
+    """Read a promotion record from semantic memory metadata.
+
+    Malformed records fail closed and return ``None``. Authority evidence stays
+    distinct from source identity.
+    """
+    semantic = metadata.get("semantic")
+    if not isinstance(semantic, Mapping):
+        return None
+    raw = semantic.get("promotion")
+    if not isinstance(raw, Mapping):
+        return None
+    basis_raw = raw.get("basis")
+    if not isinstance(basis_raw, str):
+        return None
+    try:
+        basis = SemanticPromotionBasis(basis_raw)
+    except ValueError:
+        return None
+    observation_id = raw.get("observation_id")
+    observation_revision = raw.get("observation_revision")
+    claim_key = raw.get("claim_key")
+    support_count = raw.get("support_count")
+    try:
+        return SemanticPromotion(
+            basis=basis,
+            observation_id=observation_id if isinstance(observation_id, str) else None,
+            observation_revision=(
+                observation_revision
+                if isinstance(observation_revision, int)
+                and not isinstance(observation_revision, bool)
+                else None
+            ),
+            claim_key=claim_key if isinstance(claim_key, str) else None,
+            support_count=(
+                support_count
+                if isinstance(support_count, int) and not isinstance(support_count, bool)
+                else None
+            ),
+        )
+    except ValidationError:
+        return None
+
+
 class SemanticMemoryStatus(StrEnum):
     """Lifecycle status of a semantic memory."""
 
@@ -505,12 +599,23 @@ class SemanticFactCandidate:
     valid_until: datetime | None = None
     qualifiers: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    source_observation_id: str | None = None
+    source_observation_revision: int | None = None
+    authority: SemanticFactAuthority | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
             raise ValidationError("tenant_id must not be empty.")
         if not self.source_episode_id.strip():
             raise ValidationError("source_episode_id must not be empty.")
+        if self.source_observation_id is not None and not self.source_observation_id.strip():
+            raise ValidationError("source_observation_id must not be empty when provided.")
+        if self.source_observation_revision is not None and self.source_observation_revision <= 0:
+            raise ValidationError("source_observation_revision must be greater than zero.")
+        if self.authority is not None and (
+            self.source_observation_id is None or self.source_observation_revision is None
+        ):
+            raise ValidationError("Authoritative facts require a source observation revision.")
         if not self.predicate.strip():
             raise ValidationError("predicate must not be empty.")
         if not self.object_value.strip():
@@ -910,6 +1015,7 @@ class SemanticExtractionResult:
 
     candidates: tuple[SemanticFactCandidate, ...]
     failed: int = 0
+    authority_invalid: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -932,6 +1038,10 @@ class SemanticConsolidationResult:
     superseded: int = 0
     revisions_created: int = 0
     revisions_updated: int = 0
+    recurrence_promoted: int = 0
+    authority_promoted: int = 0
+    authority_deferred_conflict: int = 0
+    authority_invalid: int = 0
 
     def record(
         self,
@@ -957,6 +1067,10 @@ class SemanticConsolidationResult:
             superseded=self.superseded,
             revisions_created=self.revisions_created,
             revisions_updated=self.revisions_updated,
+            recurrence_promoted=self.recurrence_promoted,
+            authority_promoted=self.authority_promoted,
+            authority_deferred_conflict=self.authority_deferred_conflict,
+            authority_invalid=self.authority_invalid,
         )
 
     def with_reconciliation(
@@ -986,6 +1100,10 @@ class SemanticConsolidationResult:
             superseded=superseded,
             revisions_created=revisions_created,
             revisions_updated=revisions_updated,
+            recurrence_promoted=self.recurrence_promoted,
+            authority_promoted=self.authority_promoted,
+            authority_deferred_conflict=self.authority_deferred_conflict,
+            authority_invalid=self.authority_invalid,
         )
 
 
@@ -1130,6 +1248,7 @@ class MemoryProvenance:
     is_complete: bool
     is_truncated: bool
     warnings: tuple[str, ...]
+    promotion: SemanticPromotion | None = None
 
     def __post_init__(self) -> None:
         for label, count in (

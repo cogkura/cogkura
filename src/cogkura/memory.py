@@ -47,6 +47,9 @@ from cogkura.algorithms.semantic import (
     MetadataSemanticExtractor,
     SemanticConsolidator,
     SemanticExtractor,
+    defer_conflicting_authority_candidates,
+    promotion_basis_value,
+    qualify_source_authority,
 )
 from cogkura.algorithms.working_memory import (
     ApproximateTokenEstimator,
@@ -94,7 +97,9 @@ from cogkura.models import (
     RetrievalInterferenceObservability,
     SemanticConsolidationResult,
     SemanticDerivationRelation,
+    SemanticFactCandidate,
     SemanticMemoryStatus,
+    SemanticPromotionBasis,
     StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryLearningState,
@@ -104,7 +109,12 @@ from cogkura.models import (
     WorkingMemorySnapshot,
 )
 from cogkura.observations.encoding_context import RetrievalContext
-from cogkura.observations.models import IngestionResult, IngestStatus, ObservationInput
+from cogkura.observations.models import (
+    IngestionResult,
+    IngestStatus,
+    ObservationInput,
+    ObservationRevisionIdentity,
+)
 from cogkura.observations.pipeline import ObservationPipeline
 from cogkura.observations.policies import DefaultObservationPolicy, ObservationPolicy
 from cogkura.observations.relationships import (
@@ -1365,9 +1375,18 @@ class Memory:
             episodes,
             observations=observations_by_id,
         )
+        candidates = extraction.candidates
+        authority_invalid = 0
+        if self._authority_promotion_enabled():
+            authority_invalid = extraction.authority_invalid
+            candidates, revision_invalid = qualify_source_authority(
+                candidates,
+                await self._authority_revisions(tenant_id=tenant_id, candidates=candidates),
+            )
+            authority_invalid += revision_invalid
         revision_candidates = self._semantic_consolidator.consolidate(
             episodes,
-            extraction.candidates,
+            candidates,
         )
         existing_memories = await self._semantic_store.list(
             tenant_id=tenant_id,
@@ -1378,8 +1397,12 @@ class Memory:
             tenant_id=tenant_id,
             subject_id=subject_id,
         )
+        admitted, authority_deferred_conflict = defer_conflicting_authority_candidates(
+            revision_candidates,
+            existing_memories,
+        )
         plan = self._semantic_reconciler.reconcile(
-            candidates=revision_candidates,
+            candidates=admitted,
             existing_memories=existing_memories,
             existing_revisions=existing_revisions,
             as_of=evaluation_time,
@@ -1388,11 +1411,20 @@ class Memory:
             plan,
             as_of=evaluation_time,
         )
+        recurrence_promoted = sum(
+            promotion_basis_value(candidate.metadata) == SemanticPromotionBasis.RECURRENCE.value
+            for candidate in admitted
+        )
+        authority_promoted = sum(
+            promotion_basis_value(candidate.metadata)
+            == SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY.value
+            for candidate in admitted
+        )
         result = SemanticConsolidationResult(
             episodes=len(episodes),
             extracted_candidates=len(extraction.candidates),
             extracted_failures=extraction.failed,
-            canonical_claims=len(revision_candidates),
+            canonical_claims=len(admitted),
             promoted=len(plan.current_memories),
             created=write_result.created,
             updated=write_result.updated,
@@ -1402,6 +1434,10 @@ class Memory:
                 for memory in plan.current_memories
                 if memory.status is SemanticMemoryStatus.CONTESTED
             ),
+            recurrence_promoted=recurrence_promoted,
+            authority_promoted=authority_promoted,
+            authority_deferred_conflict=authority_deferred_conflict,
+            authority_invalid=authority_invalid,
         ).with_reconciliation(
             reinforced=plan.reinforced_count,
             coexisting=plan.coexist_count,
@@ -1411,6 +1447,41 @@ class Memory:
             revisions_updated=plan.revisions_updated,
         )
         return result
+
+    def _authority_promotion_enabled(self) -> bool:
+        return bool(
+            getattr(self._semantic_consolidator, "allow_authoritative_single_episode", False)
+        )
+
+    async def _authority_revisions(
+        self,
+        *,
+        tenant_id: str,
+        candidates: Sequence[SemanticFactCandidate],
+    ) -> Mapping[ObservationRevisionIdentity, Any]:
+        references: list[ObservationRevisionIdentity] = []
+        seen: set[ObservationRevisionIdentity] = set()
+        for candidate in candidates:
+            if (
+                candidate.authority is None
+                or candidate.source_observation_id is None
+                or candidate.source_observation_revision is None
+            ):
+                continue
+            identity = ObservationRevisionIdentity(
+                observation_id=candidate.source_observation_id,
+                observation_revision=candidate.source_observation_revision,
+            )
+            if identity in seen:
+                continue
+            seen.add(identity)
+            references.append(identity)
+        if not references:
+            return {}
+        return await self._observation_store.get_revisions_many(
+            tenant_id=tenant_id,
+            references=references,
+        )
 
     async def list_semantic_revisions(
         self,

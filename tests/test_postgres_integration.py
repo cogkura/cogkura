@@ -11,9 +11,16 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
 from cogkura.memory import Memory
 from cogkura.migrations import apply_migrations
-from cogkura.models import MemoryKind, SourceEvidenceRelation, SourceEvidenceResolutionStatus
+from cogkura.models import (
+    MemoryKind,
+    SemanticPromotionBasis,
+    SourceEvidenceRelation,
+    SourceEvidenceResolutionStatus,
+    semantic_promotion_from_metadata,
+)
 from cogkura.observations.models import (
     IngestStatus,
     ObservationInput,
@@ -24,6 +31,7 @@ from cogkura.storage.postgres import (
     PostgresCheckpointStore,
     PostgresEpisodeStore,
     PostgresObservationStore,
+    PostgresSemanticMemoryStore,
 )
 
 pytestmark = pytest.mark.postgres
@@ -645,3 +653,65 @@ async def test_postgres_provenance_resolves_semantic_support_evidence(
         source.resolution_status is SourceEvidenceResolutionStatus.RESOLVED
         for source in semantic.sources
     )
+
+
+@pytest.mark.asyncio
+async def test_postgres_source_authority_matches_in_memory(memory_engine: AsyncEngine) -> None:
+    """One authoritative fact consolidates the same way in memory and Postgres."""
+    subject_id = f"authority-{uuid4().hex}"
+    observed_at = datetime(2026, 10, 1, tzinfo=UTC)
+    consolidator_kwargs = {"allow_authoritative_single_episode": True}
+
+    def make_observation() -> ObservationInput:
+        return ObservationInput(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            source_namespace="repository",
+            source_record_id="adr-0001",
+            source_version="1",
+            content="Database migrations run through the deployment pipeline.",
+            observed_at=observed_at,
+            metadata={
+                "conversation_id": "adr",
+                "semantic_facts": [
+                    {
+                        "predicate": "migration_execution_strategy",
+                        "object_value": "deployment_pipeline",
+                        "cardinality": "one",
+                        "confidence": 0.8,
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+            },
+        )
+
+    async def promote(memory: Memory) -> tuple[int, float, int]:
+        await memory.observe(make_observation())
+        first = await memory.process(tenant_id=TENANT, subject_id=subject_id, as_of=observed_at)
+        second = await memory.process(tenant_id=TENANT, subject_id=subject_id, as_of=observed_at)
+        memories = await memory.list_semantic_memories(tenant_id=TENANT, subject_id=subject_id)
+        revisions = await memory.list_semantic_revisions(tenant_id=TENANT, subject_id=subject_id)
+        assert first.semantics.authority_promoted == 1
+        assert first.semantics.created == 1
+        assert second.semantics.unchanged == 1
+        assert second.semantics.authority_promoted == 1
+        assert len(memories) == 1
+        assert len(revisions) == 1
+        promotion = semantic_promotion_from_metadata(memories[0].metadata)
+        assert promotion is not None
+        assert promotion.basis is SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY
+        assert promotion.observation_revision == 1
+        assert promotion.support_count == 1
+        assert promotion.claim_key == memories[0].memory_key
+        return memories[0].support_count, memories[0].confidence, promotion.observation_revision
+
+    in_memory = Memory(
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(**consolidator_kwargs),
+    )
+    postgres = Memory(
+        observation_store=PostgresObservationStore(memory_engine),
+        episode_store=PostgresEpisodeStore(memory_engine),
+        semantic_store=PostgresSemanticMemoryStore(memory_engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(**consolidator_kwargs),
+    )
+    assert await promote(in_memory) == await promote(postgres)

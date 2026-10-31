@@ -472,7 +472,19 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. `0.18.0` adds deterministic, revision-aware source provenance through `Memory.resolve_provenance(context)`. It is a separate read-only step after context preparation: it resolves the observation revisions actually used by selected memories, reports source diversity and missing evidence, and leaves retrieval, consolidation, learning, and rendered context unchanged. A source reference is optional metadata (`source_ref`) and remains untrusted descriptive data; a newer source revision is a provenance observation, not an authority decision. `0.17.7` remains the frozen interference and inhibition retrieval contract.
+Cogkura is in development. `0.18.1` adds an opt-in source-authority route so one application-declared fact can become ordinary semantic memory without a second episode. Recurrence remains the default. Authority does not change confidence, retrieval, or correction; a later revision that drops the declaration does not retract the memory. `0.18.0` remains the revision-aware provenance release, and `0.17.7` remains the frozen interference and inhibition retrieval contract.
+
+## Scope of 0.18.1
+
+Implemented in `0.18.1`:
+
+- fact-scoped `semantic_facts[].authority.basis = application_asserted`;
+- opt-in `allow_authoritative_single_episode` on `ComplementaryLearningSemanticConsolidator`, default off;
+- exact observation-revision qualification, with malformed or missing evidence failing closed;
+- promotion basis stored on the semantic memory and returned by `resolve_provenance()`;
+- deferred admission when a single authoritative claim would compete for a cardinality-one slot.
+
+See [`docs/design-source-authority-0.18.1.md`](docs/design-source-authority-0.18.1.md) and [`docs/application-integration.md`](docs/application-integration.md).
 
 ## Scope of 0.18.0
 

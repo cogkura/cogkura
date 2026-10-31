@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 
@@ -9,10 +10,13 @@ from cogkura.algorithms.reconsolidation import DeterministicSemanticReconciler
 from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
 from cogkura.models import (
     EpisodeEvidenceInput,
+    SemanticAuthorityBasis,
     SemanticCardinality,
+    SemanticFactAuthority,
     SemanticFactCandidate,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticPromotionBasis,
     StoredEpisode,
 )
 
@@ -159,3 +163,58 @@ def test_consolidation_is_deterministic() -> None:
     second = consolidator.consolidate(list(reversed(episodes)), list(reversed(candidates)))
     assert first[0].memory_key == second[0].memory_key
     assert first[0].statement == second[0].statement
+
+
+def _authorised(fact: SemanticFactCandidate, *, observation_id: str) -> SemanticFactCandidate:
+    return replace(
+        fact,
+        source_observation_id=observation_id,
+        source_observation_revision=1,
+        authority=SemanticFactAuthority(basis=SemanticAuthorityBasis.APPLICATION_ASSERTED),
+    )
+
+
+def test_authority_flag_off_does_not_promote_one_episode() -> None:
+    consolidator = ComplementaryLearningSemanticConsolidator()
+    episodes = [_episode(episode_id="ep-1")]
+    candidates = [_authorised(_fact(episode_id="ep-1"), observation_id="obs-1")]
+    assert consolidator.consolidate(episodes, candidates) == []
+
+
+def test_verified_authority_promotes_one_episode_without_raising_confidence() -> None:
+    episode = _episode(episode_id="ep-1")
+    ordinary = ComplementaryLearningSemanticConsolidator(minimum_supporting_episodes=1)
+    authorised = ComplementaryLearningSemanticConsolidator(allow_authoritative_single_episode=True)
+    fact = _fact(episode_id="ep-1", confidence=0.8)
+    baseline = ordinary.consolidate([episode], [fact])[0]
+    promoted = authorised.consolidate(
+        [episode],
+        [_authorised(fact, observation_id="obs-authority")],
+    )[0]
+    assert promoted.support_count == 1
+    assert promoted.support_confidence == baseline.support_confidence
+    assert promoted.support_confidence < 1.0
+    promotion = promoted.metadata["semantic"]["promotion"]
+    assert promotion["basis"] == SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY.value
+    assert promotion["observation_id"] == "obs-authority"
+    assert promotion["support_count"] == 1
+    assert baseline.metadata["semantic"]["promotion"]["basis"] == (
+        SemanticPromotionBasis.RECURRENCE.value
+    )
+
+
+def test_lower_confidence_authority_is_kept_for_the_same_claim() -> None:
+    consolidator = ComplementaryLearningSemanticConsolidator(
+        allow_authoritative_single_episode=True
+    )
+    episodes = [_episode(episode_id="ep-1")]
+    ordinary = _fact(episode_id="ep-1", confidence=1.0)
+    authorised = _authorised(
+        _fact(episode_id="ep-1", confidence=0.4),
+        observation_id="obs-low",
+    )
+    first = consolidator.consolidate(episodes, [ordinary, authorised])
+    second = consolidator.consolidate(episodes, [authorised, ordinary])
+    assert first[0].metadata["semantic"]["promotion"]["observation_id"] == "obs-low"
+    assert second[0].metadata["semantic"]["promotion"]["observation_id"] == "obs-low"
+    assert first[0].support_confidence == second[0].support_confidence

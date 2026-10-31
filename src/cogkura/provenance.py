@@ -22,6 +22,7 @@ from cogkura.models import (
     SourceEvidenceResolutionStatus,
     StoredEpisode,
     StoredSemanticMemory,
+    semantic_promotion_from_metadata,
 )
 from cogkura.observations.models import (
     ObservationRevisionIdentity,
@@ -163,6 +164,11 @@ class SourceProvenanceResolver:
                     is_complete=is_complete,
                     is_truncated=is_truncated,
                     warnings=warnings,
+                    promotion=(
+                        semantic_promotion_from_metadata(item.memory.metadata)
+                        if isinstance(item.memory, StoredSemanticMemory)
+                        else None
+                    ),
                 )
             )
 

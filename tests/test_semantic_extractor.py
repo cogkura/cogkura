@@ -94,6 +94,10 @@ async def test_extracts_metadata_facts() -> None:
     assert result.candidates[0].subject_entity_id == "customer_42"
     assert result.candidates[0].polarity is SemanticPolarity.AFFIRM
     assert result.candidates[0].cardinality is SemanticCardinality.ONE
+    assert result.candidates[0].authority is None
+    assert result.candidates[0].source_observation_id == "obs-1"
+    assert result.candidates[0].source_observation_revision == 1
+    assert result.authority_invalid == 0
 
 
 @pytest.mark.asyncio
@@ -104,3 +108,33 @@ async def test_malformed_fact_is_counted_as_failed() -> None:
     result = await extractor.extract([episode], observations={"obs-1": observation})
     assert result.candidates == ()
     assert result.failed == 1
+
+
+@pytest.mark.asyncio
+async def test_malformed_authority_keeps_the_fact_and_counts_invalid() -> None:
+    extractor = MetadataSemanticExtractor()
+    observation = _observation(
+        obs_id="obs-1",
+        semantic_facts=[
+            {
+                "predicate": "preferred_database",
+                "object_value": "postgresql",
+                "authority": {"basis": "confirmed", "note": "signed"},
+            },
+            {
+                "predicate": "cache",
+                "object_value": "redis",
+                "authority": {"basis": "application_asserted"},
+            },
+        ],
+    )
+    episode = _episode(episode_id="ep-1", observation_id="obs-1")
+    result = await extractor.extract([episode], observations={"obs-1": observation})
+    assert result.failed == 0
+    assert result.authority_invalid == 1
+    assert len(result.candidates) == 2
+    invalid = next(item for item in result.candidates if item.predicate == "preferred_database")
+    valid = next(item for item in result.candidates if item.predicate == "cache")
+    assert invalid.authority is None
+    assert valid.authority is not None
+    assert valid.authority.basis.value == "application_asserted"

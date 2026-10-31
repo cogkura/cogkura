@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Protocol
+from typing import Any, Protocol
 
 from cogkura.algorithms.semantic import _calculate_confidence
 from cogkura.exceptions import ValidationError
@@ -486,9 +486,12 @@ class _ReconciliationBuilder:
                     valid_until=current.valid_until,
                 )
                 continue
+            stored = self._memory_by_key.get(memory_key)
+            preserved = _promotion_block(stored.metadata) if stored is not None else None
             self._memory_projection[memory_key] = _memory_input_from_candidate(
                 candidate,
                 revision=current,
+                preserved_promotion=preserved,
             )
 
 
@@ -779,7 +782,13 @@ def _memory_input_from_candidate(
     candidate: SemanticRevisionCandidate,
     *,
     revision: SemanticRevisionInput,
+    preserved_promotion: Mapping[str, Any] | None = None,
 ) -> SemanticMemoryInput:
+    metadata = candidate.metadata
+    if preserved_promotion is not None:
+        semantic = dict(candidate.metadata.get("semantic", {}))
+        semantic["promotion"] = dict(preserved_promotion)
+        metadata = MappingProxyType({**dict(candidate.metadata), "semantic": semantic})
     return SemanticMemoryInput(
         tenant_id=candidate.tenant_id,
         subject_id=candidate.subject_id,
@@ -807,5 +816,15 @@ def _memory_input_from_candidate(
         derivations=revision.derivations,
         observation_evidence=candidate.observation_evidence,
         entities=candidate.entities,
-        metadata=candidate.metadata,
+        metadata=metadata,
     )
+
+
+def _promotion_block(metadata: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    semantic = metadata.get("semantic")
+    if not isinstance(semantic, Mapping):
+        return None
+    promotion = semantic.get("promotion")
+    if not isinstance(promotion, Mapping) or not isinstance(promotion.get("basis"), str):
+        return None
+    return promotion

@@ -118,6 +118,48 @@ for item in provenance.items:
 
 `source_ref` is optional, untrusted application metadata. A missing locator does not remove resolved evidence. `is_latest_known_revision=False` means a newer source revision exists; it does not mean the memory is false or unauthoritative. Provenance does not change rendered context, recall, ranking, consolidation, or learning. See [`design-source-provenance-0.18.0.md`](design-source-provenance-0.18.0.md).
 
+### Source authority (0.18.1)
+
+Recurrence remains the normal way a fact becomes semantic memory. To admit one confirmed fact from a single observation, the application enables the consolidator and marks that fact:
+
+```python
+from cogkura import Memory
+from cogkura.algorithms.semantic import ComplementaryLearningSemanticConsolidator
+
+memory = Memory(
+    semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+        allow_authoritative_single_episode=True,
+    ),
+)
+
+await memory.observe(
+    ObservationInput(
+        tenant_id="repository",
+        subject_id="payments-api",
+        source_namespace="repository",
+        source_record_id="adr-0001",
+        source_version="1",
+        content="Database migrations run through the deployment pipeline.",
+        observed_at=now,
+        metadata={
+            "source_ref": "docs/adr/0001.md",
+            "semantic_facts": [
+                {
+                    "predicate": "migration_execution_strategy",
+                    "object_value": "deployment_pipeline",
+                    "cardinality": "one",
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        },
+    )
+)
+```
+
+The application is asserting authority. Cogkura does not infer it from `confirmed`, `source_ref`, or confidence. The declaration has to be stored on the observation revision the episode cites, which means the ingest must change source version, content, deletion, or encoding context. A metadata-only repeat is `UNCHANGED`.
+
+One authoritative episode produces a semantic memory with `support_count=1`. A competing current value in the same cardinality-one slot is deferred, not replaced. Removing the declaration later does not retract the memory. Inspect the route with `semantic_promotion_from_metadata(memory.metadata)` or `resolve_provenance(context).items[].promotion`. `render()` stays free of authority text. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
+
 ## Metamemory
 
 `prepare_context()` always includes `MemoryAssessment`. Check flags such as `MISSING_KNOWLEDGE` before invoking your model. Cogkura reports memory state; it does not decide business responses.

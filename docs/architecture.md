@@ -214,7 +214,11 @@ See [`design-interference-inhibition-architecture-freeze-0.17.7.md`](design-inte
 
 Source identity is `(tenant_id, source_namespace, source_record_id)`. Revision evidence is `(observation_id, observation_revision)`. A revision older than the current observation is observable through `is_latest_known_revision`, but that signal is not an authority or factual-currentness claim. See [`design-source-provenance-0.18.0.md`](design-source-provenance-0.18.0.md).
 
-## Current implementation boundary (0.18.0)
+## Source authority (0.18.1)
+
+Semantic consolidation still requires repeated episodes unless the application opts in with `allow_authoritative_single_episode=True` and one `semantic_facts` entry declares `authority.basis=application_asserted`. The declaration is checked against the episode's current, non-deleted observation revision. It admits that fact only. It does not raise confidence, activation, or retrieval priority, and it does not supersede a competing current claim. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
+
+## Current implementation boundary (0.18.1)
 
 Implemented:
 
@@ -233,6 +237,7 @@ Implemented:
 - **co-consumption inhibition** (0.17.6.1). Active semantic lineage, not semantic-slot membership, decides whether an alternate representation was consumed
 - **interference and inhibition architecture freeze** (0.17.7). The flow above is the contract; retrieval behaviour matches `0.17.6.1`
 - **revision-aware source provenance** (0.18.0). A separate bounded API resolves selected context evidence without mutating cognitive state or changing render output
+- **explicit source authority** (0.18.1). An opt-in, fact-scoped declaration can admit one current observation revision to semantic memory. Recurrence, confidence, and retrieval stay on the previous contract
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 

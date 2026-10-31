@@ -13,12 +13,16 @@ Cogkura `0.8.0` adds **temporal semantic reconsolidation**: revision history, de
 
 ```text
 extract semantic facts
+  → qualify explicit authority against the cited observation revision
   → consolidate revision candidates
+  → defer competing single-support authority claims
   → load existing memories + revisions
   → DeterministicSemanticReconciler
   → SemanticReconciliationPlan
   → SemanticMemoryStore.apply_reconciliation() (atomic)
 ```
+
+`0.18.1` inserts the authority qualification and deferral only when `allow_authoritative_single_episode` is true. Recurrence-qualified candidates still reach the reconciler. A deferred authority claim is not superseded or contested automatically. Withdrawing the declaration later does not retract the semantic memory; that correction policy is `0.18.2`. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
 
 ## Temporal validity on observations
 

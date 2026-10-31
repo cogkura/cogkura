@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.18.1 — Source authority admission (done)
+
+- Opt-in single-episode semantic promotion for one fact whose current observation revision declares `authority.basis=application_asserted`.
+- Recurrence stays the default. Authority does not change confidence, retrieval, forgetting, or automatic correction.
+- [`docs/design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md) and [`docs/findings/0.18.1-source-authority.md`](findings/0.18.1-source-authority.md).
+
 ## 0.18.0 — Source identity and provenance monitoring (done)
 
 - Read-only `Memory.resolve_provenance(context)` with typed source attribution and explicit selected versus chunk-member representation.

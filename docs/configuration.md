@@ -132,7 +132,7 @@ Competition and inhibition weights, strength floors, cue-fit floors, and the rec
 Applications supply:
 
 - `ObservationInput` with `source_namespace` + `source_record_id` (stable external IDs)
-- `metadata["semantic_facts"]` for durable claims (`predicate`, `object_value`, `cardinality`, optional `valid_from` / `valid_until`, `confidence`)
+- `metadata["semantic_facts"]` for durable claims (`predicate`, `object_value`, `cardinality`, optional `valid_from` / `valid_until`, `confidence`, optional `authority`)
 - `metadata["entity_ids"]` for episodic entity links
 - `metadata["relationships"]` for directed structure (`source_entity_id`, `relation_type`, `target_entity_id`)
 - optional `metadata["source_ref"]` for a stable, opaque external locator used by provenance resolution
@@ -149,13 +149,17 @@ Future `cogkura-ingest` should use only these public paths. Core does not parse 
 
 `Memory.resolve_provenance(context, max_evidence=256)` has no persistent configuration and is deliberately separate from retrieval. `max_evidence` is a deterministic total output and lookup bound; results report truncation and total referenced evidence rather than silently dropping records. Source references are returned as untrusted identifiers only: Core does not open them, fetch them, or expose raw source content or arbitrary observation metadata.
 
+### Source authority (0.18.1)
+
+`ComplementaryLearningSemanticConsolidator(allow_authoritative_single_episode=False)` is the default. Set it to `True` to let one fact with `authority: {"basis": "application_asserted"}` consolidate from a single current observation revision. The flag does not change `minimum_supporting_episodes`, confidence, or retrieval weights. A malformed authority object is ignored for admission and, when the flag is on, counted as `authority_invalid`.
+
 ## Cardinality and temporal semantics
 
 - `cardinality=one`: values in the same slot compete; newer implicit evidence supersedes unless explicit windows overlap (`CONTESTED`).
 - `cardinality=many`: independent `ACTIVE` values until explicitly invalidated.
 - `as_of`: cognitive evaluation clock (activation, forgetting).
 - `valid_at`: world validity time for semantic revision windows.
-- `SUPERSEDED`: authority replaced; historical rows remain retrievable with `valid_at`.
+- `SUPERSEDED`: an earlier claim replaced through reconsolidation; historical rows remain retrievable with `valid_at`.
 
 See [`docs/reconsolidation.md`](reconsolidation.md) and [`docs/findings/semantic-currentness-investigation.md`](findings/semantic-currentness-investigation.md).
 

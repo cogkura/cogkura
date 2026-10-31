@@ -8,7 +8,7 @@ import math
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any, Protocol
@@ -17,17 +17,25 @@ from cogkura.exceptions import ValidationError
 from cogkura.models import (
     EpisodeEntity,
     EpisodeEvidenceInput,
+    SemanticAuthorityBasis,
     SemanticCardinality,
     SemanticDerivationInput,
     SemanticDerivationRelation,
     SemanticExtractionResult,
+    SemanticFactAuthority,
     SemanticFactCandidate,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticPromotionBasis,
     SemanticRevisionCandidate,
     StoredEpisode,
+    StoredSemanticMemory,
 )
-from cogkura.observations.models import StoredObservation
+from cogkura.observations.models import (
+    ObservationRevisionIdentity,
+    StoredObservation,
+    StoredObservationRevision,
+)
 
 _CONSOLIDATION_VERSION = "cls-deterministic-v1"
 _RECONCILIATION_VERSION = "reconsolidation-v1"
@@ -85,6 +93,7 @@ class ComplementaryLearningSemanticConsolidator:
         contested_ratio_threshold: float = 0.25,
         consolidation_version: str = _CONSOLIDATION_VERSION,
         extractor_version: str = _EXTRACTOR_VERSION,
+        allow_authoritative_single_episode: bool = False,
     ) -> None:
         if minimum_supporting_episodes < 1:
             raise ValidationError("minimum_supporting_episodes must be at least 1.")
@@ -100,6 +109,12 @@ class ComplementaryLearningSemanticConsolidator:
         self._contested_ratio_threshold = contested_ratio_threshold
         self._consolidation_version = consolidation_version
         self._extractor_version = extractor_version
+        self._allow_authoritative_single_episode = allow_authoritative_single_episode
+
+    @property
+    def allow_authoritative_single_episode(self) -> bool:
+        """Whether one verified authoritative episode may be consolidated."""
+        return self._allow_authoritative_single_episode
 
     def consolidate(
         self,
@@ -107,7 +122,11 @@ class ComplementaryLearningSemanticConsolidator:
         candidates: Sequence[SemanticFactCandidate],
     ) -> list[SemanticRevisionCandidate]:
         episode_by_id = {episode.id: episode for episode in episodes}
-        prepared = _prepare_candidates(candidates, episode_by_id)
+        prepared = _prepare_candidates(
+            candidates,
+            episode_by_id,
+            prefer_authority=self._allow_authoritative_single_episode,
+        )
         slot_groups: dict[str, dict[str, list[tuple[SemanticFactCandidate, StoredEpisode]]]] = {}
         for candidate, episode in prepared:
             canonical = _canonicalize_candidate(candidate)
@@ -124,16 +143,27 @@ class ComplementaryLearningSemanticConsolidator:
             }
             for claim_key in sorted(claim_entries):
                 aggregate = claim_entries[claim_key]
-                if len(aggregate.supporting_episodes) < self._minimum_supporting_episodes:
-                    continue
                 revision_groups = _group_by_validity(aggregate)
                 for group in revision_groups:
-                    if len(group.supporting_episodes) < self._minimum_supporting_episodes:
+                    support_count = len(group.supporting_episodes)
+                    recurrence_eligible = support_count >= self._minimum_supporting_episodes
+                    authority_eligible = (
+                        self._allow_authoritative_single_episode
+                        and not recurrence_eligible
+                        and _aggregate_has_verified_authority(group)
+                    )
+                    if not recurrence_eligible and not authority_eligible:
                         continue
+                    basis = (
+                        SemanticPromotionBasis.RECURRENCE
+                        if recurrence_eligible
+                        else SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY
+                    )
                     results.append(
                         self._build_revision_candidate(
                             group,
                             episode_by_id,
+                            promotion_basis=basis,
                         )
                     )
         return results
@@ -142,6 +172,8 @@ class ComplementaryLearningSemanticConsolidator:
         self,
         aggregate: _ClaimAggregate,
         episode_by_id: Mapping[str, StoredEpisode],
+        *,
+        promotion_basis: SemanticPromotionBasis,
     ) -> SemanticRevisionCandidate:
         support_mass = sum(item.weight for item in aggregate.supporting_episodes)
         confidence = _calculate_confidence(
@@ -194,7 +226,7 @@ class ComplementaryLearningSemanticConsolidator:
                     "contradiction_mass": 0.0,
                     "contradiction_ratio": 0.0,
                     "slot_key": aggregate.canonical.slot_key,
-                    "source_namespaces": tuple(sorted(aggregate.source_namespaces)),
+                    "source_namespaces": list(sorted(aggregate.source_namespaces)),
                     "validity_source": (
                         "explicit"
                         if aggregate.valid_from is not None or aggregate.valid_until is not None
@@ -205,6 +237,7 @@ class ComplementaryLearningSemanticConsolidator:
                         "source_diversity_target": self._source_diversity_target,
                         "score": confidence,
                     },
+                    "promotion": _promotion_metadata(promotion_basis, aggregate),
                 }
             }
         )
@@ -253,6 +286,7 @@ class MetadataSemanticExtractor:
     ) -> SemanticExtractionResult:
         candidates: list[SemanticFactCandidate] = []
         failed = 0
+        authority_invalid = 0
         for episode in episodes:
             for evidence in episode.evidence:
                 observation = observations.get(evidence.observation_id)
@@ -272,16 +306,23 @@ class MetadataSemanticExtractor:
                     continue
                 for raw_fact in raw_facts:
                     try:
-                        candidates.append(
-                            _candidate_from_metadata(
-                                episode=episode,
-                                observation=observation,
-                                raw_fact=raw_fact,
-                            )
+                        candidate, invalid_authority = _candidate_from_metadata(
+                            episode=episode,
+                            observation=observation,
+                            observation_revision=evidence.observation_revision,
+                            raw_fact=raw_fact,
                         )
                     except ValidationError:
                         failed += 1
-        return SemanticExtractionResult(candidates=tuple(candidates), failed=failed)
+                        continue
+                    if invalid_authority:
+                        authority_invalid += 1
+                    candidates.append(candidate)
+        return SemanticExtractionResult(
+            candidates=tuple(candidates),
+            failed=failed,
+            authority_invalid=authority_invalid,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,6 +346,8 @@ class _ClaimAggregate:
 def _prepare_candidates(
     candidates: Sequence[SemanticFactCandidate],
     episode_by_id: Mapping[str, StoredEpisode],
+    *,
+    prefer_authority: bool,
 ) -> list[tuple[SemanticFactCandidate, StoredEpisode]]:
     per_episode: dict[tuple[str, str], SemanticFactCandidate] = {}
     for candidate in candidates:
@@ -318,7 +361,11 @@ def _prepare_candidates(
         canonical = _canonicalize_candidate(candidate)
         key = (candidate.source_episode_id, canonical.claim_key)
         existing = per_episode.get(key)
-        if existing is None or candidate.confidence > existing.confidence:
+        if existing is None or _prefer_candidate(
+            existing,
+            candidate,
+            prefer_authority=prefer_authority,
+        ):
             per_episode[key] = candidate
     prepared: list[tuple[SemanticFactCandidate, StoredEpisode]] = []
     for candidate in per_episode.values():
@@ -491,8 +538,9 @@ def _candidate_from_metadata(
     *,
     episode: StoredEpisode,
     observation: StoredObservation,
+    observation_revision: int,
     raw_fact: Any,
-) -> SemanticFactCandidate:
+) -> tuple[SemanticFactCandidate, bool]:
     if not isinstance(raw_fact, Mapping):
         raise ValidationError("semantic_facts entries must be mappings.")
     predicate = str(raw_fact.get("predicate", "")).strip()
@@ -514,20 +562,27 @@ def _candidate_from_metadata(
         qualifiers = {}
     if not isinstance(qualifiers, Mapping):
         raise ValidationError("semantic_facts qualifiers must be a mapping.")
-    return SemanticFactCandidate(
-        tenant_id=episode.tenant_id,
-        source_episode_id=episode.id,
-        subject_entity_id=str(subject_entity_id) if subject_entity_id is not None else None,
-        predicate=predicate,
-        object_value=object_value,
-        object_entity_id=str(object_entity_id) if object_entity_id is not None else None,
-        polarity=polarity,
-        cardinality=cardinality,
-        confidence=confidence,
-        observed_at=observation.observed_at,
-        valid_from=_parse_optional_datetime(raw_fact.get("valid_from")),
-        valid_until=_parse_optional_datetime(raw_fact.get("valid_until")),
-        qualifiers=MappingProxyType(dict(qualifiers)),
+    authority, invalid_authority = _parse_authority(raw_fact)
+    return (
+        SemanticFactCandidate(
+            tenant_id=episode.tenant_id,
+            source_episode_id=episode.id,
+            subject_entity_id=str(subject_entity_id) if subject_entity_id is not None else None,
+            predicate=predicate,
+            object_value=object_value,
+            object_entity_id=str(object_entity_id) if object_entity_id is not None else None,
+            polarity=polarity,
+            cardinality=cardinality,
+            confidence=confidence,
+            observed_at=observation.observed_at,
+            valid_from=_parse_optional_datetime(raw_fact.get("valid_from")),
+            valid_until=_parse_optional_datetime(raw_fact.get("valid_until")),
+            qualifiers=MappingProxyType(dict(qualifiers)),
+            source_observation_id=observation.id,
+            source_observation_revision=observation_revision,
+            authority=authority,
+        ),
+        invalid_authority,
     )
 
 
@@ -673,3 +728,246 @@ def _build_statement(canonical: _CanonicalClaim) -> str:
     if canonical.polarity is SemanticPolarity.DENY:
         return f"{subject} does not {predicate} {obj}{qualifier_suffix}"
     return f"{subject} {predicate} {obj}{qualifier_suffix}"
+
+
+def _parse_authority(raw_fact: Mapping[str, Any]) -> tuple[SemanticFactAuthority | None, bool]:
+    """Return ``(authority, invalid)``. A missing key is neither."""
+    if "authority" not in raw_fact:
+        return None, False
+    raw = raw_fact.get("authority")
+    if not isinstance(raw, Mapping) or set(raw) != {"basis"}:
+        return None, True
+    basis = raw.get("basis")
+    if basis != SemanticAuthorityBasis.APPLICATION_ASSERTED.value:
+        return None, True
+    return SemanticFactAuthority(basis=SemanticAuthorityBasis.APPLICATION_ASSERTED), False
+
+
+def _prefer_candidate(
+    existing: SemanticFactCandidate,
+    incoming: SemanticFactCandidate,
+    *,
+    prefer_authority: bool,
+) -> bool:
+    """Return whether ``incoming`` should replace ``existing`` for one episode claim."""
+    if prefer_authority:
+        existing_authorised = existing.authority is not None
+        incoming_authorised = incoming.authority is not None
+        if incoming_authorised != existing_authorised:
+            return incoming_authorised
+        if incoming_authorised and existing_authorised:
+            return _authority_sort_key(incoming) < _authority_sort_key(existing)
+    return incoming.confidence > existing.confidence
+
+
+def _authority_sort_key(candidate: SemanticFactCandidate) -> tuple[str, int]:
+    return (
+        candidate.source_observation_id or "",
+        candidate.source_observation_revision or 0,
+    )
+
+
+def _aggregate_has_verified_authority(aggregate: _ClaimAggregate) -> bool:
+    return any(item.candidate.authority is not None for item in aggregate.supporting_episodes)
+
+
+def _promotion_metadata(
+    basis: SemanticPromotionBasis,
+    aggregate: _ClaimAggregate,
+) -> dict[str, object]:
+    payload: dict[str, object] = {"basis": basis.value}
+    if basis is not SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY:
+        return payload
+    evidence = min(
+        (item for item in aggregate.supporting_episodes if item.candidate.authority is not None),
+        key=lambda item: (
+            _authority_sort_key(item.candidate),
+            item.episode_id,
+        ),
+    )
+    observation_id = evidence.candidate.source_observation_id
+    observation_revision = evidence.candidate.source_observation_revision
+    if observation_id is None or observation_revision is None:
+        raise ValidationError("Authoritative promotion is missing its source revision.")
+    payload["observation_id"] = observation_id
+    payload["observation_revision"] = observation_revision
+    payload["claim_key"] = aggregate.canonical.claim_key
+    payload["support_count"] = len(aggregate.supporting_episodes)
+    return payload
+
+
+def qualify_source_authority(
+    candidates: Sequence[SemanticFactCandidate],
+    revisions: Mapping[ObservationRevisionIdentity, StoredObservationRevision],
+) -> tuple[tuple[SemanticFactCandidate, ...], int]:
+    """Keep authority only when the cited revision itself asserts the same claim.
+
+    Invalid authority is removed from the candidate so ordinary recurrence can
+    still apply. The returned count is the number of claims that failed closed.
+    """
+    qualified: list[SemanticFactCandidate] = []
+    invalid = 0
+    for candidate in candidates:
+        if candidate.authority is None:
+            qualified.append(candidate)
+            continue
+        if _revision_authorizes_candidate(candidate, revisions):
+            qualified.append(candidate)
+            continue
+        invalid += 1
+        qualified.append(replace(candidate, authority=None))
+    return tuple(qualified), invalid
+
+
+def _revision_authorizes_candidate(
+    candidate: SemanticFactCandidate,
+    revisions: Mapping[ObservationRevisionIdentity, StoredObservationRevision],
+) -> bool:
+    if candidate.source_observation_id is None or candidate.source_observation_revision is None:
+        return False
+    identity = ObservationRevisionIdentity(
+        observation_id=candidate.source_observation_id,
+        observation_revision=candidate.source_observation_revision,
+    )
+    revision = revisions.get(identity)
+    if revision is None or revision.is_deleted:
+        return False
+    if revision.current_revision != candidate.source_observation_revision:
+        return False
+    return _revision_metadata_authorizes(candidate, revision.metadata)
+
+
+def _revision_metadata_authorizes(
+    candidate: SemanticFactCandidate,
+    metadata: Mapping[str, Any],
+) -> bool:
+    raw_facts = metadata.get("semantic_facts", ())
+    if raw_facts is None:
+        return False
+    if isinstance(raw_facts, Mapping):
+        raw_facts = (raw_facts,)
+    if not isinstance(raw_facts, Sequence) or isinstance(raw_facts, (str, bytes)):
+        return False
+    candidate_claim = _canonicalize_candidate(candidate)
+    for raw_fact in raw_facts:
+        if not isinstance(raw_fact, Mapping):
+            continue
+        authority, invalid = _parse_authority(raw_fact)
+        if authority is None or invalid:
+            continue
+        try:
+            revision_candidate, _invalid = _candidate_from_revision_fact(
+                candidate,
+                raw_fact,
+            )
+        except (ValidationError, ValueError):
+            continue
+        revision_claim = _canonicalize_candidate(revision_candidate)
+        if (
+            revision_claim.claim_key == candidate_claim.claim_key
+            and revision_claim.cardinality is candidate.cardinality
+        ):
+            return True
+    return False
+
+
+def _candidate_from_revision_fact(
+    candidate: SemanticFactCandidate,
+    raw_fact: Mapping[str, Any],
+) -> tuple[SemanticFactCandidate, bool]:
+    """Parse one revision fact using the candidate's observation subject as the default."""
+    predicate = str(raw_fact.get("predicate", "")).strip()
+    object_value = str(raw_fact.get("object_value", "")).strip()
+    if not predicate or not object_value:
+        raise ValidationError("semantic_facts entries require predicate and object_value.")
+    polarity = SemanticPolarity(str(raw_fact.get("polarity", SemanticPolarity.AFFIRM.value)))
+    cardinality = SemanticCardinality(
+        str(raw_fact.get("cardinality", SemanticCardinality.MANY.value))
+    )
+    subject_entity_id = raw_fact.get("subject_entity_id", candidate.subject_entity_id)
+    object_entity_id = raw_fact.get("object_entity_id")
+    qualifiers = raw_fact.get("qualifiers", {})
+    if qualifiers is None:
+        qualifiers = {}
+    if not isinstance(qualifiers, Mapping):
+        raise ValidationError("semantic_facts qualifiers must be a mapping.")
+    confidence_raw = raw_fact.get("confidence", candidate.confidence)
+    if not isinstance(confidence_raw, (int, float)) or not math.isfinite(float(confidence_raw)):
+        raise ValidationError("semantic_facts confidence must be numeric.")
+    authority, invalid_authority = _parse_authority(raw_fact)
+    return (
+        SemanticFactCandidate(
+            tenant_id=candidate.tenant_id,
+            source_episode_id=candidate.source_episode_id,
+            subject_entity_id=str(subject_entity_id) if subject_entity_id is not None else None,
+            predicate=predicate,
+            object_value=object_value,
+            object_entity_id=str(object_entity_id) if object_entity_id is not None else None,
+            polarity=polarity,
+            cardinality=cardinality,
+            confidence=float(confidence_raw),
+            observed_at=candidate.observed_at,
+            valid_from=_parse_optional_datetime(raw_fact.get("valid_from")),
+            valid_until=_parse_optional_datetime(raw_fact.get("valid_until")),
+            qualifiers=MappingProxyType(dict(qualifiers)),
+            source_observation_id=candidate.source_observation_id,
+            source_observation_revision=candidate.source_observation_revision,
+            authority=authority,
+        ),
+        invalid_authority,
+    )
+
+
+def defer_conflicting_authority_candidates(
+    candidates: Sequence[SemanticRevisionCandidate],
+    existing_memories: Sequence[StoredSemanticMemory],
+) -> tuple[list[SemanticRevisionCandidate], int]:
+    """Hold back single-support authority claims that would compete for a slot.
+
+    Recurrence-qualified candidates stay in the reconciliation input. Cardinality-many
+    authority claims are left to the existing coexistence rules.
+    """
+    occupied: dict[str, set[str]] = {}
+    for memory in existing_memories:
+        if memory.status is SemanticMemoryStatus.SUPERSEDED:
+            continue
+        occupied.setdefault(memory.slot_key, set()).add(memory.memory_key)
+    batch: dict[str, set[str]] = {}
+    for candidate in candidates:
+        batch.setdefault(candidate.slot_key, set()).add(candidate.memory_key)
+
+    deferred: set[str] = set()
+    for candidate in candidates:
+        if candidate.cardinality is not SemanticCardinality.ONE:
+            continue
+        if not _is_explicit_authority(candidate):
+            continue
+        others = (
+            occupied.get(candidate.slot_key, set()) | batch.get(candidate.slot_key, set())
+        ) - {candidate.memory_key}
+        if others:
+            deferred.add(candidate.revision_key)
+    admitted = [candidate for candidate in candidates if candidate.revision_key not in deferred]
+    return admitted, len(deferred)
+
+
+def _is_explicit_authority(candidate: SemanticRevisionCandidate) -> bool:
+    semantic = candidate.metadata.get("semantic")
+    if not isinstance(semantic, Mapping):
+        return False
+    promotion = semantic.get("promotion")
+    if not isinstance(promotion, Mapping):
+        return False
+    return promotion.get("basis") == SemanticPromotionBasis.EXPLICIT_SOURCE_AUTHORITY.value
+
+
+def promotion_basis_value(metadata: Mapping[str, Any]) -> str | None:
+    """Return the promotion basis stored on a semantic candidate or memory."""
+    semantic = metadata.get("semantic")
+    if not isinstance(semantic, Mapping):
+        return None
+    promotion = semantic.get("promotion")
+    if not isinstance(promotion, Mapping):
+        return None
+    basis = promotion.get("basis")
+    return basis if isinstance(basis, str) else None

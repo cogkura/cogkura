@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-10-31
+
+### Added
+
+- Opt-in `ComplementaryLearningSemanticConsolidator(allow_authoritative_single_episode=True)` so one fact declared with `authority.basis=application_asserted` can become semantic memory from a single episode.
+- Revision-bound qualification through `get_revisions_many`. Missing, stale, deleted, or mismatched authority fails closed and leaves ordinary recurrence available.
+- `SemanticPromotionBasis` persisted on semantic memory metadata and exposed by `semantic_promotion_from_metadata()` and `MemoryProvenance.promotion`.
+- Consolidation counters `recurrence_promoted`, `authority_promoted`, `authority_deferred_conflict`, and `authority_invalid`.
+- Design note [`docs/design-source-authority-0.18.1.md`](docs/design-source-authority-0.18.1.md) and findings [`docs/findings/0.18.1-source-authority.md`](docs/findings/0.18.1-source-authority.md).
+
+### Preserved
+
+- Default `allow_authoritative_single_episode=False` and `minimum_supporting_episodes=2`.
+- Confidence, activation, forgetting, retrieval, interference, inhibition, and `MemoryContext.render()`.
+- Recurrence-qualified reconciliation. Single-support authority does not supersede a competing current claim.
+- No schema migration. Withdrawing authority does not retract semantic memory; correction waits for `0.18.2`.
+
 ## [0.18.0] - 2026-10-29
 
 ### Added

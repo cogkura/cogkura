@@ -140,7 +140,11 @@ async def test_learn_and_forgetting_preserve_episode_encoding_context() -> None:
     await memory.encode_episodes(tenant_id="acme", as_of=_T)
     episodes = await memory.list_episodes(tenant_id="acme")
     signature = episodes[0].encoding_context.to_canonical_dict()
-    recall = await memory.recall("Redis operational complexity", tenant_id="acme")
+    recall = await memory.recall(
+        "Redis operational complexity",
+        tenant_id="acme",
+        as_of=_T,
+    )
     assert recall
     await memory.learn(
         LearningFeedback(
