@@ -472,7 +472,19 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. `0.18.1` adds an opt-in source-authority route so one application-declared fact can become ordinary semantic memory without a second episode. Recurrence remains the default. Authority does not change confidence, retrieval, or correction; a later revision that drops the declaration does not retract the memory. `0.18.0` remains the revision-aware provenance release, and `0.17.7` remains the frozen interference and inhibition retrieval contract.
+Cogkura is in development. `0.18.2` adds opt-in authoritative replacement and withdrawal of one named semantic revision. Historical evidence stays on a revision snapshot, and a correction is not visible to retrieval before its asserting observation. Recurrence and `0.18.1` single-fact admission stay the default when correction is off. `0.17.7` remains the frozen interference and inhibition retrieval contract.
+
+## Scope of 0.18.2
+
+Implemented in `0.18.2`:
+
+- `SemanticCorrectionConfig(enabled=True)` together with fact-scoped source authority;
+- replacement via `semantic_facts[].correction.replaces_revision_key` and `effective_at`;
+- withdrawal via `semantic_withdrawals` with status `RETRACTED`;
+- revision snapshots used by `valid_at` reads;
+- knowledge-time hiding when `as_of` precedes the asserting observation.
+
+See [`docs/design-authoritative-corrections-0.18.2.md`](docs/design-authoritative-corrections-0.18.2.md).
 
 ## Scope of 0.18.1
 

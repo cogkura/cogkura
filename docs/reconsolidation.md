@@ -22,7 +22,7 @@ extract semantic facts
   → SemanticMemoryStore.apply_reconciliation() (atomic)
 ```
 
-`0.18.1` inserts the authority qualification and deferral only when `allow_authoritative_single_episode` is true. Recurrence-qualified candidates still reach the reconciler. A deferred authority claim is not superseded or contested automatically. Withdrawing the declaration later does not retract the semantic memory; that correction policy is `0.18.2`. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
+`0.18.1` inserts the authority qualification and deferral only when `allow_authoritative_single_episode` is true. Recurrence-qualified candidates still reach the reconciler. A deferred authority claim is not superseded or contested automatically. `0.18.2` can then apply an explicit replacement or withdrawal to one named revision when `SemanticCorrectionConfig` is enabled. That edit closes the predecessor at `effective_at`, writes a revision snapshot, and does not run when the feature is off. See [`design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md).
 
 ## Temporal validity on observations
 

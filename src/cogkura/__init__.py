@@ -38,6 +38,7 @@ from cogkura.algorithms.semantic import (
     MetadataSemanticExtractor,
     SemanticConsolidator,
     SemanticExtractor,
+    generate_revision_key,
 )
 from cogkura.algorithms.semantic_support_context import (
     DeterministicSemanticSupportContextPolicy,
@@ -127,6 +128,7 @@ from cogkura.models import (
     SemanticAuthorityBasis,
     SemanticCardinality,
     SemanticConsolidationResult,
+    SemanticCorrectionConfig,
     SemanticDerivationInput,
     SemanticDerivationRelation,
     SemanticExtractionResult,
@@ -295,6 +297,7 @@ __all__ = [
     "SemanticAuthorityBasis",
     "SemanticCardinality",
     "SemanticConsolidationResult",
+    "SemanticCorrectionConfig",
     "SemanticConsolidator",
     "SemanticDerivationInput",
     "SemanticDerivationRelation",
@@ -342,6 +345,7 @@ __all__ = [
     "WorkingMemoryRejectionReason",
     "WorkingMemorySelector",
     "WorkingMemorySnapshot",
+    "generate_revision_key",
     "semantic_promotion_from_metadata",
 ]
-__version__ = "0.18.1"
+__version__ = "0.18.2"

@@ -528,6 +528,15 @@ class SemanticMemoryStatus(StrEnum):
     ACTIVE = "active"
     CONTESTED = "contested"
     SUPERSEDED = "superseded"
+    RETRACTED = "retracted"
+
+
+def semantic_status_answers_currently(status: SemanticMemoryStatus) -> bool:
+    """Return whether a semantic status may be a current answer."""
+    return status not in (
+        SemanticMemoryStatus.SUPERSEDED,
+        SemanticMemoryStatus.RETRACTED,
+    )
 
 
 class SemanticDerivationRelation(StrEnum):
@@ -544,6 +553,14 @@ class SemanticUpdateRelation(StrEnum):
     COEXISTS = "coexists"
     SUPERSEDES = "supersedes"
     CONFLICTS = "conflicts"
+    RETRACTS = "retracts"
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticCorrectionConfig:
+    """Opt-in explicit replacement and withdrawal of semantic revisions."""
+
+    enabled: bool = False
 
 
 class SemanticWriteStatus(StrEnum):
@@ -741,6 +758,7 @@ class SemanticRevisionInput:
     last_supported_at: datetime
     derivations: tuple[SemanticDerivationInput, ...]
     metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    snapshot: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
         if not self.tenant_id.strip():
@@ -751,6 +769,7 @@ class SemanticRevisionInput:
             raise ValidationError("revision_key must not be empty.")
         if self.revision_number <= 0:
             raise ValidationError("revision_number must be greater than zero.")
+        object.__setattr__(self, "snapshot", MappingProxyType(dict(self.snapshot)))
         normalized_from, normalized_until = _validate_temporal_validity(
             valid_from=self.valid_from,
             valid_until=self.valid_until,
@@ -796,10 +815,12 @@ class StoredSemanticRevision:
     derivations: tuple[SemanticDerivationInput, ...]
     created_at: datetime
     updated_at: datetime
+    snapshot: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
         if not self.revision_key.strip():
             raise ValidationError("revision_key must not be empty.")
+        object.__setattr__(self, "snapshot", MappingProxyType(dict(self.snapshot)))
         if not self.memory_key.strip():
             raise ValidationError("memory_key must not be empty.")
         if not self.tenant_id.strip():
@@ -849,8 +870,11 @@ class SemanticRevisionRelation:
         if self.relation not in (
             SemanticUpdateRelation.SUPERSEDES,
             SemanticUpdateRelation.CONFLICTS,
+            SemanticUpdateRelation.RETRACTS,
         ):
-            raise ValidationError("Only SUPERSEDES and CONFLICTS relations are persisted.")
+            raise ValidationError(
+                "Only SUPERSEDES, CONFLICTS, and RETRACTS relations are persisted."
+            )
         if self.effective_at is not None:
             if self.effective_at.tzinfo is None:
                 raise ValidationError("effective_at must be timezone-aware.")
@@ -1042,6 +1066,10 @@ class SemanticConsolidationResult:
     authority_promoted: int = 0
     authority_deferred_conflict: int = 0
     authority_invalid: int = 0
+    authoritative_corrections_applied: int = 0
+    authoritative_withdrawals_applied: int = 0
+    corrections_deferred: int = 0
+    corrections_invalid: int = 0
 
     def record(
         self,
@@ -1071,6 +1099,10 @@ class SemanticConsolidationResult:
             authority_promoted=self.authority_promoted,
             authority_deferred_conflict=self.authority_deferred_conflict,
             authority_invalid=self.authority_invalid,
+            authoritative_corrections_applied=self.authoritative_corrections_applied,
+            authoritative_withdrawals_applied=self.authoritative_withdrawals_applied,
+            corrections_deferred=self.corrections_deferred,
+            corrections_invalid=self.corrections_invalid,
         )
 
     def with_reconciliation(
@@ -1104,6 +1136,10 @@ class SemanticConsolidationResult:
             authority_promoted=self.authority_promoted,
             authority_deferred_conflict=self.authority_deferred_conflict,
             authority_invalid=self.authority_invalid,
+            authoritative_corrections_applied=self.authoritative_corrections_applied,
+            authoritative_withdrawals_applied=self.authoritative_withdrawals_applied,
+            corrections_deferred=self.corrections_deferred,
+            corrections_invalid=self.corrections_invalid,
         )
 
 

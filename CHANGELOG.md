@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-11-07
+
+### Added
+
+- Opt-in `SemanticCorrectionConfig(enabled=True)` for one authorised observation to replace or withdraw a named semantic revision.
+- `RETRACTED` semantic status and a `retracts` relation. Withdrawal leaves no current value and keeps the earlier interval.
+- Revision snapshots (`011_semantic_revision_snapshots.sql`) so `valid_at` reads use the selected revision's statement, evidence, and promotion metadata.
+- Knowledge-time hiding: a correction or withdrawal is not visible to retrieval when `as_of` is earlier than the asserting observation.
+- Counters `authoritative_corrections_applied`, `authoritative_withdrawals_applied`, `corrections_deferred`, and `corrections_invalid`.
+- Design note [`docs/design-authoritative-corrections-0.18.2.md`](docs/design-authoritative-corrections-0.18.2.md) and findings [`docs/findings/0.18.2-authoritative-corrections.md`](docs/findings/0.18.2-authoritative-corrections.md).
+
+### Preserved
+
+- Default correction config is off. Competing single-support authority still defers as in `0.18.1`.
+- Confidence, activation, forgetting, interference, inhibition, and `MemoryContext.render()`.
+- No backfill of legacy revisions and no rewrite of observation history.
+
 ## [0.18.1] - 2026-10-31
 
 ### Added

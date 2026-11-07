@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 from uuid import uuid4
 
+from cogkura.algorithms.corrections import memory_from_revision_snapshot
 from cogkura.algorithms.reconsolidation import revision_valid_at
 from cogkura.models import (
     SemanticMemoryInput,
@@ -87,8 +88,12 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
             if status is not None and memory.status != status:
                 continue
             if (
-                memory.status is SemanticMemoryStatus.SUPERSEDED
-                and status is not SemanticMemoryStatus.SUPERSEDED
+                memory.status
+                in (
+                    SemanticMemoryStatus.SUPERSEDED,
+                    SemanticMemoryStatus.RETRACTED,
+                )
+                and status is not memory.status
             ):
                 continue
             results.append(memory)
@@ -161,6 +166,7 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
                 derivations=revision.derivations,
                 created_at=existing.created_at if existing is not None else now,
                 updated_at=now,
+                snapshot=revision.snapshot,
             )
             if existing is None:
                 revisions_created += 1
@@ -233,6 +239,10 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         for revision in revision_matches:
             memory = self._memories.get(self._memory_key(tenant_id, revision.memory_key))
             if memory is None:
+                continue
+            projected = memory_from_revision_snapshot(memory, revision)
+            if projected is not None:
+                results.append(projected)
                 continue
             results.append(
                 StoredSemanticMemory(

@@ -26,6 +26,13 @@ from cogkura.algorithms.context_matching import (
     ContextMatcher,
     DeterministicContextMatcher,
 )
+from cogkura.algorithms.corrections import (
+    apply_explicit_semantic_edits,
+    hidden_current_episode_ids,
+    project_known_semantics,
+    qualify_explicit_corrections,
+    unknown_correction_episode_ids,
+)
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
 from cogkura.algorithms.forgetting import EbbinghausForgettingEvaluator, ForgettingEvaluator
 from cogkura.algorithms.inhibition import build_inhibitory_traces
@@ -96,6 +103,7 @@ from cogkura.models import (
     RetrievalCue,
     RetrievalInterferenceObservability,
     SemanticConsolidationResult,
+    SemanticCorrectionConfig,
     SemanticDerivationRelation,
     SemanticFactCandidate,
     SemanticMemoryStatus,
@@ -194,6 +202,7 @@ class Memory:
         behavioral_competition_policy: BehavioralCompetitionPolicy | None = None,
         inhibition_store: InhibitionStore | None = None,
         inhibition_config: InhibitionConfig | None = None,
+        semantic_correction_config: SemanticCorrectionConfig | None = None,
         token_estimator: TokenEstimator | None = None,
         context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
@@ -263,6 +272,11 @@ class Memory:
         )
         self._inhibition_config = (
             inhibition_config if inhibition_config is not None else InhibitionConfig()
+        )
+        self._semantic_correction_config = (
+            semantic_correction_config
+            if semantic_correction_config is not None
+            else SemanticCorrectionConfig()
         )
         if self._inhibition_config.enabled and not self._competition_config.enabled:
             raise ValidationError("InhibitionConfig.enabled requires CompetitionConfig.enabled.")
@@ -542,11 +556,27 @@ class Memory:
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
+        revisions = await self._semantic_store.list_revisions(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+        semantic_memories = project_known_semantics(
+            semantic_memories,
+            superseded_semantics,
+            revisions,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
+        if valid_at is None:
+            hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
+            hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
+            episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
         if valid_at is None:
             eligible_semantics = [
                 memory
                 for memory in semantic_memories
-                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+                if memory.status
+                not in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
                 and (semantic_statuses is None or memory.status in semantic_statuses)
             ]
         else:
@@ -709,11 +739,27 @@ class Memory:
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
+        revisions = await self._semantic_store.list_revisions(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+        semantic_memories = project_known_semantics(
+            semantic_memories,
+            superseded_semantics,
+            revisions,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
+        if valid_at is None:
+            hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
+            hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
+            episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
         if valid_at is None:
             eligible_semantics = [
                 memory
                 for memory in semantic_memories
-                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+                if memory.status
+                not in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
                 and (semantic_statuses is None or memory.status in semantic_statuses)
             ]
         else:
@@ -1175,7 +1221,8 @@ class Memory:
             [
                 memory
                 for memory in semantic_memories
-                if memory.status is not SemanticMemoryStatus.SUPERSEDED
+                if memory.status
+                not in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
             ],
         )
         if not candidates:
@@ -1397,6 +1444,28 @@ class Memory:
             tenant_id=tenant_id,
             subject_id=subject_id,
         )
+        correction_qualification = qualify_explicit_corrections(
+            enabled=self._semantic_correction_config.enabled,
+            authority_enabled=self._authority_promotion_enabled(),
+            episodes=episodes,
+            observations=observations_by_id,
+            observation_revisions=await self._correction_revisions(
+                tenant_id=tenant_id,
+                episodes=episodes,
+            )
+            if self._semantic_correction_config.enabled
+            else {},
+            candidates=revision_candidates,
+            existing_memories=existing_memories,
+            existing_revisions=existing_revisions,
+            admitted_candidates=revision_candidates,
+        )
+        if correction_qualification.withhold_memory_keys:
+            revision_candidates = [
+                candidate
+                for candidate in revision_candidates
+                if candidate.memory_key not in correction_qualification.withhold_memory_keys
+            ]
         admitted, authority_deferred_conflict = defer_conflicting_authority_candidates(
             revision_candidates,
             existing_memories,
@@ -1407,6 +1476,12 @@ class Memory:
             existing_revisions=existing_revisions,
             as_of=evaluation_time,
         )
+        edited = apply_explicit_semantic_edits(
+            plan,
+            correction_qualification.corrections,
+            correction_qualification.withdrawals,
+        )
+        plan = edited.plan
         write_result = await self._semantic_store.apply_reconciliation(
             plan,
             as_of=evaluation_time,
@@ -1438,6 +1513,10 @@ class Memory:
             authority_promoted=authority_promoted,
             authority_deferred_conflict=authority_deferred_conflict,
             authority_invalid=authority_invalid,
+            authoritative_corrections_applied=edited.corrections_applied,
+            authoritative_withdrawals_applied=edited.withdrawals_applied,
+            corrections_deferred=correction_qualification.deferred,
+            corrections_invalid=correction_qualification.invalid,
         ).with_reconciliation(
             reinforced=plan.reinforced_count,
             coexisting=plan.coexist_count,
@@ -1476,6 +1555,27 @@ class Memory:
                 continue
             seen.add(identity)
             references.append(identity)
+        if not references:
+            return {}
+        return await self._observation_store.get_revisions_many(
+            tenant_id=tenant_id,
+            references=references,
+        )
+
+    async def _correction_revisions(
+        self,
+        *,
+        tenant_id: str,
+        episodes: Sequence[StoredEpisode],
+    ) -> Mapping[ObservationRevisionIdentity, Any]:
+        references = [
+            ObservationRevisionIdentity(
+                observation_id=evidence.observation_id,
+                observation_revision=evidence.observation_revision,
+            )
+            for episode in episodes
+            for evidence in episode.evidence
+        ]
         if not references:
             return {}
         return await self._observation_store.get_revisions_many(

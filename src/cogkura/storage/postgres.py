@@ -13,6 +13,7 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from cogkura.algorithms.corrections import memory_from_revision_snapshot
 from cogkura.algorithms.reconsolidation import revision_valid_at
 from cogkura.exceptions import StorageError
 from cogkura.models import (
@@ -1483,7 +1484,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             clauses.append("c.status = :status")
             params["status"] = status.value
         else:
-            clauses.append("c.status <> 'superseded'")
+            clauses.append("c.status NOT IN ('superseded', 'retracted')")
         limit_clause = ""
         if limit is not None:
             limit_clause = " LIMIT :limit"
@@ -1539,7 +1540,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                         r.status, r.valid_from, r.valid_until, r.confidence,
                         r.importance, r.support_count, r.contradiction_count,
                         r.first_supported_at, r.last_supported_at,
-                        r.created_at, r.updated_at
+                        r.created_at, r.updated_at, r.snapshot
                     FROM {self._table("semantic_claim_revisions")} AS r
                     JOIN {self._table("memories")} AS m
                       ON m.id = r.memory_id
@@ -1570,6 +1571,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 derivations=await self._load_revision_derivations(row["revision_key"]),
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
+                snapshot=_snapshot_from_row(row["snapshot"]),
             )
             if valid_at is not None and not revision_valid_at(revision, valid_at):
                 continue
@@ -1722,12 +1724,14 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                             revision_key, tenant_id, memory_id, memory_key,
                             revision_number, status, valid_from, valid_until,
                             confidence, importance, support_count, contradiction_count,
-                            first_supported_at, last_supported_at, created_at, updated_at
+                            first_supported_at, last_supported_at, created_at, updated_at,
+                            snapshot
                         ) VALUES (
                             :revision_key, :tenant_id, :memory_id, :memory_key,
                             :revision_number, :status, :valid_from, :valid_until,
                             :confidence, :importance, :support_count, :contradiction_count,
-                            :first_supported_at, :last_supported_at, :now, :now
+                            :first_supported_at, :last_supported_at, :now, :now,
+                            CAST(:snapshot AS jsonb)
                         )
                         ON CONFLICT (revision_key) DO UPDATE SET
                             status = EXCLUDED.status,
@@ -1739,6 +1743,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                             contradiction_count = EXCLUDED.contradiction_count,
                             first_supported_at = EXCLUDED.first_supported_at,
                             last_supported_at = EXCLUDED.last_supported_at,
+                            snapshot = EXCLUDED.snapshot,
                             updated_at = EXCLUDED.updated_at
                         """
                     ),
@@ -1757,6 +1762,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                         "contradiction_count": revision.contradiction_count,
                         "first_supported_at": revision.first_supported_at,
                         "last_supported_at": revision.last_supported_at,
+                        "snapshot": json.dumps(dict(revision.snapshot)),
                         "now": now,
                     },
                 )
@@ -1822,6 +1828,10 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 memory_key=revision.memory_key,
             )
             if memory is None:
+                continue
+            projected = memory_from_revision_snapshot(memory, revision)
+            if projected is not None:
+                results.append(projected)
                 continue
             results.append(
                 StoredSemanticMemory(
@@ -3105,3 +3115,14 @@ class PostgresInhibitionStore(InhibitionStore):
                 ),
                 {"tenant_id": tenant_id},
             )
+
+
+def _snapshot_from_row(value: object) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, str):
+        parsed = json.loads(value)
+        return dict(parsed) if isinstance(parsed, dict) else {}
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}

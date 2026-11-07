@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.18.1` explicit source authority for single-observation semantic admission (recurrence stays the default; retrieval matches `0.17.6.1`)
+- Current release focus: `0.18.2` explicit authoritative corrections and withdrawals (0.18.1 admission stays the default path; retrieval matches `0.17.6.1` outside an enabled correction)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

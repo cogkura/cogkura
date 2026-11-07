@@ -160,6 +160,19 @@ The application is asserting authority. Cogkura does not infer it from `confirme
 
 One authoritative episode produces a semantic memory with `support_count=1`. A competing current value in the same cardinality-one slot is deferred, not replaced. Removing the declaration later does not retract the memory. Inspect the route with `semantic_promotion_from_metadata(memory.metadata)` or `resolve_provenance(context).items[].promotion`. `render()` stays free of authority text. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
 
+### Authoritative corrections (0.18.2)
+
+Replacement and withdrawal are a second opt-in. Enable `SemanticCorrectionConfig(enabled=True)` as well as single-episode authority. Name the predecessor with `list_semantic_revisions()`:
+
+```python
+"correction": {
+    "replaces_revision_key": predecessor.revision_key,
+    "effective_at": correction_time.isoformat(),
+}
+```
+
+A withdrawal uses `metadata["semantic_withdrawals"]` and does not create a new fact. Current retrieval then omits the value; `valid_at` before `effective_at` still returns it. See [`design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md).
+
 ## Metamemory
 
 `prepare_context()` always includes `MemoryAssessment`. Check flags such as `MISSING_KNOWLEDGE` before invoking your model. Cogkura reports memory state; it does not decide business responses.

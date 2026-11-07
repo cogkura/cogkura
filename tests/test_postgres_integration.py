@@ -16,6 +16,8 @@ from cogkura.memory import Memory
 from cogkura.migrations import apply_migrations
 from cogkura.models import (
     MemoryKind,
+    SemanticCorrectionConfig,
+    SemanticMemoryStatus,
     SemanticPromotionBasis,
     SourceEvidenceRelation,
     SourceEvidenceResolutionStatus,
@@ -715,3 +717,106 @@ async def test_postgres_source_authority_matches_in_memory(memory_engine: AsyncE
         semantic_consolidator=ComplementaryLearningSemanticConsolidator(**consolidator_kwargs),
     )
     assert await promote(in_memory) == await promote(postgres)
+
+
+@pytest.mark.asyncio
+async def test_postgres_correction_matches_in_memory_history(memory_engine: AsyncEngine) -> None:
+    """A correction and its historical read agree in memory and Postgres."""
+    subject_id = f"correction-{uuid4().hex}"
+    adopted_at = datetime(2026, 10, 1, tzinfo=UTC)
+    corrected_at = datetime(2026, 10, 20, tzinfo=UTC)
+    historical_at = datetime(2026, 10, 15, tzinfo=UTC)
+
+    def observation(
+        record_id: str, content: str, facts: list[dict[str, object]], when: datetime
+    ) -> ObservationInput:
+        return ObservationInput(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            source_namespace="repository",
+            source_record_id=record_id,
+            source_version="1",
+            content=content,
+            observed_at=when,
+            metadata={"conversation_id": record_id, "semantic_facts": facts},
+        )
+
+    async def run(memory: Memory) -> tuple[str, str]:
+        await memory.observe(
+            observation(
+                "adr-0001",
+                "Strategy is application_startup.",
+                [
+                    {
+                        "predicate": "migration_execution_strategy",
+                        "object_value": "application_startup",
+                        "cardinality": "one",
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+                adopted_at,
+            )
+        )
+        await memory.process(tenant_id=TENANT, subject_id=subject_id, as_of=adopted_at)
+        predecessor = (
+            await memory.list_semantic_revisions(tenant_id=TENANT, subject_id=subject_id)
+        )[0].revision_key
+        await memory.observe(
+            observation(
+                "adr-0002",
+                "Migrations now run during deployment.",
+                [
+                    {
+                        "predicate": "migration_execution_strategy",
+                        "object_value": "deployment_pipeline",
+                        "cardinality": "one",
+                        "authority": {"basis": "application_asserted"},
+                        "correction": {
+                            "replaces_revision_key": predecessor,
+                            "effective_at": corrected_at.isoformat(),
+                        },
+                    }
+                ],
+                corrected_at,
+            )
+        )
+        await memory.process(tenant_id=TENANT, subject_id=subject_id, as_of=corrected_at)
+        current = await memory.list_semantic_memories(tenant_id=TENANT, subject_id=subject_id)
+        historical = await memory.list_semantic_memories(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            valid_at=historical_at,
+        )
+        assert current[0].status is SemanticMemoryStatus.ACTIVE
+        assert historical[0].status is SemanticMemoryStatus.ACTIVE
+        assert {item.observation_id for item in current[0].observation_evidence}.isdisjoint(
+            {item.observation_id for item in historical[0].observation_evidence}
+        )
+        return current[0].object_value, historical[0].object_value
+
+    def build(store_memory: Memory | None = None) -> Memory:
+        return Memory(
+            semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+                allow_authoritative_single_episode=True,
+            ),
+            semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+        )
+
+    in_memory = build()
+    postgres = Memory(
+        observation_store=PostgresObservationStore(memory_engine),
+        episode_store=PostgresEpisodeStore(memory_engine),
+        semantic_store=PostgresSemanticMemoryStore(memory_engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True,
+        ),
+        semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+    )
+    assert (
+        await run(in_memory)
+        == await run(postgres)
+        == (
+            "deployment_pipeline",
+            "application_startup",
+        )
+    )

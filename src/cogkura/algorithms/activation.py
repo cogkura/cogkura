@@ -2581,7 +2581,10 @@ def _current_state_activation(
             return 0.0
     else:
         return 0.0
-    if candidate.semantic_status is SemanticMemoryStatus.SUPERSEDED:
+    if candidate.semantic_status in (
+        SemanticMemoryStatus.SUPERSEDED,
+        SemanticMemoryStatus.RETRACTED,
+    ):
         return -config.current_state_weight
     bonus = 0.0
     if candidate.semantic_status is SemanticMemoryStatus.ACTIVE:
@@ -3043,7 +3046,7 @@ def _inspection_disposition_for_rejected(
     if (
         result.memory_kind is MemoryKind.SEMANTIC
         and isinstance(memory, StoredSemanticMemory)
-        and memory.status is SemanticMemoryStatus.SUPERSEDED
+        and memory.status in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
         and identity not in admission_outcome.admitted
     ):
         return RecallInspectionDisposition.FILTERED_SEMANTIC_STATUS
@@ -3998,7 +4001,10 @@ def _authoritative_semantic_current_admission_identities(
         memory = candidate.memory
         if not isinstance(memory, StoredSemanticMemory):
             continue
-        if memory.status is SemanticMemoryStatus.SUPERSEDED:
+        if memory.status in (
+            SemanticMemoryStatus.SUPERSEDED,
+            SemanticMemoryStatus.RETRACTED,
+        ):
             continue
         if not _semantic_eligible_for_soft_admission(
             candidate,

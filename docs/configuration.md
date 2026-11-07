@@ -153,6 +153,10 @@ Future `cogkura-ingest` should use only these public paths. Core does not parse 
 
 `ComplementaryLearningSemanticConsolidator(allow_authoritative_single_episode=False)` is the default. Set it to `True` to let one fact with `authority: {"basis": "application_asserted"}` consolidate from a single current observation revision. The flag does not change `minimum_supporting_episodes`, confidence, or retrieval weights. A malformed authority object is ignored for admission and, when the flag is on, counted as `authority_invalid`.
 
+### Authoritative corrections (0.18.2)
+
+`SemanticCorrectionConfig(enabled=False)` is the default. Set `enabled=True`, together with single-episode authority, to replace or withdraw one named revision. `effective_at` must be timezone-aware and not earlier than the asserting observation. The feature does not change confidence or retrieval weights. While it is off, competing authority claims still defer.
+
 ## Cardinality and temporal semantics
 
 - `cardinality=one`: values in the same slot compete; newer implicit evidence supersedes unless explicit windows overlap (`CONTESTED`).
@@ -160,6 +164,7 @@ Future `cogkura-ingest` should use only these public paths. Core does not parse 
 - `as_of`: cognitive evaluation clock (activation, forgetting).
 - `valid_at`: world validity time for semantic revision windows.
 - `SUPERSEDED`: an earlier claim replaced through reconsolidation; historical rows remain retrievable with `valid_at`.
+- `RETRACTED`: an explicit withdrawal; current answers omit it, and `valid_at` before `effective_at` still returns the earlier value.
 
 See [`docs/reconsolidation.md`](reconsolidation.md) and [`docs/findings/semantic-currentness-investigation.md`](findings/semantic-currentness-investigation.md).
 

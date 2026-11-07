@@ -9,6 +9,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Protocol
 
+from cogkura.algorithms.corrections import build_snapshot_from_candidate
 from cogkura.algorithms.semantic import _calculate_confidence
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
@@ -286,7 +287,10 @@ class _ReconciliationBuilder:
         for revision in self._revisions.values():
             if revision.tenant_id != candidate.tenant_id:
                 continue
-            if revision.status is SemanticMemoryStatus.SUPERSEDED:
+            if revision.status in (
+                SemanticMemoryStatus.SUPERSEDED,
+                SemanticMemoryStatus.RETRACTED,
+            ):
                 continue
             if revision.memory_key == candidate.memory_key:
                 continue
@@ -328,6 +332,19 @@ class _ReconciliationBuilder:
                         "slot_key": candidate.slot_key,
                     },
                 }
+            ),
+            snapshot=MappingProxyType(
+                build_snapshot_from_candidate(
+                    candidate,
+                    status=status,
+                    valid_from=candidate.valid_from,
+                    valid_until=candidate.valid_until,
+                    confidence=candidate.support_confidence,
+                    importance=candidate.importance,
+                    support_count=candidate.support_count,
+                    contradiction_count=0,
+                    derivations=candidate.derivations,
+                )
             ),
         )
         self._revisions[candidate.revision_key] = revision
@@ -445,9 +462,9 @@ class _ReconciliationBuilder:
             status = revision.status
             total = support_mass + contradiction_mass
             ratio = contradiction_mass / total if total > 0 else 0.0
-            if (
-                ratio >= self._contested_ratio_threshold
-                and status is not SemanticMemoryStatus.SUPERSEDED
+            if ratio >= self._contested_ratio_threshold and status not in (
+                SemanticMemoryStatus.SUPERSEDED,
+                SemanticMemoryStatus.RETRACTED,
             ):
                 status = SemanticMemoryStatus.CONTESTED
             updated[revision_key] = replace(
@@ -743,6 +760,7 @@ def _revision_input_from_stored(
         last_supported_at=revision.last_supported_at,
         derivations=revision.derivations,
         metadata=MappingProxyType(metadata),
+        snapshot=revision.snapshot,
     )
 
 

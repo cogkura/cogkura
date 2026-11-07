@@ -216,9 +216,9 @@ Source identity is `(tenant_id, source_namespace, source_record_id)`. Revision e
 
 ## Source authority (0.18.1)
 
-Semantic consolidation still requires repeated episodes unless the application opts in with `allow_authoritative_single_episode=True` and one `semantic_facts` entry declares `authority.basis=application_asserted`. The declaration is checked against the episode's current, non-deleted observation revision. It admits that fact only. It does not raise confidence, activation, or retrieval priority, and it does not supersede a competing current claim. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md).
+Semantic consolidation still requires repeated episodes unless the application opts in with `allow_authoritative_single_episode=True` and one `semantic_facts` entry declares `authority.basis=application_asserted`. The declaration is checked against the episode's current, non-deleted observation revision. It admits that fact only. It does not raise confidence, activation, or retrieval priority, and it does not supersede a competing current claim unless `SemanticCorrectionConfig(enabled=True)` names that revision. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md) and [`design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md).
 
-## Current implementation boundary (0.18.1)
+## Current implementation boundary (0.18.2)
 
 Implemented:
 
@@ -238,6 +238,7 @@ Implemented:
 - **interference and inhibition architecture freeze** (0.17.7). The flow above is the contract; retrieval behaviour matches `0.17.6.1`
 - **revision-aware source provenance** (0.18.0). A separate bounded API resolves selected context evidence without mutating cognitive state or changing render output
 - **explicit source authority** (0.18.1). An opt-in, fact-scoped declaration can admit one current observation revision to semantic memory. Recurrence, confidence, and retrieval stay on the previous contract
+- **authoritative corrections** (0.18.2). An enabled correction or withdrawal names one semantic revision. Historical reads use that revision's snapshot. The change is hidden until `as_of` reaches the asserting observation
 
 **Provenance contract (0.15.12):** recall members → chunk → compact model-facing `serialized_text`. Supporting episodes may remain chunk members and `record_context_use` targets even when support prose is omitted from rendered context.
 

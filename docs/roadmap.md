@@ -183,6 +183,12 @@
 
 See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](architecture.md).
 
+## 0.18.2 — Authoritative corrections and withdrawals (done)
+
+- Opt-in replacement and withdrawal of one named semantic revision, with revision snapshots and knowledge-time hiding.
+- Recurrence and 0.18.1 authority admission stay in place when correction is disabled.
+- [`docs/design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md) and [`docs/findings/0.18.2-authoritative-corrections.md`](findings/0.18.2-authoritative-corrections.md).
+
 ## 0.18.1 — Source authority admission (done)
 
 - Opt-in single-episode semantic promotion for one fact whose current observation revision declares `authority.basis=application_asserted`.

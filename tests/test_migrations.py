@@ -45,6 +45,7 @@ async def test_migration_files_are_ordered() -> None:
         "008_entity_relationships.sql",
         "009_encoding_context.sql",
         "010_retrieval_inhibition.sql",
+        "011_semantic_revision_snapshots.sql",
     ]
 
 
