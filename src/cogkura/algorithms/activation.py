@@ -1660,9 +1660,9 @@ def _is_superseded_only_support_episode(
     if not isinstance(memory, StoredEpisode):
         return False
     statuses = support_index.get(memory.id, frozenset())
-    return (
-        SemanticMemoryStatus.SUPERSEDED in statuses and SemanticMemoryStatus.ACTIVE not in statuses
-    )
+    stale = {SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED}
+    live = {SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED}
+    return bool(statuses & stale) and not bool(statuses & live)
 
 
 def _result_identity(result: RecallResult) -> MemoryIdentity:
@@ -2604,7 +2604,10 @@ def _current_state_activation(
         statuses = episode_support_index.get(candidate.memory.id, frozenset())
         if SemanticMemoryStatus.ACTIVE in statuses:
             bonus += config.current_state_weight
-        if SemanticMemoryStatus.SUPERSEDED in statuses:
+        if statuses & {
+            SemanticMemoryStatus.SUPERSEDED,
+            SemanticMemoryStatus.RETRACTED,
+        }:
             bonus -= config.current_state_weight
 
     return bonus

@@ -8,7 +8,15 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
 
-from cogkura.algorithms.semantic import _parse_optional_datetime, generate_revision_key
+from cogkura.algorithms.retrieval_features import (
+    canonical_content_features,
+    canonical_features_from_parts,
+)
+from cogkura.algorithms.semantic import (
+    _parse_optional_datetime,
+    generate_revision_key,
+    promotion_basis_value,
+)
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
     EpisodeEntity,
@@ -19,6 +27,7 @@ from cogkura.models import (
     SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
+    SemanticPromotionBasis,
     SemanticReconciliationPlan,
     SemanticRevisionCandidate,
     SemanticRevisionInput,
@@ -465,6 +474,69 @@ def hidden_current_episode_ids(
     return set()
 
 
+def stale_assertion_episode_ids(
+    query: str,
+    semantics: Sequence[StoredSemanticMemory],
+) -> set[str]:
+    """Episodes that would present a withdrawn assertion as the current decision.
+
+    An episode that only supports a retracted assertion is hidden. An episode that
+    also supports a live assertion is hidden only when the query matches the
+    withdrawn assertion and not the live one.
+    """
+    query_tokens = set(canonical_content_features(query))
+    grouped: dict[str, list[StoredSemanticMemory]] = {}
+    for memory in semantics:
+        for derivation in memory.derivations:
+            if derivation.relation is not SemanticDerivationRelation.SUPPORTS:
+                continue
+            grouped.setdefault(derivation.episode_id, []).append(memory)
+    hidden: set[str] = set()
+    live_statuses = {SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED}
+    for episode_id, memories in grouped.items():
+        live = [item for item in memories if item.status in live_statuses]
+        withdrawn = [item for item in memories if item.status is SemanticMemoryStatus.RETRACTED]
+        replaced = [
+            item
+            for item in memories
+            if item.status in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
+        ]
+        if not replaced:
+            continue
+        if not live:
+            if withdrawn:
+                hidden.add(episode_id)
+            continue
+        if _query_matches_replaced_assertion(query_tokens, live=live, replaced=replaced):
+            hidden.add(episode_id)
+    return hidden
+
+
+def _query_matches_replaced_assertion(
+    query_tokens: set[str],
+    *,
+    live: Sequence[StoredSemanticMemory],
+    replaced: Sequence[StoredSemanticMemory],
+) -> bool:
+    if not query_tokens:
+        return False
+    live_tokens: set[str] = set()
+    for memory in live:
+        live_tokens.update(_assertion_tokens(memory))
+    replaced_tokens: set[str] = set()
+    for memory in replaced:
+        replaced_tokens.update(_assertion_tokens(memory))
+    distinctive_replaced = replaced_tokens - live_tokens
+    distinctive_live = live_tokens - replaced_tokens
+    return bool(query_tokens & distinctive_replaced) and not bool(query_tokens & distinctive_live)
+
+
+def _assertion_tokens(memory: StoredSemanticMemory) -> set[str]:
+    return set(
+        canonical_features_from_parts(memory.predicate, memory.object_value, memory.statement)
+    )
+
+
 def _collect_fact_corrections(
     *,
     observation: StoredObservation,
@@ -651,6 +723,7 @@ def _evaluate_predecessor(
     if not _unique_current_slot(
         slot_key=slot_key,
         predecessor_key=predecessor_key,
+        ignore_revision_keys={successor.revision_key},
         existing_memories=existing_memories,
         admitted_candidates=admitted_candidates,
         revisions_by_key=revisions_by_key,
@@ -736,7 +809,9 @@ def _unique_current_slot(
     existing_memories: Sequence[StoredSemanticMemory],
     admitted_candidates: Sequence[SemanticRevisionCandidate],
     revisions_by_key: Mapping[str, StoredSemanticRevision],
+    ignore_revision_keys: set[str] | None = None,
 ) -> bool:
+    ignored = ignore_revision_keys or set()
     occupants: set[str] = set()
     for memory in existing_memories:
         if memory.slot_key != slot_key:
@@ -745,6 +820,12 @@ def _unique_current_slot(
             occupants.add(memory.revision_key)
     if predecessor_key in {candidate.revision_key for candidate in admitted_candidates}:
         occupants.add(predecessor_key)
+    for candidate in admitted_candidates:
+        if candidate.slot_key != slot_key or candidate.revision_key in ignored:
+            continue
+        if promotion_basis_value(candidate.metadata) != SemanticPromotionBasis.RECURRENCE.value:
+            continue
+        occupants.add(candidate.revision_key)
     for revision in revisions_by_key.values():
         if revision.revision_key == predecessor_key and revision.status in (
             SemanticMemoryStatus.SUPERSEDED,

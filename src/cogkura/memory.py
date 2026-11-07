@@ -31,6 +31,7 @@ from cogkura.algorithms.corrections import (
     hidden_current_episode_ids,
     project_known_semantics,
     qualify_explicit_corrections,
+    stale_assertion_episode_ids,
     unknown_correction_episode_ids,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
@@ -558,7 +559,7 @@ class Memory:
                 status=SemanticMemoryStatus.RETRACTED,
             )
         all_semantics = [*semantic_memories, *superseded_semantics]
-        episode_support_index = build_episode_support_index(all_semantics)
+        episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
@@ -578,6 +579,12 @@ class Memory:
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
             hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
+            hidden_episodes.update(
+                stale_assertion_episode_ids(
+                    cue.text or "",
+                    (*semantic_memories, *superseded_semantics, *retracted_semantics),
+                )
+            )
             episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
         if valid_at is None:
             eligible_semantics = [
@@ -750,7 +757,7 @@ class Memory:
                 status=SemanticMemoryStatus.RETRACTED,
             )
         all_semantics = [*semantic_memories, *superseded_semantics]
-        episode_support_index = build_episode_support_index(all_semantics)
+        episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
@@ -770,6 +777,12 @@ class Memory:
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
             hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
+            hidden_episodes.update(
+                stale_assertion_episode_ids(
+                    cue.text or "",
+                    (*semantic_memories, *superseded_semantics, *retracted_semantics),
+                )
+            )
             episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
         if valid_at is None:
             eligible_semantics = [
@@ -1488,6 +1501,21 @@ class Memory:
             revision_candidates,
             existing_memories,
         )
+        retracted_memory_keys = {
+            revision.memory_key
+            for revision in existing_revisions
+            if revision.status is SemanticMemoryStatus.RETRACTED
+        }
+        if retracted_memory_keys:
+            blocked = [
+                candidate for candidate in admitted if candidate.memory_key in retracted_memory_keys
+            ]
+            admitted = [
+                candidate
+                for candidate in admitted
+                if candidate.memory_key not in retracted_memory_keys
+            ]
+            authority_deferred_conflict += len(blocked)
         plan = self._semantic_reconciler.reconcile(
             candidates=admitted,
             existing_memories=existing_memories,

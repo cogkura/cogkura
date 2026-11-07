@@ -53,7 +53,7 @@ The predecessor revision stays the same identity, becomes `SUPERSEDED`, and clos
 }]
 ```
 
-A withdrawal does not assert a new value and is not stored as `SUPERSEDED`. The original revision remains historically readable until `effective_at`. A `RETRACTED` revision becomes the current projection and is excluded from current answers. The relation is `RETRACTS`.
+A withdrawal does not assert a new value and is not stored as `SUPERSEDED`. The original revision remains historically readable until `effective_at`. A `RETRACTED` revision becomes the current projection and is excluded from current answers. The relation is `RETRACTS`. Current retrieval does not present that withdrawn decision through its supporting episode. Another fact in the same episode stays retrievable. Re-adopting the same assertion after withdrawal is not supported in 0.18.2: the later admission is deferred, no new current revision is selected, and `authority_deferred_conflict` counts that readmission.
 
 Editing source text, dropping `authority`, deleting a document, forgetting an episode, or falling below the retrieval threshold does not withdraw a semantic fact.
 
