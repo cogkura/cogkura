@@ -543,3 +543,275 @@ async def test_ordinary_recurrence_still_promotes_without_a_correction() -> None
     assert result.semantics.authoritative_corrections_applied == 0
     assert [item.object_value for item in current] == ["application_startup"]
     assert current[0].support_count == 2
+
+
+@pytest.mark.asyncio
+async def test_repeated_withdrawal_stays_withdrawn() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    applied = []
+    for _ in range(3):
+        result = await memory.process(tenant_id=_TENANT, as_of=_LATER)
+        applied.append(result.semantics.authoritative_withdrawals_applied)
+        assert await _values(memory) == []
+        assert await _values(memory, valid_at=datetime(2026, 10, 15, tzinfo=UTC)) == [
+            "application_startup"
+        ]
+        current = await memory.list_semantic_memories(tenant_id=_TENANT)
+        assert current == [] or all(
+            item.status is SemanticMemoryStatus.RETRACTED for item in current
+        )
+    assert applied == [1, 0, 0]
+    revisions = await memory.list_semantic_revisions(tenant_id=_TENANT)
+    assert {item.status for item in revisions} == {
+        SemanticMemoryStatus.ACTIVE,
+        SemanticMemoryStatus.RETRACTED,
+    }
+    closed = next(item for item in revisions if item.status is SemanticMemoryStatus.ACTIVE)
+    assert closed.valid_until == _CORRECTION
+    assert closed.snapshot["closed_by"]["kind"] == "withdrawal"
+
+
+@pytest.mark.asyncio
+async def test_recall_before_withdrawal_keeps_the_known_decision() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+    recalled = await memory.recall(
+        "payments-api migration execution strategy application startup",
+        tenant_id=_TENANT,
+        as_of=_T,
+    )
+    semantic = [item for item in recalled if item.memory_kind is MemoryKind.SEMANTIC]
+    assert [item.memory.object_value for item in semantic] == ["application_startup"]
+    assert semantic[0].memory.observation_evidence
+
+
+@pytest.mark.asyncio
+async def test_valid_at_after_withdrawal_has_no_authoritative_value() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+    assert await memory.list_semantic_memories(tenant_id=_TENANT, valid_at=_LATER) == []
+    recalled = await memory.recall(
+        "payments-api migration execution strategy",
+        tenant_id=_TENANT,
+        as_of=_LATER,
+        valid_at=_LATER,
+    )
+    assert [item for item in recalled if item.memory_kind is MemoryKind.SEMANTIC] == []
+    revisions = await memory.list_semantic_revisions(tenant_id=_TENANT)
+    assert any(item.status is SemanticMemoryStatus.RETRACTED for item in revisions)
+
+
+@pytest.mark.asyncio
+async def test_future_effective_correction_stays_pending() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    effective = datetime(2026, 11, 1, 10, 0, tzinfo=UTC)
+    between = datetime(2026, 10, 25, 10, 0, tzinfo=UTC)
+    await memory.observe(
+        _observation(
+            record_id="adr-0002",
+            content="Migrations will run during deployment.",
+            observed_at=_CORRECTION,
+            facts=[
+                _fact(
+                    "migration_execution_strategy",
+                    "deployment_pipeline",
+                    correction={
+                        "replaces_revision_key": predecessor,
+                        "effective_at": effective.isoformat(),
+                    },
+                )
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=between)
+    pending = await memory.recall(
+        "payments-api migration execution strategy",
+        tenant_id=_TENANT,
+        as_of=between,
+    )
+    assert [
+        item.memory.object_value for item in pending if item.memory_kind is MemoryKind.SEMANTIC
+    ] == ["application_startup"]
+    current = await memory.recall(
+        "payments-api migration execution strategy",
+        tenant_id=_TENANT,
+        as_of=effective,
+    )
+    assert [
+        item.memory.object_value for item in current if item.memory_kind is MemoryKind.SEMANTIC
+    ] == ["deployment_pipeline"]
+    revisions = await memory.list_semantic_revisions(tenant_id=_TENANT)
+    assert any(item.valid_from == effective for item in revisions)
+
+
+@pytest.mark.asyncio
+async def test_replacement_and_withdrawal_of_one_predecessor_both_defer() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0002",
+            content="Migrations now run during deployment.",
+            observed_at=_CORRECTION,
+            facts=[
+                _fact(
+                    "migration_execution_strategy",
+                    "deployment_pipeline",
+                    correction={
+                        "replaces_revision_key": predecessor,
+                        "effective_at": _CORRECTION.isoformat(),
+                    },
+                )
+            ],
+        )
+    )
+    await memory.observe(
+        _observation(
+            record_id="adr-0003",
+            content="Withdraw the strategy instead.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    result = await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+    current = await memory.list_semantic_memories(tenant_id=_TENANT)
+    assert result.semantics.authoritative_corrections_applied == 0
+    assert result.semantics.authoritative_withdrawals_applied == 0
+    assert result.semantics.corrections_deferred == 2
+    assert [item.object_value for item in current] == ["application_startup"]
+    assert current[0].status is SemanticMemoryStatus.ACTIVE
+
+
+@pytest.mark.asyncio
+async def test_withdrawal_snapshot_records_the_authorising_observation() -> None:
+    memory = _memory()
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+    revisions = await memory.list_semantic_revisions(tenant_id=_TENANT)
+    retracted = next(item for item in revisions if item.status is SemanticMemoryStatus.RETRACTED)
+    historical = next(item for item in revisions if item.status is SemanticMemoryStatus.ACTIVE)
+    authorising = retracted.snapshot["withdrawal"]["observation_id"]
+    historical_ids = {
+        item["observation_id"] for item in historical.snapshot["observation_evidence"]
+    }
+    assert retracted.snapshot["withdrawal"]["observation_revision"] == 1
+    assert authorising not in historical_ids
+
+
+@pytest.mark.asyncio
+async def test_correcting_one_fact_keeps_another_fact_in_the_same_episode() -> None:
+    memory = _memory()
+    await memory.observe(
+        _observation(
+            record_id="adr-0001",
+            content="Startup migrations and a PostgreSQL database.",
+            facts=[
+                _fact("migration_execution_strategy", "application_startup"),
+                _fact("database_engine", "postgresql"),
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_T)
+    strategy = next(
+        item
+        for item in await memory.list_semantic_memories(tenant_id=_TENANT)
+        if item.predicate == "migration_execution_strategy"
+    )
+    await memory.observe(
+        _observation(
+            record_id="adr-0002",
+            content="Migrations now run during deployment.",
+            observed_at=_CORRECTION,
+            facts=[
+                _fact(
+                    "migration_execution_strategy",
+                    "deployment_pipeline",
+                    correction={
+                        "replaces_revision_key": strategy.revision_key,
+                        "effective_at": _CORRECTION.isoformat(),
+                    },
+                )
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+    current = await memory.list_semantic_memories(tenant_id=_TENANT)
+    assert {item.predicate: item.object_value for item in current}[
+        "database_engine"
+    ] == "postgresql"
+    recalled = await memory.recall(
+        "postgresql database",
+        tenant_id=_TENANT,
+        as_of=_CORRECTION,
+    )
+    assert recalled
+    assert any(
+        item.memory_kind is MemoryKind.SEMANTIC and item.memory.predicate == "database_engine"
+        for item in recalled
+    )

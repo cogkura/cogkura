@@ -60,6 +60,7 @@ class ExplicitSemanticWithdrawal:
     knowledge_at: datetime
     observation_id: str
     observation_revision: int
+    episode_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +138,7 @@ def qualify_explicit_corrections(
                 observation=observation,
                 revision=revision,
                 evidence_revision=evidence.observation_revision,
+                episode_id=episode.id,
                 authority_enabled=authority_enabled,
                 memories_by_key=memories_by_key,
                 revisions_by_key=revisions_by_key,
@@ -155,6 +157,14 @@ def qualify_explicit_corrections(
         raw_withdrawals
     )
     deferred += withdrawal_deferred
+    kept_corrections, kept_withdrawals, cross_deferred = _drop_cross_operation_conflicts(
+        kept_corrections,
+        kept_withdrawals,
+    )
+    deferred += cross_deferred
+    withhold.update(
+        item.successor.memory_key for item in raw_corrections if item not in kept_corrections
+    )
     return CorrectionQualification(
         corrections=tuple(kept_corrections),
         withdrawals=tuple(kept_withdrawals),
@@ -345,44 +355,77 @@ def project_known_semantics(
     *,
     as_of: datetime,
     valid_at: datetime | None,
+    retracted: Sequence[StoredSemanticMemory] = (),
 ) -> list[StoredSemanticMemory]:
-    """Hide a correction or withdrawal that was not yet known at ``as_of``."""
-    if not any(_knowledge_at(revision.snapshot) is not None for revision in revisions):
-        return [
-            memory
-            for memory in current
-            if valid_at is not None or semantic_status_answers_currently(memory.status)
-        ]
+    """Hide a correction or withdrawal that is not yet known or not yet effective."""
     by_key = {revision.revision_key: revision for revision in revisions}
-    hidden: set[str] = set()
-    revive_keys: list[str] = []
-    for revision in revisions:
-        knowledge = _knowledge_at(revision.snapshot)
-        if knowledge is None or knowledge <= as_of:
-            continue
-        hidden.add(revision.revision_key)
-        predecessor_key = _predecessor_key(revision.snapshot)
-        if predecessor_key is not None:
-            revive_keys.append(predecessor_key)
+    bases_by_memory: dict[str, StoredSemanticMemory] = {}
+    for memory in (*current, *superseded, *retracted):
+        bases_by_memory.setdefault(memory.memory_key, memory)
+    hidden = {
+        revision.revision_key
+        for revision in revisions
+        if _transition_hidden(revision, as_of=as_of, valid_at=valid_at)
+    }
     visible = [memory for memory in current if memory.revision_key not in hidden]
     if valid_at is None:
         visible = [memory for memory in visible if semantic_status_answers_currently(memory.status)]
+    else:
+        visible = [
+            memory for memory in visible if memory.status is not SemanticMemoryStatus.RETRACTED
+        ]
     known_keys = {memory.revision_key for memory in visible}
-    memories_by_revision = {memory.revision_key: memory for memory in (*current, *superseded)}
-    for predecessor_key in revive_keys:
-        if predecessor_key in known_keys or predecessor_key in hidden:
+    for revision in revisions:
+        if revision.revision_key not in hidden:
+            continue
+        predecessor_key = _predecessor_key(revision.snapshot)
+        if predecessor_key is None or predecessor_key in known_keys or predecessor_key in hidden:
             continue
         predecessor = by_key.get(predecessor_key)
-        stored = memories_by_revision.get(predecessor_key)
-        if predecessor is None or stored is None:
+        if predecessor is None:
             continue
         if valid_at is not None and valid_at < (
             predecessor.valid_from or predecessor.first_supported_at
         ):
             continue
-        visible.append(replace(stored, status=SemanticMemoryStatus.ACTIVE, valid_until=None))
+        base = bases_by_memory.get(predecessor.memory_key)
+        if base is None:
+            continue
+        restored = memory_from_revision_snapshot(base, predecessor)
+        if restored is None:
+            continue
+        if valid_at is None:
+            restored = replace(restored, status=SemanticMemoryStatus.ACTIVE, valid_until=None)
+        visible.append(restored)
         known_keys.add(predecessor_key)
     return visible
+
+
+def _transition_hidden(
+    revision: StoredSemanticRevision,
+    *,
+    as_of: datetime,
+    valid_at: datetime | None,
+) -> bool:
+    if _predecessor_key(revision.snapshot) is None:
+        return False
+    knowledge = _knowledge_at(revision.snapshot)
+    if knowledge is not None and knowledge > as_of:
+        return True
+    if valid_at is not None:
+        return False
+    effective = _boundary_effective_at(revision.snapshot)
+    return effective is not None and effective > as_of
+
+
+def _boundary_effective_at(snapshot: Mapping[str, Any]) -> datetime | None:
+    for key in ("correction", "withdrawal"):
+        block = snapshot.get(key)
+        if isinstance(block, Mapping):
+            parsed = _parse_snapshot_datetime(block.get("effective_at"))
+            if parsed is not None:
+                return parsed
+    return None
 
 
 def unknown_correction_episode_ids(
@@ -390,16 +433,21 @@ def unknown_correction_episode_ids(
     *,
     as_of: datetime,
 ) -> set[str]:
-    """Episodes that belong to a correction or withdrawal not yet known at ``as_of``."""
+    """Hide only the episode that carries a correction or withdrawal not yet known."""
     hidden: set[str] = set()
     for revision in revisions:
         knowledge = _knowledge_at(revision.snapshot)
         if knowledge is None or knowledge <= as_of:
             continue
-        if _predecessor_key(revision.snapshot) is None:
+        withdrawal = revision.snapshot.get("withdrawal")
+        if isinstance(withdrawal, Mapping):
+            episode_id = withdrawal.get("episode_id")
+            if isinstance(episode_id, str) and episode_id:
+                hidden.add(episode_id)
             continue
-        for derivation in revision.derivations:
-            hidden.add(derivation.episode_id)
+        if isinstance(revision.snapshot.get("correction"), Mapping):
+            for derivation in revision.derivations:
+                hidden.add(derivation.episode_id)
     return hidden
 
 
@@ -408,23 +456,13 @@ def hidden_current_episode_ids(
     *,
     as_of: datetime,
 ) -> set[str]:
-    """Episodes that only support a semantic claim an explicit correction replaced."""
-    by_key = {revision.revision_key: revision for revision in revisions}
-    hidden: set[str] = set()
-    kept: set[str] = set()
-    for revision in revisions:
-        knowledge = _knowledge_at(revision.snapshot)
-        correction = revision.snapshot.get("correction")
-        if knowledge is None or knowledge > as_of or not isinstance(correction, Mapping):
-            continue
-        for derivation in revision.derivations:
-            kept.add(derivation.episode_id)
-        predecessor = by_key.get(str(correction.get("replaces_revision_key", "")))
-        if predecessor is None:
-            continue
-        for derivation in predecessor.derivations:
-            hidden.add(derivation.episode_id)
-    return hidden - kept
+    """Return no whole-episode exclusions.
+
+    Current answers come from the semantic assertion. Hiding an entire supporting
+    episode would also hide unrelated facts encoded in that episode.
+    """
+    del revisions, as_of
+    return set()
 
 
 def _collect_fact_corrections(
@@ -508,6 +546,7 @@ def _collect_withdrawals(
     observation: StoredObservation,
     revision: StoredObservationRevision | None,
     evidence_revision: int,
+    episode_id: str,
     authority_enabled: bool,
     memories_by_key: Mapping[str, StoredSemanticMemory],
     revisions_by_key: Mapping[str, StoredSemanticRevision],
@@ -571,6 +610,7 @@ def _collect_withdrawals(
                 knowledge_at=evidence_time,
                 observation_id=observation.id,
                 observation_revision=evidence_revision,
+                episode_id=episode_id,
             )
         )
     return invalid, deferred
@@ -611,7 +651,6 @@ def _evaluate_predecessor(
     if not _unique_current_slot(
         slot_key=slot_key,
         predecessor_key=predecessor_key,
-        ignore_revision_keys={successor.revision_key},
         existing_memories=existing_memories,
         admitted_candidates=admitted_candidates,
         revisions_by_key=revisions_by_key,
@@ -694,21 +733,18 @@ def _unique_current_slot(
     *,
     slot_key: str,
     predecessor_key: str,
-    ignore_revision_keys: set[str] | None = None,
     existing_memories: Sequence[StoredSemanticMemory],
     admitted_candidates: Sequence[SemanticRevisionCandidate],
     revisions_by_key: Mapping[str, StoredSemanticRevision],
 ) -> bool:
-    ignored = ignore_revision_keys or set()
     occupants: set[str] = set()
     for memory in existing_memories:
         if memory.slot_key != slot_key:
             continue
         if memory.status in (SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED):
             occupants.add(memory.revision_key)
-    for candidate in admitted_candidates:
-        if candidate.slot_key == slot_key and candidate.revision_key not in ignored:
-            occupants.add(candidate.revision_key)
+    if predecessor_key in {candidate.revision_key for candidate in admitted_candidates}:
+        occupants.add(predecessor_key)
     for revision in revisions_by_key.values():
         if revision.revision_key == predecessor_key and revision.status in (
             SemanticMemoryStatus.SUPERSEDED,
@@ -716,6 +752,26 @@ def _unique_current_slot(
         ):
             occupants.discard(revision.revision_key)
     return occupants == {predecessor_key}
+
+
+def _drop_cross_operation_conflicts(
+    corrections: list[ExplicitSemanticCorrection],
+    withdrawals: list[ExplicitSemanticWithdrawal],
+) -> tuple[list[ExplicitSemanticCorrection], list[ExplicitSemanticWithdrawal], int]:
+    """One predecessor can receive only one explicit operation in a pass."""
+    correction_keys = {item.predecessor_revision_key for item in corrections}
+    withdrawal_keys = {item.target_revision_key for item in withdrawals}
+    conflict = correction_keys & withdrawal_keys
+    if not conflict:
+        return corrections, withdrawals, 0
+    kept_corrections = [
+        item for item in corrections if item.predecessor_revision_key not in conflict
+    ]
+    kept_withdrawals = [item for item in withdrawals if item.target_revision_key not in conflict]
+    deferred = (len(corrections) - len(kept_corrections)) + (
+        len(withdrawals) - len(kept_withdrawals)
+    )
+    return kept_corrections, kept_withdrawals, deferred
 
 
 def _drop_competing_corrections(
@@ -878,6 +934,30 @@ def _apply_correction(
     return 1, created, updated, superseded
 
 
+def _pin_retracted_projection(
+    withdrawal: ExplicitSemanticWithdrawal,
+    *,
+    revisions: Mapping[str, SemanticRevisionInput],
+    memories: dict[str, SemanticMemoryInput],
+    retracted_key: str,
+) -> None:
+    """Keep a replayed withdrawal as the current projection."""
+    retracted = revisions.get(retracted_key)
+    current = memories.get(retracted.memory_key) if retracted is not None else None
+    if retracted is None or current is None:
+        return
+    if current.status is SemanticMemoryStatus.RETRACTED and current.revision_key == retracted_key:
+        return
+    memories[retracted.memory_key] = replace(
+        current,
+        status=SemanticMemoryStatus.RETRACTED,
+        revision_key=retracted_key,
+        revision_number=retracted.revision_number,
+        valid_from=withdrawal.effective_at,
+        valid_until=None,
+    )
+
+
 def _apply_withdrawal(
     withdrawal: ExplicitSemanticWithdrawal,
     *,
@@ -896,13 +976,18 @@ def _apply_withdrawal(
         valid_until=None,
     )
     closed_by = target.snapshot.get("closed_by")
-    if (
+    already_applied = (
         isinstance(closed_by, Mapping)
         and closed_by.get("kind") == "withdrawal"
         and (target.valid_until == withdrawal.effective_at or retracted_key in revisions)
-    ):
-        return 0, created, updated
-    if retracted_key in revisions and target.valid_until == withdrawal.effective_at:
+    ) or (retracted_key in revisions and target.valid_until == withdrawal.effective_at)
+    if already_applied:
+        _pin_retracted_projection(
+            withdrawal,
+            revisions=revisions,
+            memories=memories,
+            retracted_key=retracted_key,
+        )
         return 0, created, updated
     start = target.valid_from or target.first_supported_at
     closed_by = {
@@ -935,6 +1020,9 @@ def _apply_withdrawal(
         effective_at=withdrawal.effective_at,
         knowledge_at=withdrawal.knowledge_at,
         target_revision_key=withdrawal.target_revision_key,
+        observation_id=withdrawal.observation_id,
+        observation_revision=withdrawal.observation_revision,
+        episode_id=withdrawal.episode_id,
     )
     revisions[retracted_key] = SemanticRevisionInput(
         tenant_id=target.tenant_id,
@@ -1026,6 +1114,9 @@ def _retracted_snapshot(
     effective_at: datetime,
     knowledge_at: datetime,
     target_revision_key: str,
+    observation_id: str,
+    observation_revision: int,
+    episode_id: str,
 ) -> dict[str, Any]:
     statement = memory.statement if memory is not None else target.revision_key
     return _snapshot(
@@ -1054,6 +1145,9 @@ def _retracted_snapshot(
             "target_revision_key": target_revision_key,
             "effective_at": effective_at.isoformat(),
             "retracted_revision_key": retracted_key,
+            "observation_id": observation_id,
+            "observation_revision": observation_revision,
+            "episode_id": episode_id,
         },
     )
 

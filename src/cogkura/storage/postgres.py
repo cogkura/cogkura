@@ -1823,6 +1823,8 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         )
         results: list[StoredSemanticMemory] = []
         for revision in revisions:
+            if revision.status is SemanticMemoryStatus.RETRACTED:
+                continue
             memory = await self._get_by_memory_key(
                 tenant_id=tenant_id,
                 memory_key=revision.memory_key,

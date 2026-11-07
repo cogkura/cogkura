@@ -713,6 +713,11 @@ def _merge_derivations(
 def _select_current_revision(
     revisions: Sequence[SemanticRevisionInput],
 ) -> SemanticRevisionInput | None:
+    retracted = [
+        revision for revision in revisions if revision.status is SemanticMemoryStatus.RETRACTED
+    ]
+    if retracted:
+        return sorted(retracted, key=lambda item: item.revision_number)[-1]
     active = [revision for revision in revisions if revision.status is SemanticMemoryStatus.ACTIVE]
     if len(active) == 1:
         return active[0]

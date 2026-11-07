@@ -237,6 +237,8 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         )
         results: list[StoredSemanticMemory] = []
         for revision in revision_matches:
+            if revision.status is SemanticMemoryStatus.RETRACTED:
+                continue
             memory = self._memories.get(self._memory_key(tenant_id, revision.memory_key))
             if memory is None:
                 continue

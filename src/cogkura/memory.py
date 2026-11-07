@@ -543,12 +543,19 @@ class Memory:
             ),
         )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
+        retracted_semantics: Sequence[StoredSemanticMemory] = ()
         if valid_at is None:
             superseded_semantics = await self._semantic_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
                 include_inactive=False,
                 status=SemanticMemoryStatus.SUPERSEDED,
+            )
+            retracted_semantics = await self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+                status=SemanticMemoryStatus.RETRACTED,
             )
         all_semantics = [*semantic_memories, *superseded_semantics]
         episode_support_index = build_episode_support_index(all_semantics)
@@ -566,6 +573,7 @@ class Memory:
             revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
+            retracted=retracted_semantics,
         )
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
@@ -583,7 +591,8 @@ class Memory:
             eligible_semantics = [
                 memory
                 for memory in semantic_memories
-                if semantic_statuses is None or memory.status in semantic_statuses
+                if memory.status is not SemanticMemoryStatus.RETRACTED
+                and (semantic_statuses is None or memory.status in semantic_statuses)
             ]
         candidates = build_activation_candidates(
             episodes,
@@ -726,12 +735,19 @@ class Memory:
             ),
         )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
+        retracted_semantics: Sequence[StoredSemanticMemory] = ()
         if valid_at is None:
             superseded_semantics = await self._semantic_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
                 include_inactive=False,
                 status=SemanticMemoryStatus.SUPERSEDED,
+            )
+            retracted_semantics = await self._semantic_store.list(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                include_inactive=False,
+                status=SemanticMemoryStatus.RETRACTED,
             )
         all_semantics = [*semantic_memories, *superseded_semantics]
         episode_support_index = build_episode_support_index(all_semantics)
@@ -749,6 +765,7 @@ class Memory:
             revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
+            retracted=retracted_semantics,
         )
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
@@ -766,7 +783,8 @@ class Memory:
             eligible_semantics = [
                 memory
                 for memory in semantic_memories
-                if semantic_statuses is None or memory.status in semantic_statuses
+                if memory.status is not SemanticMemoryStatus.RETRACTED
+                and (semantic_statuses is None or memory.status in semantic_statuses)
             ]
         candidates = build_activation_candidates(
             episodes,

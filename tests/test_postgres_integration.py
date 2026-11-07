@@ -820,3 +820,112 @@ async def test_postgres_correction_matches_in_memory_history(memory_engine: Asyn
             "application_startup",
         )
     )
+
+
+@pytest.mark.asyncio
+async def test_postgres_withdrawal_replay_matches_in_memory(memory_engine: AsyncEngine) -> None:
+    """A withdrawal stays withdrawn across replays in memory and Postgres."""
+    subject_id = f"withdrawal-{uuid4().hex}"
+    adopted_at = datetime(2026, 10, 1, tzinfo=UTC)
+    withdrawn_at = datetime(2026, 10, 20, tzinfo=UTC)
+    historical_at = datetime(2026, 10, 15, tzinfo=UTC)
+
+    def observation(
+        record_id: str,
+        content: str,
+        when: datetime,
+        *,
+        facts: list[dict[str, object]] | None = None,
+        withdrawals: list[dict[str, object]] | None = None,
+    ) -> ObservationInput:
+        metadata: dict[str, object] = {"conversation_id": record_id}
+        if facts is not None:
+            metadata["semantic_facts"] = facts
+        if withdrawals is not None:
+            metadata["semantic_withdrawals"] = withdrawals
+        return ObservationInput(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            source_namespace="repository",
+            source_record_id=record_id,
+            source_version="1",
+            content=content,
+            observed_at=when,
+            metadata=metadata,
+        )
+
+    async def run(memory: Memory) -> tuple[int, str | None, int]:
+        await memory.observe(
+            observation(
+                "adr-0001",
+                "Strategy is application_startup.",
+                facts=[
+                    {
+                        "predicate": "migration_execution_strategy",
+                        "object_value": "application_startup",
+                        "cardinality": "one",
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+                when=adopted_at,
+            )
+        )
+        await memory.process(tenant_id=TENANT, subject_id=subject_id, as_of=adopted_at)
+        predecessor = (
+            await memory.list_semantic_revisions(tenant_id=TENANT, subject_id=subject_id)
+        )[0].revision_key
+        await memory.observe(
+            observation(
+                "adr-0001-withdraw",
+                "The migration strategy is withdrawn.",
+                withdrawals=[
+                    {
+                        "target_revision_key": predecessor,
+                        "effective_at": withdrawn_at.isoformat(),
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+                when=withdrawn_at,
+            )
+        )
+        applied: list[int] = []
+        for _ in range(3):
+            result = await memory.process(
+                tenant_id=TENANT, subject_id=subject_id, as_of=withdrawn_at
+            )
+            applied.append(result.semantics.authoritative_withdrawals_applied)
+        current = await memory.list_semantic_memories(tenant_id=TENANT, subject_id=subject_id)
+        historical = await memory.list_semantic_memories(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            valid_at=historical_at,
+        )
+        after = await memory.list_semantic_memories(
+            tenant_id=TENANT,
+            subject_id=subject_id,
+            valid_at=withdrawn_at,
+        )
+        revisions = await memory.list_semantic_revisions(tenant_id=TENANT, subject_id=subject_id)
+        assert current == []
+        assert after == []
+        assert historical[0].object_value == "application_startup"
+        assert applied == [1, 0, 0]
+        assert sum(item.status is SemanticMemoryStatus.RETRACTED for item in revisions) == 1
+        return len(revisions), historical[0].object_value, applied[0]
+
+    in_memory = Memory(
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True,
+        ),
+        semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+    )
+    postgres = Memory(
+        observation_store=PostgresObservationStore(memory_engine),
+        episode_store=PostgresEpisodeStore(memory_engine),
+        semantic_store=PostgresSemanticMemoryStore(memory_engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True,
+        ),
+        semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+    )
+    assert await run(in_memory) == await run(postgres)
