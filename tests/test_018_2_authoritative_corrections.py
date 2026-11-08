@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 
 from cogkura import (
+    ActivationConfig,
     ComplementaryLearningSemanticConsolidator,
     Memory,
     MemoryKind,
@@ -23,12 +24,17 @@ _BEFORE = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
 _TENANT = "repository"
 
 
-def _memory(*, correction: bool = True) -> Memory:
+def _memory(*, correction: bool = True, retrieval_threshold: float | None = None) -> Memory:
     return Memory(
         semantic_consolidator=ComplementaryLearningSemanticConsolidator(
             allow_authoritative_single_episode=True,
         ),
         semantic_correction_config=SemanticCorrectionConfig(enabled=correction),
+        activation_config=(
+            ActivationConfig(retrieval_threshold=retrieval_threshold)
+            if retrieval_threshold is not None
+            else None
+        ),
     )
 
 
@@ -958,6 +964,97 @@ async def test_shared_episode_keeps_unrelated_fact_after_withdrawal() -> None:
         for item in live
     )
     assert "postgresql" in live_render
+
+
+@pytest.mark.asyncio
+async def test_withdrawal_preserves_an_unconsolidated_fact_in_a_mixed_episode() -> None:
+    memory = _memory(retrieval_threshold=-10.0)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001",
+            content=(
+                "Boot migrations use application_startup before traffic. "
+                "The ledger database is postgresql."
+            ),
+            facts=[_fact("migration_execution_strategy", "application_startup")],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_T)
+    predecessor = (await memory.list_semantic_revisions(tenant_id=_TENANT))[0].revision_key
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The boot migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+
+    query = "ledger database postgresql"
+    recalled = await memory.recall(query, tenant_id=_TENANT, as_of=_LATER)
+    rendered = (await memory.prepare_context(query, tenant_id=_TENANT, as_of=_LATER)).render()
+
+    assert any(
+        item.memory_kind is MemoryKind.EPISODE and "postgresql" in item.memory.statement
+        for item in recalled
+    )
+    assert all("application_startup" not in item.memory.statement for item in recalled)
+    assert "postgresql" in rendered
+    assert "application_startup" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_broad_current_query_cannot_leak_a_withdrawn_mixed_episode_assertion() -> None:
+    memory = _memory()
+    await memory.observe(
+        _observation(
+            record_id="adr-0001",
+            content=(
+                "Boot migrations use application_startup before traffic. "
+                "The ledger database is postgresql."
+            ),
+            facts=[
+                _fact("migration_execution_strategy", "application_startup"),
+                _fact("database_engine", "postgresql"),
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_T)
+    predecessor = next(
+        item
+        for item in await memory.list_semantic_revisions(tenant_id=_TENANT)
+        if item.snapshot["predicate"] == "migration_execution_strategy"
+    ).revision_key
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The boot migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+
+    query = "Summarise the current ledger database architecture."
+    recalled = await memory.recall(query, tenant_id=_TENANT, as_of=_LATER)
+    rendered = (await memory.prepare_context(query, tenant_id=_TENANT, as_of=_LATER)).render()
+
+    assert all("application_startup" not in item.memory.statement for item in recalled)
+    assert "application_startup" not in rendered
+    assert "postgresql" in rendered
 
 
 @pytest.mark.asyncio

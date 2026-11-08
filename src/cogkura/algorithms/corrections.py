@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
 
-from cogkura.algorithms.retrieval_features import (
-    canonical_content_features,
-    canonical_features_from_parts,
-)
+from cogkura.algorithms.retrieval_features import canonical_content_features
 from cogkura.algorithms.semantic import (
     _parse_optional_datetime,
     generate_revision_key,
@@ -45,6 +43,7 @@ from cogkura.observations.models import (
 )
 
 SNAPSHOT_VERSION = "semantic-revision-snapshot-v1"
+_EPISODE_FRAGMENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,67 +473,71 @@ def hidden_current_episode_ids(
     return set()
 
 
-def stale_assertion_episode_ids(
-    query: str,
-    semantics: Sequence[StoredSemanticMemory],
-) -> set[str]:
-    """Episodes that would present a withdrawn assertion as the current decision.
-
-    An episode that only supports a retracted assertion is hidden. An episode that
-    also supports a live assertion is hidden only when the query matches the
-    withdrawn assertion and not the live one.
-    """
-    query_tokens = set(canonical_content_features(query))
-    grouped: dict[str, list[StoredSemanticMemory]] = {}
-    for memory in semantics:
-        for derivation in memory.derivations:
-            if derivation.relation is not SemanticDerivationRelation.SUPPORTS:
-                continue
-            grouped.setdefault(derivation.episode_id, []).append(memory)
-    hidden: set[str] = set()
-    live_statuses = {SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED}
-    for episode_id, memories in grouped.items():
-        live = [item for item in memories if item.status in live_statuses]
-        withdrawn = [item for item in memories if item.status is SemanticMemoryStatus.RETRACTED]
-        replaced = [
-            item
-            for item in memories
-            if item.status in (SemanticMemoryStatus.SUPERSEDED, SemanticMemoryStatus.RETRACTED)
-        ]
-        if not replaced:
-            continue
-        if not live:
-            if withdrawn:
-                hidden.add(episode_id)
-            continue
-        if _query_matches_replaced_assertion(query_tokens, live=live, replaced=replaced):
-            hidden.add(episode_id)
-    return hidden
-
-
-def _query_matches_replaced_assertion(
-    query_tokens: set[str],
+def selectively_filter_stale_episode_content(
+    episodes: Sequence[StoredEpisode],
+    revisions: Sequence[StoredSemanticRevision],
     *,
-    live: Sequence[StoredSemanticMemory],
-    replaced: Sequence[StoredSemanticMemory],
-) -> bool:
-    if not query_tokens:
-        return False
-    live_tokens: set[str] = set()
-    for memory in live:
-        live_tokens.update(_assertion_tokens(memory))
-    replaced_tokens: set[str] = set()
-    for memory in replaced:
-        replaced_tokens.update(_assertion_tokens(memory))
-    distinctive_replaced = replaced_tokens - live_tokens
-    distinctive_live = live_tokens - replaced_tokens
-    return bool(query_tokens & distinctive_replaced) and not bool(query_tokens & distinctive_live)
+    as_of: datetime,
+) -> list[StoredEpisode]:
+    """Remove known stale assertion fragments from current-state episode reads.
+
+    Semantic revisions identify the supported episode and the assertion's object
+    value.  We remove only complete sentence-like fragments containing that value.
+    This keeps a distinct ordinary fact in a mixed episode available while ensuring
+    a broad query cannot render a withdrawn or superseded assertion.  If the source
+    cannot be separated safely, the episode is omitted rather than leaking it.
+    """
+    stale_terms = _stale_episode_object_terms(revisions, as_of=as_of)
+    if not stale_terms:
+        return list(episodes)
+    filtered: list[StoredEpisode] = []
+    for episode in episodes:
+        assertions = stale_terms.get(episode.id)
+        if not assertions:
+            filtered.append(episode)
+            continue
+        fragments = [
+            fragment.strip()
+            for fragment in _EPISODE_FRAGMENT_BOUNDARY.split(episode.statement)
+            if fragment.strip()
+        ]
+        if not fragments:
+            continue
+        safe_fragments = [
+            fragment
+            for fragment in fragments
+            if not any(terms.issubset(canonical_content_features(fragment)) for terms in assertions)
+        ]
+        if not safe_fragments:
+            continue
+        if len(safe_fragments) == len(fragments):
+            # The assertion cannot be located in source text, so retaining the
+            # whole episode would be unsafe for a current-state read.
+            continue
+        filtered.append(replace(episode, statement="\n".join(safe_fragments)))
+    return filtered
 
 
-def _assertion_tokens(memory: StoredSemanticMemory) -> set[str]:
-    return set(
-        canonical_features_from_parts(memory.predicate, memory.object_value, memory.statement)
-    )
+def _stale_episode_object_terms(
+    revisions: Sequence[StoredSemanticRevision],
+    *,
+    as_of: datetime,
+) -> dict[str, set[frozenset[str]]]:
+    by_key = {revision.revision_key: revision for revision in revisions}
+    stale: dict[str, set[frozenset[str]]] = {}
+    for revision in revisions:
+        predecessor_key = _predecessor_key(revision.snapshot)
+        if predecessor_key is None or _transition_hidden(revision, as_of=as_of, valid_at=None):
+            continue
+        predecessor = by_key.get(predecessor_key)
+        if predecessor is None:
+            continue
+        object_value = predecessor.snapshot.get("object_value")
+        terms = frozenset(canonical_content_features(str(object_value or "")))
+        for derivation in predecessor.derivations:
+            if derivation.relation is SemanticDerivationRelation.SUPPORTS:
+                stale.setdefault(derivation.episode_id, set()).add(terms)
+    return stale
 
 
 def _collect_fact_corrections(

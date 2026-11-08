@@ -31,7 +31,7 @@ from cogkura.algorithms.corrections import (
     hidden_current_episode_ids,
     project_known_semantics,
     qualify_explicit_corrections,
-    stale_assertion_episode_ids,
+    selectively_filter_stale_episode_content,
     unknown_correction_episode_ids,
 )
 from cogkura.algorithms.episodic import DeterministicEpisodicEncoder, EpisodicEncoder
@@ -579,13 +579,12 @@ class Memory:
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
             hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
-            hidden_episodes.update(
-                stale_assertion_episode_ids(
-                    cue.text or "",
-                    (*semantic_memories, *superseded_semantics, *retracted_semantics),
-                )
-            )
             episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
+            episodes = selectively_filter_stale_episode_content(
+                episodes,
+                revisions,
+                as_of=evaluation_time,
+            )
         if valid_at is None:
             eligible_semantics = [
                 memory
@@ -777,13 +776,12 @@ class Memory:
         if valid_at is None:
             hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
             hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
-            hidden_episodes.update(
-                stale_assertion_episode_ids(
-                    cue.text or "",
-                    (*semantic_memories, *superseded_semantics, *retracted_semantics),
-                )
-            )
             episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
+            episodes = selectively_filter_stale_episode_content(
+                episodes,
+                revisions,
+                as_of=evaluation_time,
+            )
         if valid_at is None:
             eligible_semantics = [
                 memory

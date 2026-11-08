@@ -2489,11 +2489,11 @@ def _text_query_coverage(
         return 0.0
     if idf_weights is None:
         return len(matched) / len(query_tokens)
-    weighted_match = sum(idf_weights.get(token, 1.0) for token in matched)
-    weighted_total = sum(idf_weights.get(token, 1.0) for token in query_tokens)
+    weighted_match = math.fsum(idf_weights.get(token, 1.0) for token in matched)
+    weighted_total = math.fsum(idf_weights.get(token, 1.0) for token in query_tokens)
     if weighted_total <= 0.0:
         return 0.0
-    return weighted_match / weighted_total
+    return _bounded_unit_interval(weighted_match / weighted_total)
 
 
 def _text_cue_fit(
@@ -2510,9 +2510,9 @@ def _text_cue_fit(
         candidate_weight = float(len(candidate_tokens))
         matched_weight = float(len(matched))
     else:
-        query_weight = sum(idf_weights.get(token, 1.0) for token in query_tokens)
-        candidate_weight = sum(idf_weights.get(token, 1.0) for token in candidate_tokens)
-        matched_weight = sum(idf_weights.get(token, 1.0) for token in matched)
+        query_weight = math.fsum(idf_weights.get(token, 1.0) for token in query_tokens)
+        candidate_weight = math.fsum(idf_weights.get(token, 1.0) for token in candidate_tokens)
+        matched_weight = math.fsum(idf_weights.get(token, 1.0) for token in matched)
     if query_weight <= 0.0 or candidate_weight <= 0.0:
         return 0.0
     recall = matched_weight / query_weight
@@ -2520,7 +2520,22 @@ def _text_cue_fit(
     denominator = precision + recall
     if denominator <= 0.0:
         return 0.0
-    return 2.0 * precision * recall / denominator
+    return _bounded_unit_interval(2.0 * precision * recall / denominator)
+
+
+def _bounded_unit_interval(value: float) -> float:
+    """Remove only round-off beyond the closed unit interval.
+
+    A weighted overlap is mathematically bounded by one.  A ratio that is more
+    than one by a few ulps is a summation artefact, not an extra match; larger
+    values remain visible to the diagnostics validation as a real defect.
+    """
+    tolerance = 1e-12
+    if -tolerance <= value < 0.0:
+        return 0.0
+    if 1.0 < value <= 1.0 + tolerance:
+        return 1.0
+    return value
 
 
 def _token_overlap(

@@ -805,6 +805,23 @@ def test_exact_and_empty_text_similarity() -> None:
     assert _text_cue_fit("charge ledger", "unrelated weather") == 0.0
 
 
+def test_idf_weighted_complete_overlap_stays_in_the_unit_interval() -> None:
+    query = "alpha beta gamma delta epsilon zeta eta theta"
+    weights = {
+        "alpha": 0.1,
+        "beta": 0.2,
+        "gamma": 0.3,
+        "delta": 0.4,
+        "epsilon": 0.5,
+        "zeta": 0.6,
+        "eta": 0.7,
+        "theta": 0.8,
+    }
+
+    assert _text_query_coverage(query, query, idf_weights=weights) == 1.0
+    assert _text_cue_fit(query, query, idf_weights=weights) == 1.0
+
+
 def test_precision_flag_off_uses_coverage_for_ranking() -> None:
     activator = ACTRDeclarativeActivator()
     concise = _episode(
