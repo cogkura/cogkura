@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any
 
-from cogkura.algorithms.retrieval_features import canonical_content_features
+from cogkura.algorithms.retrieval_features import (
+    canonical_content_features,
+    predicate_content_features,
+)
 from cogkura.algorithms.semantic import (
     _parse_optional_datetime,
     generate_revision_key,
@@ -89,6 +92,14 @@ class ExplicitEditOutcome:
     plan: SemanticReconciliationPlan
     corrections_applied: int = 0
     withdrawals_applied: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _StaleEpisodeAssertion:
+    """Lexical evidence needed to isolate one stale assertion in source prose."""
+
+    object_terms: frozenset[str]
+    predicate_terms: frozenset[str]
 
 
 def qualify_explicit_corrections(
@@ -364,11 +375,12 @@ def project_known_semantics(
     as_of: datetime,
     valid_at: datetime | None,
     retracted: Sequence[StoredSemanticMemory] = (),
+    projection_bases: Sequence[StoredSemanticMemory] = (),
 ) -> list[StoredSemanticMemory]:
     """Hide a correction or withdrawal that is not yet known or not yet effective."""
     by_key = {revision.revision_key: revision for revision in revisions}
     bases_by_memory: dict[str, StoredSemanticMemory] = {}
-    for memory in (*current, *superseded, *retracted):
+    for memory in (*current, *superseded, *retracted, *projection_bases):
         bases_by_memory.setdefault(memory.memory_key, memory)
     hidden = {
         revision.revision_key
@@ -420,10 +432,9 @@ def _transition_hidden(
     knowledge = _knowledge_at(revision.snapshot)
     if knowledge is not None and knowledge > as_of:
         return True
-    if valid_at is not None:
-        return False
     effective = _boundary_effective_at(revision.snapshot)
-    return effective is not None and effective > as_of
+    boundary = valid_at if valid_at is not None else as_of
+    return effective is not None and effective > boundary
 
 
 def _boundary_effective_at(snapshot: Mapping[str, Any]) -> datetime | None:
@@ -478,21 +489,26 @@ def selectively_filter_stale_episode_content(
     revisions: Sequence[StoredSemanticRevision],
     *,
     as_of: datetime,
+    valid_at: datetime | None,
 ) -> list[StoredEpisode]:
     """Remove known stale assertion fragments from current-state episode reads.
 
     Semantic revisions identify the supported episode and the assertion's object
-    value.  We remove only complete sentence-like fragments containing that value.
-    This keeps a distinct ordinary fact in a mixed episode available while ensuring
-    a broad query cannot render a withdrawn or superseded assertion.  If the source
-    cannot be separated safely, the episode is omitted rather than leaking it.
+    value plus predicate. We remove only complete sentence-like fragments that
+    contain both, so another assertion that shares a generic value is preserved.
+    If the source cannot be separated safely, the episode is omitted rather than
+    leaking stale context.
     """
-    stale_terms = _stale_episode_object_terms(revisions, as_of=as_of)
-    if not stale_terms:
+    stale_assertions = _stale_episode_assertions(
+        revisions,
+        as_of=as_of,
+        valid_at=valid_at,
+    )
+    if not stale_assertions:
         return list(episodes)
     filtered: list[StoredEpisode] = []
     for episode in episodes:
-        assertions = stale_terms.get(episode.id)
+        assertions = stale_assertions.get(episode.id)
         if not assertions:
             filtered.append(episode)
             continue
@@ -506,7 +522,10 @@ def selectively_filter_stale_episode_content(
         safe_fragments = [
             fragment
             for fragment in fragments
-            if not any(terms.issubset(canonical_content_features(fragment)) for terms in assertions)
+            if not any(
+                _fragment_carries_assertion(canonical_content_features(fragment), assertion)
+                for assertion in assertions
+            )
         ]
         if not safe_fragments:
             continue
@@ -518,26 +537,57 @@ def selectively_filter_stale_episode_content(
     return filtered
 
 
-def _stale_episode_object_terms(
+def _stale_episode_assertions(
     revisions: Sequence[StoredSemanticRevision],
     *,
     as_of: datetime,
-) -> dict[str, set[frozenset[str]]]:
+    valid_at: datetime | None,
+) -> dict[str, set[_StaleEpisodeAssertion]]:
     by_key = {revision.revision_key: revision for revision in revisions}
-    stale: dict[str, set[frozenset[str]]] = {}
+    stale: dict[str, set[_StaleEpisodeAssertion]] = {}
     for revision in revisions:
         predecessor_key = _predecessor_key(revision.snapshot)
-        if predecessor_key is None or _transition_hidden(revision, as_of=as_of, valid_at=None):
+        if predecessor_key is None or _transition_hidden(
+            revision,
+            as_of=as_of,
+            valid_at=valid_at,
+        ):
             continue
         predecessor = by_key.get(predecessor_key)
         if predecessor is None:
             continue
         object_value = predecessor.snapshot.get("object_value")
-        terms = frozenset(canonical_content_features(str(object_value or "")))
+        assertion = _StaleEpisodeAssertion(
+            object_terms=canonical_content_features(str(object_value or "")),
+            predicate_terms=predicate_content_features(
+                _optional_str(predecessor.snapshot.get("predicate"))
+            ),
+        )
         for derivation in predecessor.derivations:
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
-                stale.setdefault(derivation.episode_id, set()).add(terms)
+                stale.setdefault(derivation.episode_id, set()).add(assertion)
     return stale
+
+
+def _fragment_carries_assertion(
+    fragment_terms: frozenset[str],
+    assertion: _StaleEpisodeAssertion,
+) -> bool:
+    """Require object identity and a predicate anchor before redacting prose."""
+    if not assertion.object_terms or not assertion.predicate_terms:
+        return False
+    if not assertion.object_terms.issubset(fragment_terms):
+        return False
+    return any(
+        _features_share_lexeme(predicate_term, fragment_term)
+        for predicate_term in assertion.predicate_terms
+        for fragment_term in fragment_terms
+    )
+
+
+def _features_share_lexeme(left: str, right: str) -> bool:
+    """Match a predicate feature to normal singular/plural source prose."""
+    return left == right or left == right.rstrip("s") or right == left.rstrip("s")
 
 
 def _collect_fact_corrections(

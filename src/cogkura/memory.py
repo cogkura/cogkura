@@ -545,6 +545,7 @@ class Memory:
         )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
         retracted_semantics: Sequence[StoredSemanticMemory] = ()
+        projection_bases: Sequence[StoredSemanticMemory] = ()
         if valid_at is None:
             superseded_semantics = await self._semantic_store.list(
                 tenant_id=tenant_id,
@@ -558,6 +559,21 @@ class Memory:
                 include_inactive=False,
                 status=SemanticMemoryStatus.RETRACTED,
             )
+        else:
+            projection_bases = [
+                *await self._semantic_store.list(
+                    tenant_id=tenant_id,
+                    subject_id=subject_id,
+                    include_inactive=False,
+                    status=SemanticMemoryStatus.SUPERSEDED,
+                ),
+                *await self._semantic_store.list(
+                    tenant_id=tenant_id,
+                    subject_id=subject_id,
+                    include_inactive=False,
+                    status=SemanticMemoryStatus.RETRACTED,
+                ),
+            ]
         all_semantics = [*semantic_memories, *superseded_semantics]
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
@@ -575,16 +591,18 @@ class Memory:
             as_of=evaluation_time,
             valid_at=valid_at,
             retracted=retracted_semantics,
+            projection_bases=projection_bases,
         )
+        hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
-            hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
-            hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
-            episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
-            episodes = selectively_filter_stale_episode_content(
-                episodes,
-                revisions,
-                as_of=evaluation_time,
-            )
+            hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
+        episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
+        episodes = selectively_filter_stale_episode_content(
+            episodes,
+            revisions,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
         if valid_at is None:
             eligible_semantics = [
                 memory
@@ -742,6 +760,7 @@ class Memory:
         )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
         retracted_semantics: Sequence[StoredSemanticMemory] = ()
+        projection_bases: Sequence[StoredSemanticMemory] = ()
         if valid_at is None:
             superseded_semantics = await self._semantic_store.list(
                 tenant_id=tenant_id,
@@ -755,6 +774,21 @@ class Memory:
                 include_inactive=False,
                 status=SemanticMemoryStatus.RETRACTED,
             )
+        else:
+            projection_bases = [
+                *await self._semantic_store.list(
+                    tenant_id=tenant_id,
+                    subject_id=subject_id,
+                    include_inactive=False,
+                    status=SemanticMemoryStatus.SUPERSEDED,
+                ),
+                *await self._semantic_store.list(
+                    tenant_id=tenant_id,
+                    subject_id=subject_id,
+                    include_inactive=False,
+                    status=SemanticMemoryStatus.RETRACTED,
+                ),
+            ]
         all_semantics = [*semantic_memories, *superseded_semantics]
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
@@ -772,16 +806,18 @@ class Memory:
             as_of=evaluation_time,
             valid_at=valid_at,
             retracted=retracted_semantics,
+            projection_bases=projection_bases,
         )
+        hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
-            hidden_episodes = hidden_current_episode_ids(revisions, as_of=evaluation_time)
-            hidden_episodes.update(unknown_correction_episode_ids(revisions, as_of=evaluation_time))
-            episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
-            episodes = selectively_filter_stale_episode_content(
-                episodes,
-                revisions,
-                as_of=evaluation_time,
-            )
+            hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
+        episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
+        episodes = selectively_filter_stale_episode_content(
+            episodes,
+            revisions,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
         if valid_at is None:
             eligible_semantics = [
                 memory

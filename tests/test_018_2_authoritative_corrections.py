@@ -1058,6 +1058,132 @@ async def test_broad_current_query_cannot_leak_a_withdrawn_mixed_episode_asserti
 
 
 @pytest.mark.asyncio
+async def test_current_valid_at_snapshot_cannot_leak_a_withdrawn_episode_assertion() -> None:
+    memory = _memory(retrieval_threshold=-10.0)
+    await memory.observe(
+        _observation(
+            record_id="adr-0001",
+            content=(
+                "Boot migrations use application_startup before traffic. "
+                "The ledger database is postgresql."
+            ),
+            facts=[_fact("migration_execution_strategy", "application_startup")],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_T)
+    predecessor = (await memory.list_semantic_revisions(tenant_id=_TENANT))[0].revision_key
+    await memory.observe(
+        _observation(
+            record_id="adr-0001-withdraw",
+            content="The boot migration strategy is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+
+    query = "current ledger database architecture"
+    recalled = await memory.recall(
+        query,
+        tenant_id=_TENANT,
+        as_of=_LATER,
+        valid_at=_LATER,
+    )
+    rendered = (
+        await memory.prepare_context(
+            query,
+            tenant_id=_TENANT,
+            as_of=_LATER,
+            valid_at=_LATER,
+        )
+    ).render()
+
+    assert all("application_startup" not in item.memory.statement for item in recalled)
+    assert "application_startup" not in rendered
+    assert "postgresql" in rendered
+
+
+@pytest.mark.asyncio
+async def test_future_valid_at_snapshot_keeps_the_predecessor_until_known() -> None:
+    memory = _memory(retrieval_threshold=-10.0)
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-0002",
+            content="Migrations now run during deployment.",
+            observed_at=_CORRECTION,
+            facts=[
+                _fact(
+                    "migration_execution_strategy",
+                    "deployment_pipeline",
+                    correction={
+                        "replaces_revision_key": predecessor,
+                        "effective_at": _CORRECTION.isoformat(),
+                    },
+                )
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+
+    recalled = await memory.recall(
+        "migration execution strategy deployment",
+        tenant_id=_TENANT,
+        as_of=_T,
+        valid_at=_LATER,
+    )
+
+    semantic_values = [
+        item.memory.object_value for item in recalled if item.memory_kind is MemoryKind.SEMANTIC
+    ]
+    assert semantic_values == ["application_startup"]
+    assert all("deployment_pipeline" not in item.memory.statement for item in recalled)
+
+
+@pytest.mark.asyncio
+async def test_withdrawal_keeps_ordinary_sentence_with_a_shared_object_value() -> None:
+    memory = _memory(retrieval_threshold=-10.0)
+    await memory.observe(
+        _observation(
+            record_id="feature-flag",
+            content="Feature flag is enabled. Cache is enabled.",
+            facts=[_fact("feature_flag_state", "enabled")],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_T)
+    predecessor = (await memory.list_semantic_revisions(tenant_id=_TENANT))[0].revision_key
+    await memory.observe(
+        _observation(
+            record_id="feature-flag-withdraw",
+            content="The feature flag is withdrawn.",
+            observed_at=_CORRECTION,
+            withdrawals=[
+                {
+                    "target_revision_key": predecessor,
+                    "effective_at": _CORRECTION.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+
+    recalled = await memory.recall("cache enabled", tenant_id=_TENANT, as_of=_LATER)
+
+    assert any(
+        item.memory_kind is MemoryKind.EPISODE and item.memory.statement == "Cache is enabled."
+        for item in recalled
+    )
+    assert all("Feature flag is enabled." not in item.memory.statement for item in recalled)
+
+
+@pytest.mark.asyncio
 async def test_readmission_after_withdrawal_does_not_restore_the_assertion() -> None:
     memory = _memory()
     predecessor = await _adopt(memory)
