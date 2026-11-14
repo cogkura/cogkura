@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - Unreleased
+
+### Added
+
+- Explicit `assess_source_memory(context)` and exact `inspect_semantic_slot(...)` APIs with typed evidence coverage, source currentness, semantic state, conflict, and unavailable-history diagnostics.
+- Optional bounded `SemanticInspectionStore`, implemented for in-memory and PostgreSQL without extending mandatory custom-store protocols or adding a migration.
+- Opt-in `SemanticDiagnosticsConfig` for typed decisions observed from the actual processing pass; default off, with no durable decision ledger.
+- Deterministic source assessment and diagnostics tests, PostgreSQL parity, and [usage documentation](docs/source-metamemory.md).
+
+### Fixed
+
+- Pre-existing PostgreSQL reconciliation wrote derivations before the referenced semantic revision existed; revision derivations now follow their revision insert in the same transaction.
+- Pre-existing optional inhibition timestamp binding now declares its PostgreSQL type, preserving its filter semantics.
+- PostgreSQL migration expectations and test isolation so database-enabled gates execute the intended cases.
+
+### Preserved
+
+- Existing recurrence, consolidation decisions/counters, confidence, activation, retrieval, forgetting, interference, inhibition, and rendered context.
+- The known 0.18.2 limitation where later re-adoption episode prose can render while semantic state remains withdrawn.
+- Source independence remains unknown. Independent Bench validation is pending and remains a release gate.
+
 ## [0.18.2] - 2026-11-07
 
 ### Added

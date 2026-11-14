@@ -349,6 +349,26 @@ print(assessment.flags)
 
 See [`docs/metamemory.md`](docs/metamemory.md) and [`examples/metamemory.py`](examples/metamemory.py).
 
+## Source-aware metamemory (0.18.3)
+
+Inspect selected-context evidence or an exact semantic slot explicitly:
+
+```python
+from cogkura import SemanticSlotQuery
+
+sources = await memory.assess_source_memory(context)
+slot = await memory.inspect_semantic_slot(
+    SemanticSlotQuery("service", "deployment_policy"),
+    tenant_id="company_123",
+)
+```
+
+The reports distinguish revision/locator/relation coverage, known/contested/withdrawn/
+historical/unknown state, source currentness, and unavailable history. Optional
+`SemanticDiagnosticsConfig(enabled=True)` reports decisions from the actual
+processing pass without changing its counters or outcomes. Independence remains
+unknown; source authority is not certainty. See [source-aware metamemory](docs/source-metamemory.md).
+
 ## Observation ingestion (PostgreSQL)
 
 ```python
@@ -472,7 +492,9 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. `0.18.2` adds opt-in authoritative replacement and withdrawal of one named semantic revision. Historical evidence stays on a revision snapshot, and a correction is not visible to retrieval before its asserting observation. Recurrence and `0.18.1` single-fact admission stay the default when correction is off. `0.17.7` remains the frozen interference and inhibition retrieval contract.
+Cogkura is in development. `0.18.3` adds explicit source assessments, bounded slot inspection, and optional pass-local diagnostics while preserving cognitive behavior. Independent Bench validation remains pending before release readiness.
+
+`0.18.2` adds opt-in authoritative replacement and withdrawal of one named semantic revision. Historical evidence stays on a revision snapshot, and a correction is not visible to retrieval before its asserting observation. Recurrence and `0.18.1` single-fact admission stay the default when correction is off. `0.17.7` remains the frozen interference and inhibition retrieval contract.
 
 ## Scope of 0.18.2
 

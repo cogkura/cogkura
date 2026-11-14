@@ -247,3 +247,15 @@ Implemented:
 **Retrieval-context contract (0.16.1–0.16.5):** retrieval context is supplied structurally on recall APIs. Episodic activation may receive positive bounded reinstatement; semantic activation may receive positive bounded support-context contribution. **`0.16.4–0.16.5`** add inspect-only contextual metamemory including `CONTEXT_CONFLICT` (0.16.5). No-context and disabled weights preserve prior release retrieval behaviour. Diagnostics do not feed working-memory render.
 
 Planned later: additional connectors, embedding/LLM provider interfaces, benchmark suites in separate packages.
+
+## Source-aware metamemory (0.18.3)
+
+Explicit `assess_source_memory` is downstream of prepared context and shared
+revision-aware provenance. `inspect_semantic_slot` uses optional bounded
+`SemanticInspectionStore` capability, independent of recall accessibility.
+`algorithms/source_assessment.py` classifies retained evidence and visible semantic
+history. `algorithms/semantic_diagnostics.py` records actual pass decisions through
+optional built-in hooks; it is not another reconciler. Existing store/monitor
+protocols and cognitive behavior remain unchanged. There is no durable unresolved
+ledger, source-trust ranking, or inferred independence. See
+[source-aware metamemory](source-metamemory.md).

@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.18.2` explicit authoritative corrections and withdrawals (0.18.1 admission stays the default path; retrieval matches `0.17.6.1` outside an enabled correction)
+- Current release focus: `0.18.3` source-aware metamemory and conflict observability (cognitive behavior stays frozen; independent Bench validation remains a separate release gate)
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first
@@ -55,6 +55,8 @@ examples/
 | `recall(query, tenant_id=..., valid_at=..., as_of=...)` | ACT-R declarative activation over episodic + semantic memories |
 | `inspect_recall(query, tenant_id=..., valid_at=..., as_of=...)` | Bounded recall inspection with terminal dispositions and trace detail |
 | `select_working_memory(query, tenant_id=..., goal=..., previous=...)` | Bounded goal-aware working-memory selection from recall candidates |
+| `assess_source_memory(context, ...)` | Read-only source/evidence coverage for selected context |
+| `inspect_semantic_slot(slot, tenant_id=..., ...)` | Bounded exact semantic inventory, conflict, and history inspection |
 | `assess_memory(query, tenant_id=..., goal=..., valid_at=...)` | Read-only metamemory assessment; `MISSING_KNOWLEDGE` for unresolved slot-like queries or weak non-slot retrieval (`0.14.2+`) |
 | `record_access(results, tenant_id=..., min_score=...)` | Explicitly reinforce used memories (reactivates forgotten dynamics); optional score floor and burst limits. When inhibition recording is enabled, may also persist inhibitory traces |
 | `list_inhibition_traces(tenant_id=..., memory_kind=..., memory_key=...)` | Read inhibitory traces for one memory. Traces are not applied during recall |

@@ -1,6 +1,9 @@
 # CogKura Core 0.18.3 — Source-aware metamemory and conflict observability
 
-**Status:** Proposed; human review and approval required before implementation.
+**Status:** D1–D6 approved as recommended on 14 November 2026; Phase 2 authorised.
+
+The approved design below is retained as the engineering contract. Actual API details
+and clarifications are documented in [source-aware metamemory](source-metamemory.md).
 
 **Reviewed baseline:** Core `1a8bc04f7832c77962a6c2e99b2e8dca4dc19958` (`0.18.2`).
 
@@ -32,9 +35,10 @@ result or a past counter proves that no unresolved declaration exists. Durable
 unresolved-decision enumeration would require a separately approved storage
 extension (review decision D2).
 
-This document completes Phase 1 only. API sketches, enums, and storage extensions
-below are proposals, not claims about shipped functionality. No Core code,
-version, migration, benchmark, Demo, or Agent change belongs in this phase.
+This document records the Phase 1 review and the approved implementation contract.
+The user authorised Core implementation, incremental commits on this branch, and
+one PR after Core validation. Bench, Demo, and Agent remain outside this task.
+Independent Bench validation remains a release gate and will be authorised separately.
 
 ## 2. Architecture review: reuse and gaps
 
@@ -67,9 +71,12 @@ The local Core and Bench checkouts match the supplied commits. Bench's checked-i
 violations, unchanged frozen results, and `NO CORE CHANGE INDICATED`.
 These are prior measurements, not a new Bench run for this design.
 
-**PostgreSQL adopt/replace/withdraw/replay parity remains NOT EXECUTED.**
-`COGKURA_POSTGRES_MEMORY_URL` is unset in this session as well. Existing Core parity
-tests are in `tests/test_postgres_integration.py`; source review is not execution.
+At the Phase 1 review on 12 November, **PostgreSQL adopt/replace/withdraw/replay
+parity was NOT EXECUTED** and `COGKURA_POSTGRES_MEMORY_URL` was unset. Existing
+Core parity tests were in `tests/test_postgres_integration.py`; source review was
+not execution. This Core gap was subsequently executed and closed during Phase 2;
+see the [0.18.3 findings](findings/0.18.3-source-aware-metamemory.md). The separate
+Bench 0.3.10 measurement retains its original not-executed status.
 
 Bench also explicitly documents that a later re-adoption episode's text can appear
 in context even though the withdrawn semantic claim stays withdrawn. Its zero
@@ -146,18 +153,19 @@ not evidence that a requested fact is unknown or withdrawn.
 class SourceMemoryAssessment:
     tenant_id: str
     subject_id: str | None
-    assessed_at: datetime             # context.prepared_at; cognitive clock
+    assessed_at: datetime  # context.prepared_at; cognitive clock
     valid_at: datetime | None
-    provenance: ContextProvenance     # existing contract, unchanged
+    provenance: ContextProvenance  # existing contract, unchanged
     items: tuple[SourceMemoryItem, ...]
     quality: EvidenceQuality
     reasons: tuple[SourceAssessmentReason, ...]
+
 
 @dataclass(frozen=True, slots=True)
 class SourceMemoryItem:
     memory_identity: MemoryIdentity
     representation: MemoryProvenanceRepresentation
-    revision_key: str | None          # semantic identity within history
+    revision_key: str | None  # semantic identity within history
     quality: EvidenceQuality
     currentness: SourceCurrentness
     promotion: SemanticPromotion | None
@@ -181,17 +189,20 @@ async def inspect_semantic_slot(
     limits: SourceInspectionLimits | None = None,
 ) -> SemanticSlotAssessment: ...
 
+
 @dataclass(frozen=True, slots=True)
 class SemanticSlotQuery:
     subject_entity_id: str | None
     predicate: str
-    qualifiers: Mapping[str, Any]     # default empty immutable mapping
+    qualifiers: Mapping[str, Any]  # default empty immutable mapping
+
 
 @dataclass(frozen=True, slots=True)
 class SourceInspectionLimits:
     max_revisions: int = 128
     max_relations: int = 256
     max_evidence: int = 256
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticSlotAssessment:
@@ -217,7 +228,7 @@ Omitting it permits inspection within the named tenant; it never removes the
 tenant requirement. No natural-language slot inference or fuzzy slot matching.
 
 `SemanticRevisionAssessment` fields: `memory_identity: MemoryIdentity`,
-`revision_key: str`, `projected_status: SemanticMemoryStatus`,
+`revision_key: str`, `projected_status: SemanticMemoryStatus | None`,
 `view_state: SemanticRevisionViewState`, `valid_from/valid_until: datetime | None`,
 `sources: tuple[SourceEvidence, ...]`, `quality: EvidenceQuality`,
 `currentness: SourceCurrentness`, `promotion: SemanticPromotion | None`,
@@ -249,11 +260,13 @@ class SemanticDiagnosticsConfig:
     enabled: bool = False
     max_items: int = 128
 
+
 # Proposed Memory constructor keyword:
 # semantic_diagnostics_config: SemanticDiagnosticsConfig | None = None
 
 # Proposed additive SemanticConsolidationResult field:
 # decisions: SemanticDecisionReport | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticDecisionReport:
@@ -267,10 +280,11 @@ class SemanticDecisionReport:
     is_truncated: bool
     diagnostics_complete: bool
 
+
 @dataclass(frozen=True, slots=True)
 class SemanticDecision:
     operation: SemanticDecisionOperation  # ADMIT, REPLACE, WITHDRAW
-    outcome: SemanticDecisionOutcome      # APPLIED, ALREADY_APPLIED, DEFERRED, INVALID
+    outcome: SemanticDecisionOutcome  # APPLIED, ALREADY_APPLIED, DEFERRED, INVALID
     reasons: tuple[SemanticDecisionReason, ...]
     slot_key: str | None
     claim_key: str | None
@@ -339,13 +353,13 @@ in section 8; it must not return an empty inventory classified `UNKNOWN`.
 | `returned_count: int` | Referenced occurrences actually examined after the cap. |
 | `revision_resolved_count: int` | Examined occurrences with the exact revision available, including `SOURCE_REF_MISSING`. |
 | `locator_present_count: int` | Examined occurrences with a usable revision-specific `source_ref`. |
-| `relation_known_count: int` | Examined occurrences with a proven existing source relation. |
+| `relation_known_count: int` | Examined semantic occurrences with proven support/contradiction relations; direct episodic references are not applicable. |
 | `distinct_source_count: int` | Distinct resolved `(source_namespace, source_record_id)` pairs; a lower bound when incomplete. |
 | `has_evidence: bool` | `referenced_count > 0`. Zero references do not establish evidence adequacy. |
 | `is_truncated: bool` | At least one reference was omitted by the configured cap. |
 | `revision_coverage_complete: bool` | No truncation and all referenced exact revisions resolved; report separately from `has_evidence`. |
 | `locator_coverage_complete: bool` | No truncation and all references have a locator. |
-| `relation_coverage_complete: bool` | No truncation and all required relations are known. |
+| `relation_coverage_complete: bool | None` | All applicable semantic relations are known, including no omitted semantic references; episodic omissions do not reduce this coverage. `None` when no semantic references exist. |
 
 No ratio is returned for a zero denominator. All returned counts are bounded by
 `returned_count <= referenced_count`. Missing locators lower locator coverage,
@@ -451,7 +465,8 @@ complete attribution, and application authority never override those unknowns.
 
 `SourceCurrentness` contains `basis: SourceCurrentnessBasis` (only
 `STORE_VIEW_AT_INSPECTION`), `latest_count: int`, `older_revision_count: int`,
-`unknown_count: int`, and `is_complete: bool`. Counts cover examined evidence occurrences.
+`unknown_count: int`, `is_truncated: bool`, and `is_complete: bool`. Counts cover
+examined evidence occurrences; truncation prevents complete currentness.
 Map existing `is_latest_known_revision=True/False/None` directly. No inference
 from `source_version` lexical ordering, a missing version, or evidence age.
 
@@ -758,7 +773,10 @@ from 0.18.2, including later re-adoption episode prose.
 | D5 | Is the optional bounded storage capability acceptable for custom stores? | Approve it with explicit unsupported diagnostics and no unbounded fallback. Implement both built-in backends; no mandatory break to existing store protocols and no initial migration. |
 | D6 | Are PostgreSQL parity and separate Bench confirmation release gates? | Yes. Close the outstanding database gap and complete separate authorised Bench validation before claiming release readiness. Do not change Bench, Demo, or Agent in this Core task. |
 
-Approval should name accepted decisions and any requested changes. Until that
-review is complete, the next work is design revision only. Architectural concerns
-discovered during implementation return to review if they require expanding
-these boundaries.
+D1–D6 were approved as recommended on 14 November 2026. The user also clarified
+that relation coverage must distinguish non-applicable semantic relations, decision
+diagnostics must observe actual existing outcomes without duplicated decisions or
+counter changes, and the 0.18.2 stale episodic prose limitation must remain.
+These clarifications do not require renewed approval unless a material architectural
+change is discovered. Core validation precedes the one implementation PR;
+independent Bench validation remains a separately authorised release gate.

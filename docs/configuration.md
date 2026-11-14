@@ -194,3 +194,17 @@ uv run python scripts/run_prepare_context_benchmark.py
 ```
 
 The helper writes `results/benchmark-results.{json,md}` (gitignored). A committed historical snapshot lives in [`docs/findings/0.15.12-performance-baseline.md`](findings/0.15.12-performance-baseline.md). Timings are **not** CI acceptance thresholds.
+
+### Source assessment and pass diagnostics (0.18.3)
+
+`assess_source_memory(context, max_evidence=256)` is explicit and read-only.
+`inspect_semantic_slot()` accepts `SourceInspectionLimits(max_revisions=128,
+max_relations=256, max_evidence=256)` and an optional separately injected
+`semantic_inspection_store` for custom storage. The built-in stores supply that
+capability automatically; its absence is reported as unavailable/indeterminate.
+
+`SemanticDiagnosticsConfig(enabled=False, max_items=128)` is a `Memory` constructor
+option. Enabling it returns pass-local `SemanticConsolidationResult.decisions`;
+it does not enable source authority/corrections or change old counters. Existing
+`MetamemoryConfig` and retrieval interfaces stay unchanged. See
+[source-aware metamemory](source-metamemory.md) for coverage and historical limits.
