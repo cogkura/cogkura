@@ -1578,6 +1578,10 @@ class Memory:
             observation_ids=observation_ids,
         )
         observations_by_id = {observation.id: observation for observation in observations}
+        if diagnostics is not None:
+            diagnostics.source_identities = {
+                o.id: (o.source_namespace, o.source_record_id) for o in observations
+            }
         if (
             diagnostics is not None
             and self._authority_promotion_enabled()

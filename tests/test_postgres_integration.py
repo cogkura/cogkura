@@ -479,6 +479,7 @@ async def test_read_only_source_role(source_engine: AsyncEngine) -> None:
 
 @pytest.mark.asyncio
 async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
+    subject_id = f"encode-{uuid4().hex}"
     observation_store = PostgresObservationStore(memory_engine)
     episode_store = PostgresEpisodeStore(memory_engine)
     memory = Memory(
@@ -489,7 +490,7 @@ async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
     await memory.observe(
         ObservationInput(
             tenant_id=TENANT,
-            subject_id=USER_ID,
+            subject_id=subject_id,
             actor_id=USER_ID,
             source_namespace="direct",
             source_record_id=str(uuid4()),
@@ -502,7 +503,7 @@ async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
     await memory.observe(
         ObservationInput(
             tenant_id=TENANT,
-            subject_id=USER_ID,
+            subject_id=subject_id,
             actor_id=USER_ID,
             source_namespace="direct",
             source_record_id=str(uuid4()),
@@ -512,8 +513,8 @@ async def test_postgres_encode_episodes(memory_engine: AsyncEngine) -> None:
             metadata={"conversation_id": CONVERSATION_ID, "terminal_event": True},
         )
     )
-    result = await memory.encode_episodes(tenant_id=TENANT, subject_id=USER_ID)
-    episodes = await memory.list_episodes(tenant_id=TENANT, subject_id=USER_ID)
+    result = await memory.encode_episodes(tenant_id=TENANT, subject_id=subject_id)
+    episodes = await memory.list_episodes(tenant_id=TENANT, subject_id=subject_id)
     assert result.created == 1
     assert len(episodes) == 1
     assert len(episodes[0].evidence) == 2
@@ -668,7 +669,7 @@ async def test_postgres_source_authority_matches_in_memory(memory_engine: AsyncE
         return ObservationInput(
             tenant_id=TENANT,
             subject_id=subject_id,
-            source_namespace="repository",
+            source_namespace=f"repository:{subject_id}",
             source_record_id="adr-0001",
             source_version="1",
             content="Database migrations run through the deployment pipeline.",

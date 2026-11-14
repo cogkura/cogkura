@@ -4065,7 +4065,7 @@ class EvidenceQuality:
     def relation_coverage_complete(self) -> bool | None:
         if self.relation_applicable_count == 0:
             return None
-        return not self.is_truncated and self.relation_known_count == self.relation_applicable_count
+        return self.relation_known_count == self.relation_applicable_count
 
 
 @dataclass(frozen=True, slots=True)
@@ -4183,7 +4183,7 @@ class SemanticTransitionAssessment:
 class SemanticRevisionAssessment:
     memory_identity: MemoryIdentity
     revision_key: str
-    projected_status: SemanticMemoryStatus
+    projected_status: SemanticMemoryStatus | None
     view_state: SemanticRevisionViewState
     valid_from: datetime | None
     valid_until: datetime | None

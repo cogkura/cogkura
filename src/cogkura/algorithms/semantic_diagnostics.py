@@ -24,17 +24,22 @@ class SemanticDecisionCollector:
         self._seen: set[tuple[str, ...]] = set()
         self._items: dict[tuple[str, ...], SemanticDecision] = {}
         self.complete = True
+        self.source_identities: dict[str, tuple[str, str]] = {}
 
     def add(self, decision: SemanticDecision) -> None:
         identity = decision.asserting_evidence
+        source = (
+            self.source_identities.get(identity.observation_id, ("", "")) if identity else ("", "")
+        )
         key = (
             decision.operation.value,
-            identity.observation_id if identity else "",
-            str(identity.observation_revision) if identity else "",
             decision.slot_key or "",
             decision.claim_key or "",
             decision.target_revision_key or "",
             decision.effective_at.isoformat() if decision.effective_at else "",
+            *source,
+            str(identity.observation_revision) if identity else "",
+            identity.observation_id if identity else "",
         )
         if key in self._seen:
             return

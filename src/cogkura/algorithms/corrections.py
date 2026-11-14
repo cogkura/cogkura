@@ -141,6 +141,8 @@ def qualify_explicit_corrections(
                 observation_revision=evidence.observation_revision,
             )
             revision = observation_revisions.get(identity)
+            if diagnostics is not None and revision is None:
+                diagnostics.complete = False
             invalid_count, deferred_count = _collect_fact_corrections(
                 diagnostics=diagnostics,
                 observation=observation,
@@ -851,7 +853,13 @@ def _evaluate_predecessor(
             "invalid", SemanticDecisionReason.UNSUPPORTED_CARDINALITY, observer
         )
     if slot_key != successor.slot_key or memory_key == successor.memory_key:
-        return _observed_edit_outcome("invalid", SemanticDecisionReason.WRONG_SLOT, observer)
+        return _observed_edit_outcome(
+            "invalid",
+            SemanticDecisionReason.WRONG_SLOT
+            if slot_key != successor.slot_key
+            else SemanticDecisionReason.SAME_CLAIM_REPLACEMENT,
+            observer,
+        )
     start = _effective_start(stored, batch)
     if start is None or effective_at <= start:
         return _observed_edit_outcome(
@@ -1792,6 +1800,8 @@ def _observed_edit_outcome(
     reason: SemanticDecisionReason,
     observer: EditDecisionObserver | None,
 ) -> str:
+    if outcome == "invalid" and reason is SemanticDecisionReason.ALREADY_APPLIED:
+        reason = SemanticDecisionReason.TARGET_ALREADY_CLOSED
     return observer.decide(outcome, reason) if observer is not None else outcome
 
 

@@ -3293,7 +3293,7 @@ class PostgresInhibitionStore(InhibitionStore):
             FROM {self._table("memory_inhibition_traces")}
             WHERE tenant_id = :tenant_id
               AND induced_at <= :before_or_at
-              AND (:after IS NULL OR induced_at > :after)
+              AND (CAST(:after AS timestamptz) IS NULL OR induced_at > CAST(:after AS timestamptz))
               AND ({identity_filter})
             ORDER BY induced_at DESC, id ASC
         """

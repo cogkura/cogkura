@@ -414,3 +414,74 @@ def test_shared_slot_key_preserves_canonicalization() -> None:
     assert key == semantic_slot_key(
         tenant_id=TENANT, subject_entity_id="service", predicate="deployment_policy", qualifiers={}
     )
+
+
+async def test_negative_assertion_and_expired_history_are_not_withdrawal() -> None:
+    m = memory()
+    obs = observation("denial")
+    fact = dict(
+        obs.metadata["semantic_facts"][0],
+        polarity="deny",
+        valid_from=T0.isoformat(),
+        valid_until=(T0 + timedelta(days=1)).isoformat(),
+    )
+    await m.observe(replace(obs, metadata={**obs.metadata, "semantic_facts": [fact]}))
+    await m.process(tenant_id=TENANT, as_of=T0)
+    current = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
+    expired = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0 + timedelta(days=2))
+    assert current.state is SemanticKnowledgeState.KNOWN
+    assert expired.state is SemanticKnowledgeState.HISTORICAL_ONLY
+    assert SourceAssessmentReason.FACT_WITHDRAWN not in expired.reasons
+
+
+async def test_unsupported_ordinary_history_exposes_no_present_status_or_false_clear_conflict() -> (
+    None
+):
+    m = memory()
+    await adopt(m)
+    # Reinforcement updates a revision without retaining all previous counter states.
+    await m.process(tenant_id=TENANT, as_of=T0 + timedelta(days=2))
+    report = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0 + timedelta(days=1))
+    assert report.state is SemanticKnowledgeState.INDETERMINATE
+    assert report.conflict.state is SourceConflictState.INDETERMINATE
+    assert all(i.projected_status is None for i in report.revisions)
+    assert SourceAssessmentReason.TEMPORAL_HISTORY_UNAVAILABLE in report.reasons
+
+
+async def test_semantic_relation_unknown_is_not_episodic_not_applicable() -> None:
+    from cogkura import SourceEvidence, SourceEvidenceResolutionStatus
+    from cogkura.algorithms.source_assessment import evidence_quality
+
+    source = SourceEvidence(
+        observation_id="observation",
+        observation_revision=1,
+        source_namespace="docs",
+        source_record_id="record",
+        source_version="1",
+        source_ref=None,
+        observed_at=T0,
+        contribution_score=1.0,
+        relation=None,
+        resolution_status=SourceEvidenceResolutionStatus.SOURCE_REF_MISSING,
+        is_latest_known_revision=True,
+    )
+    quality = evidence_quality((source,), referenced_count=1, semantic_references=1)
+    assert quality.revision_coverage_complete
+    assert quality.relation_coverage_complete is False
+    assert quality.relation_not_applicable_count == 0
+
+
+def test_omitted_non_applicable_episode_does_not_lower_semantic_relation_coverage() -> None:
+    quality = EvidenceQuality(
+        referenced_count=2,
+        returned_count=1,
+        revision_resolved_count=1,
+        locator_present_count=1,
+        relation_known_count=1,
+        relation_applicable_count=1,
+        relation_not_applicable_count=1,
+        distinct_source_count=1,
+    )
+    assert quality.is_truncated
+    assert quality.relation_coverage_complete is True
+    assert not quality.revision_coverage_complete

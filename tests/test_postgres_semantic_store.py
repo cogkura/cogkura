@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 
@@ -99,15 +100,17 @@ async def test_postgres_semantic_create_update_unchanged(memory_engine: AsyncEng
 @pytest.mark.asyncio
 async def test_postgres_semantic_deactivate_missing(memory_engine: AsyncEngine) -> None:
     store = PostgresSemanticMemoryStore(memory_engine)
-    await store.upsert(_memory(memory_key="k1"))
-    await store.upsert(_memory(memory_key="k2", fingerprint="fp-2"))
+    await store.upsert(replace(_memory(memory_key="k1"), subject_id="deactivate-only"))
+    await store.upsert(
+        replace(_memory(memory_key="k2", fingerprint="fp-2"), subject_id="deactivate-only")
+    )
 
     deactivated = await store.deactivate_missing(
         tenant_id="company_123",
-        subject_id="customer_42",
+        subject_id="deactivate-only",
         active_memory_keys={"k1"},
     )
     assert deactivated == 1
-    active = await store.list(tenant_id="company_123", subject_id="customer_42")
+    active = await store.list(tenant_id="company_123", subject_id="deactivate-only")
     assert len(active) == 1
     assert active[0].memory_key == "k1"

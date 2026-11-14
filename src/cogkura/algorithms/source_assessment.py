@@ -375,7 +375,7 @@ async def inspect_slot_sources(
                     MemoryKind.SEMANTIC, projected_item.memory.memory_key
                 ),
                 revision_key=projected_item.revision.revision_key,
-                projected_status=projected_item.memory.status,
+                projected_status=projected_item.memory.status if history_complete else None,
                 view_state=item_state,
                 valid_from=projected_item.memory.valid_from,
                 valid_until=projected_item.memory.valid_until,
@@ -393,7 +393,13 @@ async def inspect_slot_sources(
         all_sources, referenced_count=referenced_count, semantic_references=referenced_count
     )
     reasons.update(quality_reasons(all_sources, quality))
-    conflict = _conflict_assessment(records, items, complete)
+    conflict = _conflict_assessment(
+        records,
+        items,
+        complete
+        and not any(i.view_state is SemanticRevisionViewState.INDETERMINATE for i in items)
+        and SourceAssessmentReason.TEMPORAL_HISTORY_UNAVAILABLE not in reasons,
+    )
     if conflict.state is SourceConflictState.SEMANTIC_CONFLICT:
         reasons.add(SourceAssessmentReason.SEMANTIC_CONTESTED)
     if conflict.cross_source_disagreement:

@@ -29,6 +29,7 @@ async def pg_memory(postgres_memory_url: str | None) -> AsyncIterator[Memory]:
     engine = create_async_engine(postgres_memory_url)
     await apply_migrations(engine)
     m = memory(
+        diagnostics=True,
         store=PostgresSemanticMemoryStore(engine),
         observation_store=PostgresObservationStore(engine),
         episode_store=PostgresEpisodeStore(engine),
@@ -42,7 +43,7 @@ async def pg_memory(postgres_memory_url: str | None) -> AsyncIterator[Memory]:
 def normalized(report: Any, registry: dict[str, Any] | None = None) -> Any:
     obs_ids = {
         s.observation_id: (s.source_namespace, s.source_record_id)
-        for r in report.revisions
+        for r in getattr(report, "revisions", ())
         for s in r.sources
     }
 
@@ -184,3 +185,31 @@ async def test_postgres_storage_bounds_have_stable_prefixes(pg_memory: Memory) -
     assert not cut.inventory_complete
     assert cut.state is SemanticKnowledgeState.INDETERMINATE
     assert [r.revision_key for r in cut.revisions] == [r.revision_key for r in full.revisions[:1]]
+
+
+async def test_postgres_pass_decisions_match_in_memory_with_competing_edits(
+    pg_memory: Memory,
+) -> None:
+    from dataclasses import replace
+    from datetime import timedelta
+
+    control = memory(diagnostics=True)
+    key = await adopt(control)
+    assert await adopt(pg_memory) == key
+    t1 = T0 + timedelta(days=1)
+    for m in (control, pg_memory):
+        for n in (1, 2):
+            await m.observe(observation(f"edit-{n}", value=f"pipeline-{n}", at=t1, correction=key))
+    a, b = [await m.process(tenant_id=TENANT, as_of=t1) for m in (control, pg_memory)]
+    registries = [
+        {
+            o.id: (o.source_namespace, o.source_record_id)
+            for o in await m._observation_store.list(tenant_id=TENANT)
+        }
+        for m in (control, pg_memory)
+    ]
+    assert a.semantics.corrections_deferred == b.semantics.corrections_deferred == 2
+    assert replace(a.semantics, decisions=None) == replace(b.semantics, decisions=None)
+    assert normalized(a.semantics.decisions, registries[0]) == normalized(
+        b.semantics.decisions, registries[1]
+    )

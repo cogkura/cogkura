@@ -69,6 +69,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "008_entity_relationships",
         "009_encoding_context",
         "010_retrieval_inhibition",
+        "011_semantic_revision_snapshots",
     ]
 
 
@@ -207,8 +208,8 @@ async def test_forgetting_schema_objects_exist(memory_engine: AsyncEngine) -> No
 
 
 @pytest.mark.asyncio
-async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> None:
-    """Simulate a DB that has 001 recorded but not yet 002."""
+async def test_reapply_002_preserves_later_migration_records(memory_engine: AsyncEngine) -> None:
+    """Repair missing 002 objects/marker without discarding later migration records."""
     admin_url = os.environ.get("COGKURA_POSTGRES_MEMORY_ADMIN_URL")
     if admin_url is None:
         pytest.skip("COGKURA_POSTGRES_MEMORY_ADMIN_URL required for upgrade simulation")
@@ -234,7 +235,7 @@ async def test_upgrade_from_001_only_applies_002(memory_engine: AsyncEngine) -> 
         versions = await conn.execute(
             text("SELECT version FROM cogkura.schema_migrations ORDER BY version")
         )
-        assert [row[0] for row in versions.all()] == ["001_initial", "002_episodic_memory"]
+        assert [row[0] for row in versions.all()] == [p.stem for p in migration_files()]
         attention = await conn.execute(
             text(
                 """
