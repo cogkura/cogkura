@@ -497,3 +497,31 @@ async def test_cap_omissions_do_not_report_complete_source_currentness() -> None
         if item.quality.is_truncated:
             assert item.currentness.is_truncated
             assert not item.currentness.is_complete
+
+
+async def test_multiple_correction_boundaries_restore_only_the_known_predecessor() -> None:
+    m = memory()
+    original = await adopt(m)
+    predecessor = original
+    keys = [original]
+    for n in (1, 2, 3):
+        when = T0 + timedelta(days=n)
+        await m.observe(
+            observation(f"correction-{n}", value=f"pipeline-{n}", at=when, correction=predecessor)
+        )
+        await m.process(tenant_id=TENANT, as_of=when)
+        predecessor = next(
+            r.revision_key
+            for r in await m.list_semantic_revisions(tenant_id=TENANT)
+            if r.status is SemanticMemoryStatus.ACTIVE
+        )
+        keys.append(predecessor)
+    for n, key in enumerate(keys):
+        report = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0 + timedelta(days=n))
+        assert report.state is SemanticKnowledgeState.KNOWN
+        assert [
+            i.revision_key
+            for i in report.revisions
+            if i.view_state is SemanticRevisionViewState.VISIBLE_CURRENT
+        ] == [key]
+        assert not set(keys[n + 1 :]) & {i.revision_key for i in report.revisions}

@@ -139,6 +139,14 @@ async def test_postgres_inspection_has_constant_query_count_and_is_read_only(
     pg_memory: Memory,
 ) -> None:
     await adopt(pg_memory)
+    # Unrelated stored slots must not expand the inspected population or query count.
+    from dataclasses import replace
+
+    for n in range(16):
+        obs = observation(f"noise-{n}")
+        fact = dict(obs.metadata["semantic_facts"][0], qualifiers={"scope": str(n)})
+        await pg_memory.observe(replace(obs, metadata={**obs.metadata, "semantic_facts": [fact]}))
+    await pg_memory.process(tenant_id=TENANT, as_of=T0)
     engine = pg_memory._semantic_store._engine
     statements = []
 
@@ -152,6 +160,8 @@ async def test_postgres_inspection_has_constant_query_count_and_is_read_only(
         for _ in range(3):
             report = await pg_memory.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
             assert report.state is SemanticKnowledgeState.KNOWN
+            assert len(report.revisions) == 1
+            assert report.quality.distinct_source_count == 1
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", capture)
     assert len(statements) <= 36
