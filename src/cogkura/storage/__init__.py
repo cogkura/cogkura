@@ -9,6 +9,7 @@ from cogkura.storage.base import (
     LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
+    SemanticInspectionStore,
     SemanticMemoryStore,
 )
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
@@ -38,4 +39,5 @@ __all__ = [
     "MemoryDynamicsStore",
     "ObservationStore",
     "SemanticMemoryStore",
+    "SemanticInspectionStore",
 ]

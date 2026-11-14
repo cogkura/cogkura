@@ -13,12 +13,17 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any, Protocol
 
+from cogkura.algorithms.semantic_diagnostics import SemanticDecisionCollector
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
     EpisodeEntity,
     EpisodeEvidenceInput,
     SemanticAuthorityBasis,
     SemanticCardinality,
+    SemanticDecision,
+    SemanticDecisionOperation,
+    SemanticDecisionOutcome,
+    SemanticDecisionReason,
     SemanticDerivationInput,
     SemanticDerivationRelation,
     SemanticExtractionResult,
@@ -283,6 +288,7 @@ class MetadataSemanticExtractor:
         episodes: Sequence[StoredEpisode],
         *,
         observations: Mapping[str, StoredObservation],
+        diagnostics: SemanticDecisionCollector | None = None,
     ) -> SemanticExtractionResult:
         candidates: list[SemanticFactCandidate] = []
         failed = 0
@@ -317,6 +323,20 @@ class MetadataSemanticExtractor:
                         continue
                     if invalid_authority:
                         authority_invalid += 1
+                        if diagnostics is not None:
+                            claim = _canonicalize_candidate(candidate)
+                            diagnostics.add(
+                                SemanticDecision(
+                                    operation=SemanticDecisionOperation.ADMIT,
+                                    outcome=SemanticDecisionOutcome.INVALID,
+                                    reasons=(SemanticDecisionReason.MALFORMED_DECLARATION,),
+                                    slot_key=claim.slot_key,
+                                    claim_key=claim.claim_key,
+                                    asserting_evidence=ObservationRevisionIdentity(
+                                        observation.id, evidence.observation_revision
+                                    ),
+                                )
+                            )
                     candidates.append(candidate)
         return SemanticExtractionResult(
             candidates=tuple(candidates),
@@ -622,6 +642,25 @@ def _parse_optional_datetime(value: object) -> datetime | None:
     raise ValidationError("valid_from and valid_until must be datetime values or ISO-8601 strings.")
 
 
+def semantic_slot_key(
+    *,
+    tenant_id: str,
+    subject_entity_id: str | None,
+    predicate: str,
+    qualifiers: Mapping[str, Any],
+) -> str:
+    """The existing canonical slot identity, shared with read-only inspection."""
+    return _hash_parts(
+        (
+            tenant_id,
+            _canonical_text(subject_entity_id or _SUBJECT_PLACEHOLDER),
+            _canonical_text(predicate),
+            _canonical_qualifiers(qualifiers),
+            _CONSOLIDATION_VERSION,
+        )
+    )
+
+
 def _canonicalize_candidate(candidate: SemanticFactCandidate) -> _CanonicalClaim:
     subject_entity_id = _canonical_text(candidate.subject_entity_id or _SUBJECT_PLACEHOLDER)
     predicate = _canonical_text(candidate.predicate)
@@ -630,14 +669,11 @@ def _canonicalize_candidate(candidate: SemanticFactCandidate) -> _CanonicalClaim
         _canonical_text(candidate.object_entity_id) if candidate.object_entity_id else None
     )
     qualifiers = _canonical_qualifiers(candidate.qualifiers)
-    slot_key = _hash_parts(
-        (
-            candidate.tenant_id,
-            subject_entity_id,
-            predicate,
-            qualifiers,
-            _CONSOLIDATION_VERSION,
-        )
+    slot_key = semantic_slot_key(
+        tenant_id=candidate.tenant_id,
+        subject_entity_id=candidate.subject_entity_id,
+        predicate=candidate.predicate,
+        qualifiers=candidate.qualifiers,
     )
     claim_key = _hash_parts(
         (
@@ -799,6 +835,8 @@ def _promotion_metadata(
 def qualify_source_authority(
     candidates: Sequence[SemanticFactCandidate],
     revisions: Mapping[ObservationRevisionIdentity, StoredObservationRevision],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> tuple[tuple[SemanticFactCandidate, ...], int]:
     """Keep authority only when the cited revision itself asserts the same claim.
 
@@ -815,6 +853,35 @@ def qualify_source_authority(
             qualified.append(candidate)
             continue
         invalid += 1
+        if diagnostics is not None:
+            identity = (
+                ObservationRevisionIdentity(
+                    candidate.source_observation_id, candidate.source_observation_revision
+                )
+                if candidate.source_observation_id is not None
+                and candidate.source_observation_revision is not None
+                else None
+            )
+            revision = revisions.get(identity) if identity is not None else None
+            reason = (
+                SemanticDecisionReason.EXACT_REVISION_UNAVAILABLE
+                if revision is None
+                else SemanticDecisionReason.STALE_OR_DELETED_AUTHORIZING_SOURCE
+                if revision.is_deleted
+                or revision.current_revision != candidate.source_observation_revision
+                else SemanticDecisionReason.AUTHORITY_REQUIRED
+            )
+            claim = _canonicalize_candidate(candidate)
+            diagnostics.add(
+                SemanticDecision(
+                    operation=SemanticDecisionOperation.ADMIT,
+                    outcome=SemanticDecisionOutcome.INVALID,
+                    reasons=(reason,),
+                    slot_key=claim.slot_key,
+                    claim_key=claim.claim_key,
+                    asserting_evidence=identity,
+                )
+            )
         qualified.append(replace(candidate, authority=None))
     return tuple(qualified), invalid
 
@@ -921,6 +988,8 @@ def _candidate_from_revision_fact(
 def defer_conflicting_authority_candidates(
     candidates: Sequence[SemanticRevisionCandidate],
     existing_memories: Sequence[StoredSemanticMemory],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> tuple[list[SemanticRevisionCandidate], int]:
     """Hold back single-support authority claims that would compete for a slot.
 
@@ -947,6 +1016,14 @@ def defer_conflicting_authority_candidates(
         ) - {candidate.memory_key}
         if others:
             deferred.add(candidate.revision_key)
+            if diagnostics is not None:
+                diagnostics.candidate(
+                    candidate,
+                    outcome=SemanticDecisionOutcome.DEFERRED,
+                    reason=SemanticDecisionReason.AUTHORITY_COMPETES_WITH_CURRENT
+                    if occupied.get(candidate.slot_key, set()) - {candidate.memory_key}
+                    else SemanticDecisionReason.COMPETING_AUTHORITY_CLAIMS,
+                )
     admitted = [candidate for candidate in candidates if candidate.revision_key not in deferred]
     return admitted, len(deferred)
 

@@ -100,17 +100,11 @@ class SourceProvenanceResolver:
                 key=lambda item: (item.observation_id, item.observation_revision),
             )
         )
-        current_observations, revisions = await asyncio.gather(
-            self._observation_store.get_many(
-                tenant_id=context.tenant_id,
-                observation_ids={item.observation_id for item in requested},
-            ),
-            self._observation_store.get_revisions_many(
-                tenant_id=context.tenant_id,
-                references=requested,
-            ),
+        current_by_id, revisions = await _load_evidence_rows(
+            self._observation_store,
+            tenant_id=context.tenant_id,
+            references=requested,
         )
-        current_by_id = {item.id: item for item in current_observations}
 
         items: list[MemoryProvenance] = []
         all_sources: set[tuple[str, str]] = set()
@@ -384,3 +378,22 @@ def _warnings_for_sources(sources: Sequence[SourceEvidence]) -> tuple[str, ...]:
     if SourceEvidenceResolutionStatus.SOURCE_REF_MISSING in statuses:
         warnings.append("One or more resolved source revisions have no source_ref metadata.")
     return tuple(warnings)
+
+
+async def _load_evidence_rows(
+    store: ObservationStore,
+    *,
+    tenant_id: str,
+    references: Sequence[ObservationRevisionIdentity],
+) -> tuple[
+    Mapping[str, StoredObservation], Mapping[ObservationRevisionIdentity, StoredObservationRevision]
+]:
+    """Shared batched exact-revision reads; never substitute a current revision."""
+    unique = tuple(
+        sorted(set(references), key=lambda r: (r.observation_id, r.observation_revision))
+    )
+    current, revisions = await asyncio.gather(
+        store.get_many(tenant_id=tenant_id, observation_ids={r.observation_id for r in unique}),
+        store.get_revisions_many(tenant_id=tenant_id, references=unique),
+    )
+    return {r.id: r for r in current}, revisions

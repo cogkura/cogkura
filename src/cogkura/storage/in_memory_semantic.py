@@ -13,7 +13,11 @@ from cogkura.models import (
     SemanticMemoryStatus,
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
+    SemanticRevisionRelation,
+    SemanticSlotRecords,
+    SemanticUpdateRelation,
     SemanticWriteStatus,
+    SourceInspectionLimits,
     StoredSemanticMemory,
     StoredSemanticRevision,
 )
@@ -128,6 +132,60 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         if limit is not None:
             return results[:limit]
         return results
+
+    async def inspect_slot(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        slot_key: str,
+        max_revisions: int,
+        max_relations: int,
+    ) -> SemanticSlotRecords:
+        SourceInspectionLimits(max_revisions=max_revisions, max_relations=max_relations)
+        # No awaits while copying: this view cannot mix two reconciliation passes.
+        memories = sorted(
+            (
+                m
+                for m in self._memories.values()
+                if m.tenant_id == tenant_id
+                and m.slot_key == slot_key
+                and (subject_id is None or m.subject_id == subject_id)
+            ),
+            key=lambda m: (m.memory_key, m.revision_number, m.revision_key),
+        )
+        memory_keys = {m.memory_key for m in memories}
+        revisions = sorted(
+            (
+                r
+                for r in self._revisions.values()
+                if r.tenant_id == tenant_id and r.memory_key in memory_keys
+            ),
+            key=lambda r: (r.memory_key, r.revision_number, r.revision_key),
+        )
+        revision_keys = {r.revision_key for r in revisions}
+        relations = sorted(
+            (
+                SemanticRevisionRelation(
+                    tenant_id=tenant_id,
+                    left_revision_key=value[0],
+                    right_revision_key=value[1],
+                    relation=SemanticUpdateRelation(value[2]),
+                    effective_at=datetime.fromisoformat(value[3]) if value[3] else None,
+                )
+                for key, value in self._relations.items()
+                if key[0] == tenant_id and (value[0] in revision_keys or value[1] in revision_keys)
+            ),
+            key=lambda r: (r.left_revision_key, r.right_revision_key, r.relation.value),
+        )
+        return SemanticSlotRecords(
+            memories=tuple(memories[:max_revisions]),
+            revisions=tuple(revisions[:max_revisions]),
+            relations=tuple(relations[:max_relations]),
+            memories_overflow=len(memories) > max_revisions,
+            revisions_overflow=len(revisions) > max_revisions,
+            relations_overflow=len(relations) > max_relations,
+        )
 
     async def apply_reconciliation(
         self,

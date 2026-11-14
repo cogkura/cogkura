@@ -18,11 +18,14 @@ from cogkura.algorithms.semantic import (
     generate_revision_key,
     promotion_basis_value,
 )
+from cogkura.algorithms.semantic_diagnostics import EditDecisionObserver, SemanticDecisionCollector
 from cogkura.exceptions import ValidationError
 from cogkura.models import (
     EpisodeEntity,
     EpisodeEvidenceInput,
     SemanticCardinality,
+    SemanticDecisionOperation,
+    SemanticDecisionReason,
     SemanticDerivationInput,
     SemanticDerivationRelation,
     SemanticMemoryInput,
@@ -113,6 +116,7 @@ def qualify_explicit_corrections(
     existing_memories: Sequence[StoredSemanticMemory],
     existing_revisions: Sequence[StoredSemanticRevision],
     admitted_candidates: Sequence[SemanticRevisionCandidate],
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> CorrectionQualification:
     """Validate correction and withdrawal declarations. Disabled mode is a no-op."""
     if not enabled:
@@ -138,6 +142,7 @@ def qualify_explicit_corrections(
             )
             revision = observation_revisions.get(identity)
             invalid_count, deferred_count = _collect_fact_corrections(
+                diagnostics=diagnostics,
                 observation=observation,
                 revision=revision,
                 evidence_revision=evidence.observation_revision,
@@ -154,6 +159,7 @@ def qualify_explicit_corrections(
             invalid += invalid_count
             deferred += deferred_count
             withdrawal_invalid, withdrawal_deferred = _collect_withdrawals(
+                diagnostics=diagnostics,
                 observation=observation,
                 revision=revision,
                 evidence_revision=evidence.observation_revision,
@@ -169,16 +175,19 @@ def qualify_explicit_corrections(
             invalid += withdrawal_invalid
             deferred += withdrawal_deferred
 
-    kept_corrections, dropped, extra_deferred = _drop_competing_corrections(raw_corrections)
+    kept_corrections, dropped, extra_deferred = _drop_competing_corrections(
+        raw_corrections, diagnostics=diagnostics
+    )
     deferred += extra_deferred
     withhold.update(dropped)
     kept_withdrawals, withdrawal_dropped, withdrawal_deferred = _drop_competing_withdrawals(
-        raw_withdrawals
+        raw_withdrawals, diagnostics=diagnostics
     )
     deferred += withdrawal_deferred
     kept_corrections, kept_withdrawals, cross_deferred = _drop_cross_operation_conflicts(
         kept_corrections,
         kept_withdrawals,
+        diagnostics=diagnostics,
     )
     deferred += cross_deferred
     withhold.update(
@@ -197,6 +206,8 @@ def apply_explicit_semantic_edits(
     plan: SemanticReconciliationPlan,
     corrections: Sequence[ExplicitSemanticCorrection],
     withdrawals: Sequence[ExplicitSemanticWithdrawal],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> ExplicitEditOutcome:
     """Apply already validated edits without creating a second reconciliation engine."""
     revisions = {revision.revision_key: revision for revision in plan.revisions}
@@ -229,6 +240,10 @@ def apply_explicit_semantic_edits(
             updated=updated,
             superseded=superseded,
         )
+        if applied:
+            _edit_observer(diagnostics, correction).decide(
+                "committed", SemanticDecisionReason.APPLIED
+            )
         corrections_applied += applied
 
     for withdrawal in sorted(
@@ -242,6 +257,10 @@ def apply_explicit_semantic_edits(
             relations=relations,
             created=created,
             updated=updated,
+        )
+        _edit_observer(diagnostics, withdrawal).decide(
+            "committed" if applied else "applied",
+            SemanticDecisionReason.APPLIED if applied else SemanticDecisionReason.ALREADY_APPLIED,
         )
         withdrawals_applied += applied
 
@@ -593,6 +612,7 @@ def _features_share_lexeme(left: str, right: str) -> bool:
 def _collect_fact_corrections(
     *,
     observation: StoredObservation,
+    diagnostics: SemanticDecisionCollector | None = None,
     revision: StoredObservationRevision | None,
     evidence_revision: int,
     authority_enabled: bool,
@@ -615,10 +635,27 @@ def _collect_fact_corrections(
         successor = _matching_candidate(candidates, observation.id, raw_fact)
         if successor is not None:
             withhold.add(successor.memory_key)
+        observer = EditDecisionObserver(
+            diagnostics,
+            operation=SemanticDecisionOperation.REPLACE,
+            observation_id=observation.id,
+            observation_revision=evidence_revision,
+            target_key=parsed["replaces_revision_key"] if parsed else None,
+            effective_at=parsed["effective_at"] if parsed else None,
+            slot_key=successor.slot_key if successor else None,
+            claim_key=successor.memory_key if successor else None,
+            resulting_revision_key=generate_revision_key(
+                successor.memory_key, valid_from=parsed["effective_at"], valid_until=None
+            )
+            if successor and parsed
+            else None,
+        )
         if malformed or parsed is None:
+            observer.decide("invalid", SemanticDecisionReason.MALFORMED_DECLARATION)
             invalid += 1
             continue
         if not authority_enabled or not _fact_has_authority(raw_fact):
+            observer.decide("invalid", SemanticDecisionReason.AUTHORITY_REQUIRED)
             invalid += 1
             continue
         if (
@@ -626,13 +663,16 @@ def _collect_fact_corrections(
             or revision.is_deleted
             or revision.current_revision != evidence_revision
         ):
+            observer.decide("invalid", SemanticDecisionReason.STALE_OR_DELETED_AUTHORIZING_SOURCE)
             invalid += 1
             continue
         if successor is None or successor.cardinality is not SemanticCardinality.ONE:
+            observer.decide("invalid", SemanticDecisionReason.UNSUPPORTED_CARDINALITY)
             invalid += 1
             continue
         evidence_time = revision.observed_at
         if parsed["effective_at"] < evidence_time:
+            observer.decide("invalid", SemanticDecisionReason.INVALID_EFFECTIVE_TIME)
             invalid += 1
             continue
         outcome = _evaluate_predecessor(
@@ -642,6 +682,7 @@ def _collect_fact_corrections(
             memories_by_key=memories_by_key,
             revisions_by_key=revisions_by_key,
             admitted_by_key=admitted_by_key,
+            observer=observer,
             existing_memories=existing_memories,
             admitted_candidates=admitted_candidates,
         )
@@ -669,6 +710,7 @@ def _collect_fact_corrections(
 def _collect_withdrawals(
     *,
     observation: StoredObservation,
+    diagnostics: SemanticDecisionCollector | None = None,
     revision: StoredObservationRevision | None,
     evidence_revision: int,
     episode_id: str,
@@ -689,13 +731,41 @@ def _collect_withdrawals(
     if isinstance(raw_items, Mapping):
         raw_items = (raw_items,)
     if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes)):
+        if diagnostics is not None:
+            EditDecisionObserver(
+                diagnostics,
+                operation=SemanticDecisionOperation.WITHDRAW,
+                observation_id=observation.id,
+                observation_revision=evidence_revision,
+                target_key=None,
+                effective_at=None,
+            ).decide("invalid", SemanticDecisionReason.MALFORMED_DECLARATION)
         return 1, 0
     for raw_item in raw_items:
         parsed, malformed = _parse_withdrawal(raw_item)
+        target = revisions_by_key.get(parsed["target_revision_key"]) if parsed else None
+        target_memory = memories_by_key.get(target.memory_key) if target else None
+        observer = EditDecisionObserver(
+            diagnostics,
+            operation=SemanticDecisionOperation.WITHDRAW,
+            observation_id=observation.id,
+            observation_revision=evidence_revision,
+            target_key=parsed["target_revision_key"] if parsed else None,
+            effective_at=parsed["effective_at"] if parsed else None,
+            slot_key=target_memory.slot_key if target_memory else None,
+            claim_key=target.memory_key if target else None,
+            resulting_revision_key=generate_revision_key(
+                parsed["target_revision_key"], valid_from=parsed["effective_at"], valid_until=None
+            )
+            if parsed
+            else None,
+        )
         if malformed or parsed is None:
+            observer.decide("invalid", SemanticDecisionReason.MALFORMED_DECLARATION)
             invalid += 1
             continue
         if not authority_enabled:
+            observer.decide("invalid", SemanticDecisionReason.AUTHORITY_REQUIRED)
             invalid += 1
             continue
         if (
@@ -703,10 +773,12 @@ def _collect_withdrawals(
             or revision.is_deleted
             or revision.current_revision != evidence_revision
         ):
+            observer.decide("invalid", SemanticDecisionReason.STALE_OR_DELETED_AUTHORIZING_SOURCE)
             invalid += 1
             continue
         evidence_time = revision.observed_at
         if parsed["effective_at"] < evidence_time:
+            observer.decide("invalid", SemanticDecisionReason.INVALID_EFFECTIVE_TIME)
             invalid += 1
             continue
         outcome = _evaluate_withdrawal_target(
@@ -716,6 +788,7 @@ def _collect_withdrawals(
             memories_by_key=memories_by_key,
             revisions_by_key=revisions_by_key,
             admitted_by_key=admitted_by_key,
+            observer=observer,
             existing_memories=existing_memories,
             admitted_candidates=admitted_candidates,
         )
@@ -750,29 +823,40 @@ def _evaluate_predecessor(
     revisions_by_key: Mapping[str, StoredSemanticRevision],
     admitted_by_key: Mapping[str, SemanticRevisionCandidate],
     existing_memories: Sequence[StoredSemanticMemory],
+    observer: EditDecisionObserver | None = None,
     admitted_candidates: Sequence[SemanticRevisionCandidate],
 ) -> str:
     stored = revisions_by_key.get(predecessor_key)
     batch = admitted_by_key.get(predecessor_key)
     if stored is None and batch is None:
-        return "deferred"
+        return _observed_edit_outcome(
+            "deferred", SemanticDecisionReason.TARGET_UNAVAILABLE, observer
+        )
     if stored is not None and stored.status in (
         SemanticMemoryStatus.SUPERSEDED,
         SemanticMemoryStatus.RETRACTED,
     ):
         if _correction_already_applied(stored, successor, effective_at, revisions_by_key):
-            return "applied"
-        return "invalid"
+            return _observed_edit_outcome(
+                "applied", SemanticDecisionReason.ALREADY_APPLIED, observer
+            )
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.TARGET_ALREADY_CLOSED, observer
+        )
     memory_key = stored.memory_key if stored is not None else batch.memory_key if batch else ""
     slot_key = _slot_key(stored, batch, memories_by_key)
     cardinality = _cardinality(stored, batch, memories_by_key)
     if slot_key is None or cardinality is not SemanticCardinality.ONE:
-        return "invalid"
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.UNSUPPORTED_CARDINALITY, observer
+        )
     if slot_key != successor.slot_key or memory_key == successor.memory_key:
-        return "invalid"
+        return _observed_edit_outcome("invalid", SemanticDecisionReason.WRONG_SLOT, observer)
     start = _effective_start(stored, batch)
     if start is None or effective_at <= start:
-        return "invalid"
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.INVALID_EFFECTIVE_TIME, observer
+        )
     if not _unique_current_slot(
         slot_key=slot_key,
         predecessor_key=predecessor_key,
@@ -781,9 +865,11 @@ def _evaluate_predecessor(
         admitted_candidates=admitted_candidates,
         revisions_by_key=revisions_by_key,
     ):
-        return "deferred"
+        return _observed_edit_outcome(
+            "deferred", SemanticDecisionReason.TARGET_NOT_UNIQUE_CURRENT, observer
+        )
     if stored is not None and stored.status is SemanticMemoryStatus.CONTESTED:
-        return "deferred"
+        return _observed_edit_outcome("deferred", SemanticDecisionReason.TARGET_CONTESTED, observer)
     return "ok"
 
 
@@ -796,25 +882,38 @@ def _evaluate_withdrawal_target(
     revisions_by_key: Mapping[str, StoredSemanticRevision],
     admitted_by_key: Mapping[str, SemanticRevisionCandidate],
     existing_memories: Sequence[StoredSemanticMemory],
+    observer: EditDecisionObserver | None = None,
     admitted_candidates: Sequence[SemanticRevisionCandidate],
 ) -> str:
     stored = revisions_by_key.get(target_key)
     batch = admitted_by_key.get(target_key)
     if stored is None and batch is None:
-        return "deferred"
+        return _observed_edit_outcome(
+            "deferred", SemanticDecisionReason.TARGET_UNAVAILABLE, observer
+        )
     if stored is not None and stored.tenant_id != tenant_id:
-        return "invalid"
+        return _observed_edit_outcome("invalid", SemanticDecisionReason.WRONG_SLOT, observer)
     if stored is not None and stored.status is SemanticMemoryStatus.RETRACTED:
-        return "applied" if _withdrawal_already_applied(stored, effective_at) else "invalid"
+        return _observed_edit_outcome(
+            "applied" if _withdrawal_already_applied(stored, effective_at) else "invalid",
+            SemanticDecisionReason.ALREADY_APPLIED,
+            observer,
+        )
     if stored is not None and stored.status is SemanticMemoryStatus.SUPERSEDED:
-        return "invalid"
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.TARGET_ALREADY_CLOSED, observer
+        )
     slot_key = _slot_key(stored, batch, memories_by_key)
     cardinality = _cardinality(stored, batch, memories_by_key)
     if slot_key is None or cardinality is not SemanticCardinality.ONE:
-        return "invalid"
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.UNSUPPORTED_CARDINALITY, observer
+        )
     start = _effective_start(stored, batch)
     if start is None or effective_at <= start:
-        return "invalid"
+        return _observed_edit_outcome(
+            "invalid", SemanticDecisionReason.INVALID_EFFECTIVE_TIME, observer
+        )
     if not _unique_current_slot(
         slot_key=slot_key,
         predecessor_key=target_key,
@@ -822,7 +921,9 @@ def _evaluate_withdrawal_target(
         admitted_candidates=admitted_candidates,
         revisions_by_key=revisions_by_key,
     ):
-        return "deferred"
+        return _observed_edit_outcome(
+            "deferred", SemanticDecisionReason.TARGET_NOT_UNIQUE_CURRENT, observer
+        )
     return "ok"
 
 
@@ -891,6 +992,8 @@ def _unique_current_slot(
 def _drop_cross_operation_conflicts(
     corrections: list[ExplicitSemanticCorrection],
     withdrawals: list[ExplicitSemanticWithdrawal],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> tuple[list[ExplicitSemanticCorrection], list[ExplicitSemanticWithdrawal], int]:
     """One predecessor can receive only one explicit operation in a pass."""
     correction_keys = {item.predecessor_revision_key for item in corrections}
@@ -902,6 +1005,16 @@ def _drop_cross_operation_conflicts(
         item for item in corrections if item.predecessor_revision_key not in conflict
     ]
     kept_withdrawals = [item for item in withdrawals if item.target_revision_key not in conflict]
+    for correction in corrections:
+        if correction.predecessor_revision_key in conflict:
+            _edit_observer(diagnostics, correction).decide(
+                "deferred", SemanticDecisionReason.REPLACE_WITHDRAW_CONFLICT
+            )
+    for withdrawal in withdrawals:
+        if withdrawal.target_revision_key in conflict:
+            _edit_observer(diagnostics, withdrawal).decide(
+                "deferred", SemanticDecisionReason.REPLACE_WITHDRAW_CONFLICT
+            )
     deferred = (len(corrections) - len(kept_corrections)) + (
         len(withdrawals) - len(kept_withdrawals)
     )
@@ -910,6 +1023,8 @@ def _drop_cross_operation_conflicts(
 
 def _drop_competing_corrections(
     corrections: Sequence[ExplicitSemanticCorrection],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> tuple[list[ExplicitSemanticCorrection], set[str], int]:
     grouped: dict[str, list[ExplicitSemanticCorrection]] = {}
     for correction in corrections:
@@ -930,6 +1045,10 @@ def _drop_competing_corrections(
         if len(identities) == 1:
             kept.append(group[0])
             continue
+        for item in group:
+            _edit_observer(diagnostics, item).decide(
+                "deferred", SemanticDecisionReason.COMPETING_CORRECTIONS
+            )
         deferred += len(group)
         dropped.update(item.successor.memory_key for item in group)
     return kept, dropped, deferred
@@ -937,6 +1056,8 @@ def _drop_competing_corrections(
 
 def _drop_competing_withdrawals(
     withdrawals: Sequence[ExplicitSemanticWithdrawal],
+    *,
+    diagnostics: SemanticDecisionCollector | None = None,
 ) -> tuple[list[ExplicitSemanticWithdrawal], int, int]:
     grouped: dict[str, list[ExplicitSemanticWithdrawal]] = {}
     for withdrawal in withdrawals:
@@ -952,6 +1073,10 @@ def _drop_competing_withdrawals(
         if len(identities) == 1:
             kept.append(group[0])
             continue
+        for item in group:
+            _edit_observer(diagnostics, item).decide(
+                "deferred", SemanticDecisionReason.COMPETING_WITHDRAWALS
+            )
         deferred += len(group)
         invalid += 0
     return kept, invalid, deferred
@@ -1660,3 +1785,44 @@ def _derivations_from_snapshot(raw_items: object) -> tuple[SemanticDerivationInp
         except (KeyError, TypeError, ValueError, ValidationError):
             continue
     return tuple(derivations)
+
+
+def _observed_edit_outcome(
+    outcome: str,
+    reason: SemanticDecisionReason,
+    observer: EditDecisionObserver | None,
+) -> str:
+    return observer.decide(outcome, reason) if observer is not None else outcome
+
+
+def _edit_observer(
+    diagnostics: SemanticDecisionCollector | None,
+    edit: ExplicitSemanticCorrection | ExplicitSemanticWithdrawal,
+) -> EditDecisionObserver:
+    if isinstance(edit, ExplicitSemanticCorrection):
+        target = edit.predecessor_revision_key
+        key = generate_revision_key(
+            edit.successor.memory_key, valid_from=edit.effective_at, valid_until=None
+        )
+        return EditDecisionObserver(
+            diagnostics,
+            operation=SemanticDecisionOperation.REPLACE,
+            observation_id=edit.observation_id,
+            observation_revision=edit.observation_revision,
+            target_key=target,
+            effective_at=edit.effective_at,
+            slot_key=edit.successor.slot_key,
+            claim_key=edit.successor.memory_key,
+            resulting_revision_key=key,
+        )
+    return EditDecisionObserver(
+        diagnostics,
+        operation=SemanticDecisionOperation.WITHDRAW,
+        observation_id=edit.observation_id,
+        observation_revision=edit.observation_revision,
+        target_key=edit.target_revision_key,
+        effective_at=edit.effective_at,
+        resulting_revision_key=generate_revision_key(
+            edit.target_revision_key, valid_from=edit.effective_at, valid_until=None
+        ),
+    )

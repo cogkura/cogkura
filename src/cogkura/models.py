@@ -16,6 +16,7 @@ from cogkura.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from cogkura.observations.encoding_context import RetrievalContext
+    from cogkura.observations.models import ObservationRevisionIdentity
 
 _DEFAULT_RELATIONSHIP_TYPE_WEIGHTS: Mapping[str, float] = MappingProxyType(
     {
@@ -1070,6 +1071,7 @@ class SemanticConsolidationResult:
     authoritative_withdrawals_applied: int = 0
     corrections_deferred: int = 0
     corrections_invalid: int = 0
+    decisions: SemanticDecisionReport | None = None
 
     def record(
         self,
@@ -1103,6 +1105,7 @@ class SemanticConsolidationResult:
             authoritative_withdrawals_applied=self.authoritative_withdrawals_applied,
             corrections_deferred=self.corrections_deferred,
             corrections_invalid=self.corrections_invalid,
+            decisions=self.decisions,
         )
 
     def with_reconciliation(
@@ -1140,6 +1143,7 @@ class SemanticConsolidationResult:
             authoritative_withdrawals_applied=self.authoritative_withdrawals_applied,
             corrections_deferred=self.corrections_deferred,
             corrections_invalid=self.corrections_invalid,
+            decisions=self.decisions,
         )
 
 
@@ -3883,3 +3887,410 @@ class MemoryContext:
                 statement = item.memory.statement.replace("\n", "\n  ")
             lines.append(f"- {statement}")
         return "\n".join(lines)
+
+
+# Source-aware diagnostics are independent of retrieval and cognitive state.
+class SemanticKnowledgeState(StrEnum):
+    INDETERMINATE = "indeterminate"
+    CONTESTED = "contested"
+    KNOWN = "known"
+    WITHDRAWN = "withdrawn"
+    HISTORICAL_ONLY = "historical_only"
+    UNKNOWN = "unknown"
+
+
+class SemanticRevisionViewState(StrEnum):
+    VISIBLE_CURRENT = "visible_current"
+    VISIBLE_HISTORICAL = "visible_historical"
+    WITHDRAWN = "withdrawn"
+    PENDING_EFFECTIVE = "pending_effective"
+    INDETERMINATE = "indeterminate"
+
+
+class SourceConflictState(StrEnum):
+    NONE_OBSERVED = "none_observed"
+    SEMANTIC_CONFLICT = "semantic_conflict"
+    INDETERMINATE = "indeterminate"
+
+
+class SourceIndependenceState(StrEnum):
+    UNKNOWN = "unknown"
+
+
+class DecisionHistoryAvailability(StrEnum):
+    UNAVAILABLE = "unavailable"
+
+
+class SourceCurrentnessBasis(StrEnum):
+    STORE_VIEW_AT_INSPECTION = "store_view_at_inspection"
+
+
+class SourceAssessmentReason(StrEnum):
+    NO_EVIDENCE = "no_evidence"
+    SOURCE_UNAVAILABLE = "source_unavailable"
+    REVISION_UNAVAILABLE = "revision_unavailable"
+    LOCATOR_MISSING = "locator_missing"
+    RELATION_UNAVAILABLE = "relation_unavailable"
+    EVIDENCE_TRUNCATED = "evidence_truncated"
+    INVENTORY_TRUNCATED = "inventory_truncated"
+    LEGACY_HISTORY_INCOMPLETE = "legacy_history_incomplete"
+    TEMPORAL_HISTORY_UNAVAILABLE = "temporal_history_unavailable"
+    TRANSITION_ATTRIBUTION_UNAVAILABLE = "transition_attribution_unavailable"
+    SOURCE_REVISION_SUPERSEDED = "source_revision_superseded"
+    SOURCE_CURRENTNESS_UNKNOWN = "source_currentness_unknown"
+    SEMANTIC_CONTESTED = "semantic_contested"
+    CROSS_SOURCE_DISAGREEMENT = "cross_source_disagreement"
+    FACT_WITHDRAWN = "fact_withdrawn"
+    HISTORICAL_ONLY = "historical_only"
+    PENDING_EFFECTIVE = "pending_effective"
+    DECISION_HISTORY_UNAVAILABLE = "decision_history_unavailable"
+    INSPECTION_CAPABILITY_UNAVAILABLE = "inspection_capability_unavailable"
+
+
+class SemanticDecisionOperation(StrEnum):
+    ADMIT = "admit"
+    REPLACE = "replace"
+    WITHDRAW = "withdraw"
+
+
+class SemanticDecisionOutcome(StrEnum):
+    APPLIED = "applied"
+    ALREADY_APPLIED = "already_applied"
+    DEFERRED = "deferred"
+    INVALID = "invalid"
+
+
+class SemanticDecisionReason(StrEnum):
+    AUTHORITY_COMPETES_WITH_CURRENT = "authority_competes_with_current"
+    COMPETING_AUTHORITY_CLAIMS = "competing_authority_claims"
+    READMISSION_AFTER_WITHDRAWAL = "readmission_after_withdrawal"
+    TARGET_UNAVAILABLE = "target_unavailable"
+    TARGET_NOT_UNIQUE_CURRENT = "target_not_unique_current"
+    TARGET_CONTESTED = "target_contested"
+    COMPETING_CORRECTIONS = "competing_corrections"
+    COMPETING_WITHDRAWALS = "competing_withdrawals"
+    REPLACE_WITHDRAW_CONFLICT = "replace_withdraw_conflict"
+    AUTHORITY_REQUIRED = "authority_required"
+    MALFORMED_DECLARATION = "malformed_declaration"
+    EXACT_REVISION_UNAVAILABLE = "exact_revision_unavailable"
+    STALE_OR_DELETED_AUTHORIZING_SOURCE = "stale_or_deleted_authorizing_source"
+    WRONG_SLOT = "wrong_slot"
+    UNSUPPORTED_CARDINALITY = "unsupported_cardinality"
+    SAME_CLAIM_REPLACEMENT = "same_claim_replacement"
+    INVALID_EFFECTIVE_TIME = "invalid_effective_time"
+    TARGET_ALREADY_CLOSED = "target_already_closed"
+    APPLIED = "applied"
+    ALREADY_APPLIED = "already_applied"
+
+
+def _source_positive_limit(value: int, label: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValidationError(f"{label} must be a positive integer.")
+
+
+def _source_scope(tenant_id: str, timestamp: datetime, valid_at: datetime | None = None) -> None:
+    if not isinstance(tenant_id, str) or not tenant_id.strip():
+        raise ValidationError("tenant_id must not be empty.")
+    for value in (timestamp, valid_at):
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValidationError("Source assessment times must be timezone-aware.")
+
+
+def _source_tuple_fields(instance: Any, names: tuple[str, ...]) -> None:
+    for name in names:
+        object.__setattr__(instance, name, tuple(getattr(instance, name)))
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceQuality:
+    """Occurrence coverage, never factual confidence or source independence.
+
+    Semantic support/contradiction relations are applicable to semantic references
+    only. Direct episode evidence contributes to not-applicable coverage instead.
+    ``relation_coverage_complete`` is None when there are no semantic references.
+    """
+
+    referenced_count: int
+    returned_count: int
+    revision_resolved_count: int
+    locator_present_count: int
+    relation_known_count: int
+    relation_applicable_count: int
+    relation_not_applicable_count: int
+    distinct_source_count: int
+
+    def __post_init__(self) -> None:
+        values = (
+            self.referenced_count,
+            self.returned_count,
+            self.revision_resolved_count,
+            self.locator_present_count,
+            self.relation_known_count,
+            self.relation_applicable_count,
+            self.relation_not_applicable_count,
+            self.distinct_source_count,
+        )
+        if any(isinstance(v, bool) or not isinstance(v, int) or v < 0 for v in values):
+            raise ValidationError("Evidence counts must be non-negative integers.")
+        if not (
+            self.locator_present_count
+            <= self.revision_resolved_count
+            <= self.returned_count
+            <= self.referenced_count
+            and self.relation_known_count
+            <= min(self.returned_count, self.relation_applicable_count)
+            and self.relation_applicable_count + self.relation_not_applicable_count
+            == self.referenced_count
+            and self.distinct_source_count <= self.revision_resolved_count
+        ):
+            raise ValidationError("Evidence coverage counts are inconsistent.")
+
+    @property
+    def has_evidence(self) -> bool:
+        return self.referenced_count > 0
+
+    @property
+    def is_truncated(self) -> bool:
+        return self.returned_count < self.referenced_count
+
+    @property
+    def revision_coverage_complete(self) -> bool:
+        return self.revision_resolved_count == self.referenced_count
+
+    @property
+    def locator_coverage_complete(self) -> bool:
+        return self.locator_present_count == self.referenced_count
+
+    @property
+    def relation_coverage_complete(self) -> bool | None:
+        if self.relation_applicable_count == 0:
+            return None
+        return not self.is_truncated and self.relation_known_count == self.relation_applicable_count
+
+
+@dataclass(frozen=True, slots=True)
+class SourceCurrentness:
+    latest_count: int
+    older_revision_count: int
+    unknown_count: int
+    basis: SourceCurrentnessBasis = SourceCurrentnessBasis.STORE_VIEW_AT_INSPECTION
+
+    def __post_init__(self) -> None:
+        for value in (self.latest_count, self.older_revision_count, self.unknown_count):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValidationError("Currentness counts must be non-negative integers.")
+
+    @property
+    def is_complete(self) -> bool:
+        return self.unknown_count == 0
+
+
+@dataclass(frozen=True, slots=True)
+class SourceMemoryItem:
+    memory_identity: MemoryIdentity
+    representation: MemoryProvenanceRepresentation
+    revision_key: str | None
+    quality: EvidenceQuality
+    currentness: SourceCurrentness
+    promotion: SemanticPromotion | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceMemoryAssessment:
+    tenant_id: str
+    subject_id: str | None
+    assessed_at: datetime
+    valid_at: datetime | None
+    provenance: ContextProvenance
+    items: tuple[SourceMemoryItem, ...]
+    quality: EvidenceQuality
+    reasons: tuple[SourceAssessmentReason, ...]
+
+    def __post_init__(self) -> None:
+        _source_scope(self.tenant_id, self.assessed_at, self.valid_at)
+        _source_tuple_fields(self, ("items", "reasons"))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticSlotQuery:
+    subject_entity_id: str | None
+    predicate: str
+    qualifiers: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.predicate, str) or not self.predicate.strip():
+            raise ValidationError("predicate must not be empty.")
+        if self.subject_entity_id is not None and (
+            not isinstance(self.subject_entity_id, str) or not self.subject_entity_id.strip()
+        ):
+            raise ValidationError("subject_entity_id must be None or a non-empty string.")
+        if not isinstance(self.qualifiers, Mapping) or any(
+            not isinstance(k, str)
+            or not k.strip()
+            or not isinstance(v, (str, int, float, bool, type(None)))
+            or (isinstance(v, float) and not math.isfinite(v))
+            for k, v in self.qualifiers.items()
+        ):
+            raise ValidationError("qualifiers must map non-empty strings to finite scalar values.")
+        object.__setattr__(self, "qualifiers", MappingProxyType(dict(self.qualifiers)))
+
+
+@dataclass(frozen=True, slots=True)
+class SourceInspectionLimits:
+    max_revisions: int = 128
+    max_relations: int = 256
+    max_evidence: int = 256
+
+    def __post_init__(self) -> None:
+        for label in ("max_revisions", "max_relations", "max_evidence"):
+            _source_positive_limit(getattr(self, label), label)
+
+
+@dataclass(frozen=True, slots=True)
+class SourceConflictAssessment:
+    state: SourceConflictState
+    conflicting_revision_keys: tuple[str, ...]
+    distinct_supporting_sources: int
+    distinct_contradicting_sources: int
+    cross_source_disagreement: bool | None
+    is_complete: bool
+    independence: SourceIndependenceState = SourceIndependenceState.UNKNOWN
+
+    def __post_init__(self) -> None:
+        _source_tuple_fields(self, ("conflicting_revision_keys",))
+        if self.distinct_supporting_sources < 0 or self.distinct_contradicting_sources < 0:
+            raise ValidationError("Source counts must not be negative.")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticTransitionAssessment:
+    relation: SemanticUpdateRelation
+    predecessor_revision_key: str
+    successor_revision_key: str
+    effective_at: datetime | None
+    knowledge_at: datetime | None
+    asserting_evidence: ObservationRevisionIdentity | None
+
+    def __post_init__(self) -> None:
+        for value in (self.effective_at, self.knowledge_at):
+            if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+                raise ValidationError("Transition times must be timezone-aware.")
+        if not self.predecessor_revision_key.strip() or not self.successor_revision_key.strip():
+            raise ValidationError("Transition keys must not be empty.")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticRevisionAssessment:
+    memory_identity: MemoryIdentity
+    revision_key: str
+    projected_status: SemanticMemoryStatus
+    view_state: SemanticRevisionViewState
+    valid_from: datetime | None
+    valid_until: datetime | None
+    sources: tuple[SourceEvidence, ...]
+    quality: EvidenceQuality
+    currentness: SourceCurrentness
+    promotion: SemanticPromotion | None
+    transitions: tuple[SemanticTransitionAssessment, ...]
+    historical_attribution_complete: bool
+
+    def __post_init__(self) -> None:
+        if not self.revision_key.strip():
+            raise ValidationError("revision_key must not be empty.")
+        _source_tuple_fields(self, ("sources", "transitions"))
+        _validate_temporal_validity(valid_from=self.valid_from, valid_until=self.valid_until)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticSlotAssessment:
+    tenant_id: str
+    subject_id: str | None
+    slot_key: str
+    assessed_at: datetime
+    valid_at: datetime | None
+    state: SemanticKnowledgeState
+    conflict: SourceConflictAssessment
+    revisions: tuple[SemanticRevisionAssessment, ...]
+    quality: EvidenceQuality
+    inventory_complete: bool
+    reasons: tuple[SourceAssessmentReason, ...]
+    decision_history: DecisionHistoryAvailability = DecisionHistoryAvailability.UNAVAILABLE
+
+    def __post_init__(self) -> None:
+        _source_scope(self.tenant_id, self.assessed_at, self.valid_at)
+        if not self.slot_key.strip():
+            raise ValidationError("slot_key must not be empty.")
+        _source_tuple_fields(self, ("revisions", "reasons"))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticSlotRecords:
+    """Bounded storage input, never returned as a source-assessment payload."""
+
+    memories: tuple[StoredSemanticMemory, ...] = ()
+    revisions: tuple[StoredSemanticRevision, ...] = ()
+    relations: tuple[SemanticRevisionRelation, ...] = ()
+    memories_overflow: bool = False
+    revisions_overflow: bool = False
+    relations_overflow: bool = False
+
+    def __post_init__(self) -> None:
+        _source_tuple_fields(self, ("memories", "revisions", "relations"))
+
+    @property
+    def is_complete(self) -> bool:
+        return not (self.memories_overflow or self.revisions_overflow or self.relations_overflow)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticDiagnosticsConfig:
+    enabled: bool = False
+    max_items: int = 128
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.enabled, bool):
+            raise ValidationError("enabled must be boolean.")
+        _source_positive_limit(self.max_items, "max_items")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticDecision:
+    operation: SemanticDecisionOperation
+    outcome: SemanticDecisionOutcome
+    reasons: tuple[SemanticDecisionReason, ...]
+    slot_key: str | None = None
+    claim_key: str | None = None
+    target_revision_key: str | None = None
+    resulting_revision_key: str | None = None
+    asserting_evidence: ObservationRevisionIdentity | None = None
+    effective_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        _source_tuple_fields(self, ("reasons",))
+        if not self.reasons:
+            raise ValidationError("Decision reasons must not be empty.")
+        if self.effective_at is not None and (
+            self.effective_at.tzinfo is None or self.effective_at.utcoffset() is None
+        ):
+            raise ValidationError("effective_at must be timezone-aware.")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticDecisionReport:
+    tenant_id: str
+    subject_id: str | None
+    evaluated_at: datetime
+    authority_evaluated: bool
+    corrections_evaluated: bool
+    items: tuple[SemanticDecision, ...]
+    total_decisions: int
+    is_truncated: bool
+    diagnostics_complete: bool
+
+    def __post_init__(self) -> None:
+        _source_scope(self.tenant_id, self.evaluated_at)
+        _source_tuple_fields(self, ("items",))
+        if self.total_decisions < len(self.items) or self.is_truncated != (
+            self.total_decisions > len(self.items)
+        ):
+            raise ValidationError("Decision report counts are inconsistent.")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from cogkura.models import (
     ActivationReferenceTrace,
@@ -17,6 +17,7 @@ from cogkura.models import (
     ReferenceCompactionResult,
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
+    SemanticSlotRecords,
     StoredEntityRelationship,
     StoredMemoryAssociation,
     StoredMemoryDynamics,
@@ -354,3 +355,20 @@ class InhibitionStore(Protocol):
 
     async def clear(self, *, tenant_id: str) -> None:
         """Remove inhibitory traces for a tenant."""
+
+
+@runtime_checkable
+class SemanticInspectionStore(Protocol):
+    """Optional bounded semantic inventory; independent of retrieval protocols."""
+
+    async def inspect_slot(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        slot_key: str,
+        max_revisions: int,
+        max_relations: int,
+    ) -> SemanticSlotRecords:
+        """Copy a bounded slot inventory including inactive history and relations."""
+        ...

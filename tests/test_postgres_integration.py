@@ -733,7 +733,7 @@ async def test_postgres_correction_matches_in_memory_history(memory_engine: Asyn
         return ObservationInput(
             tenant_id=TENANT,
             subject_id=subject_id,
-            source_namespace="repository",
+            source_namespace=f"repository:{subject_id}",
             source_record_id=record_id,
             source_version="1",
             content=content,
@@ -846,7 +846,7 @@ async def test_postgres_withdrawal_replay_matches_in_memory(memory_engine: Async
         return ObservationInput(
             tenant_id=TENANT,
             subject_id=subject_id,
-            source_namespace="repository",
+            source_namespace=f"repository:{subject_id}",
             source_record_id=record_id,
             source_version="1",
             content=content,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import json
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
@@ -44,7 +45,11 @@ from cogkura.models import (
     SemanticPolarity,
     SemanticReconciliationPlan,
     SemanticReconciliationWriteResult,
+    SemanticRevisionRelation,
+    SemanticSlotRecords,
+    SemanticUpdateRelation,
     SemanticWriteStatus,
+    SourceInspectionLimits,
     StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryAssociation,
@@ -1510,6 +1515,212 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             memories.append(await self._load_semantic(memory_id))
         return memories
 
+    async def inspect_slot(
+        self,
+        *,
+        tenant_id: str,
+        subject_id: str | None,
+        slot_key: str,
+        max_revisions: int,
+        max_relations: int,
+    ) -> SemanticSlotRecords:
+        """Bounded slot populations in one read-only repeatable-read view."""
+        SourceInspectionLimits(max_revisions=max_revisions, max_relations=max_relations)
+        scope = "c.tenant_id = :tenant_id AND m.tenant_id = :tenant_id AND c.slot_key = :slot_key"
+        if subject_id is not None:
+            scope += " AND m.subject_id = :subject_id"
+        params: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "subject_id": subject_id,
+            "slot_key": slot_key,
+            "revision_limit": max_revisions + 1,
+            "relation_limit": max_relations + 1,
+        }
+        async with self._engine.connect() as raw_conn:
+            conn = await raw_conn.execution_options(isolation_level="REPEATABLE READ")
+            async with conn.begin():
+                await conn.execute(text("SET TRANSACTION READ ONLY"))
+                memory_rows = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT m.*, c.slot_key, c.subject_entity_id, c.predicate,
+                        c.object_value, c.object_entity_id, c.polarity, c.cardinality,
+                        c.qualifiers, c.status, c.support_count, c.contradiction_count,
+                        c.first_supported_at, c.last_supported_at, c.current_revision_key,
+                        COALESCE(r.revision_number, 1) AS revision_number
+                    FROM {self._table("semantic_claims")} c
+                    JOIN {self._table("memories")} m ON m.id = c.memory_id
+                    LEFT JOIN {self._table("semantic_claim_revisions")} r
+                        ON r.revision_key = c.current_revision_key AND r.tenant_id = :tenant_id
+                    WHERE {scope}
+                    ORDER BY m.memory_key, revision_number, c.current_revision_key
+                    LIMIT :revision_limit
+                """),
+                            params,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+                revision_rows = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT r.* FROM {self._table("semantic_claim_revisions")} r
+                    JOIN {self._table("semantic_claims")} c ON c.memory_id = r.memory_id
+                    JOIN {self._table("memories")} m ON m.id = r.memory_id
+                    WHERE {scope} AND r.tenant_id = :tenant_id
+                    ORDER BY r.memory_key, r.revision_number, r.revision_key
+                    LIMIT :revision_limit
+                """),
+                            params,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+                relation_rows = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT rel.* FROM {self._table("semantic_revision_relations")} rel
+                    WHERE rel.tenant_id = :tenant_id AND EXISTS (
+                        SELECT 1 FROM {self._table("semantic_claim_revisions")} r
+                        JOIN {self._table("semantic_claims")} c ON c.memory_id = r.memory_id
+                        JOIN {self._table("memories")} m ON m.id = r.memory_id
+                        WHERE {scope} AND r.tenant_id = :tenant_id
+                        AND r.revision_key IN (rel.left_revision_key, rel.right_revision_key)
+                    )
+                    ORDER BY rel.left_revision_key, rel.right_revision_key, rel.relation
+                    LIMIT :relation_limit
+                """),
+                            params,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+                selected_memories = memory_rows[:max_revisions]
+                selected_revisions = revision_rows[:max_revisions]
+                batch = {
+                    "tenant_id": tenant_id,
+                    "memory_ids": [str(r["id"]) for r in selected_memories],
+                    "revision_keys": [r["revision_key"] for r in selected_revisions],
+                }
+                derivations = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT * FROM {self._table("memory_derivations")}
+                    WHERE tenant_id = :tenant_id AND (
+                        target_memory_id::text = ANY(CAST(:memory_ids AS text[]))
+                        OR revision_key = ANY(CAST(:revision_keys AS text[])))
+                    ORDER BY revision_key, source_memory_id, relation
+                """),
+                            batch,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+                evidence = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT e.* FROM {self._table("memory_evidence")} e
+                    JOIN {self._table("memories")} m ON m.id = e.memory_id
+                    WHERE m.tenant_id = :tenant_id
+                        AND e.memory_id::text = ANY(CAST(:memory_ids AS text[]))
+                    ORDER BY e.memory_id, e.sequence_number
+                """),
+                            batch,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+                entities = (
+                    (
+                        await conn.execute(
+                            text(f"""
+                    SELECT e.* FROM {self._table("memory_entities")} e
+                    JOIN {self._table("memories")} m ON m.id = e.memory_id
+                    WHERE m.tenant_id = :tenant_id
+                        AND e.memory_id::text = ANY(CAST(:memory_ids AS text[]))
+                    ORDER BY e.memory_id, e.entity_id, e.entity_role
+                """),
+                            batch,
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+        by_memory_derivations: dict[str, list[Any]] = defaultdict(list)
+        by_revision_derivations: dict[str, list[Any]] = defaultdict(list)
+        by_evidence: dict[str, list[Any]] = defaultdict(list)
+        by_entities: dict[str, list[Any]] = defaultdict(list)
+        for row in derivations:
+            by_memory_derivations[str(row["target_memory_id"])].append(row)
+            by_revision_derivations[row["revision_key"]].append(row)
+        for row in evidence:
+            by_evidence[str(row["memory_id"])].append(row)
+        for row in entities:
+            by_entities[str(row["memory_id"])].append(row)
+        return SemanticSlotRecords(
+            memories=tuple(
+                self._to_stored(
+                    r,
+                    by_memory_derivations[str(r["id"])],
+                    by_evidence[str(r["id"])],
+                    by_entities[str(r["id"])],
+                )
+                for r in selected_memories
+            ),
+            revisions=tuple(
+                StoredSemanticRevision(
+                    revision_key=r["revision_key"],
+                    memory_key=r["memory_key"],
+                    tenant_id=r["tenant_id"],
+                    revision_number=int(r["revision_number"]),
+                    status=SemanticMemoryStatus(r["status"]),
+                    valid_from=r["valid_from"],
+                    valid_until=r["valid_until"],
+                    confidence=float(r["confidence"]),
+                    importance=float(r["importance"]),
+                    support_count=int(r["support_count"]),
+                    contradiction_count=int(r["contradiction_count"]),
+                    first_supported_at=r["first_supported_at"],
+                    last_supported_at=r["last_supported_at"],
+                    created_at=r["created_at"],
+                    updated_at=r["updated_at"],
+                    snapshot=_snapshot_from_row(r["snapshot"]),
+                    derivations=tuple(
+                        SemanticDerivationInput(
+                            episode_id=str(d["source_memory_id"]),
+                            relation=SemanticDerivationRelation(d["relation"]),
+                            contribution_score=float(d["contribution_score"]),
+                        )
+                        for d in by_revision_derivations[r["revision_key"]]
+                    ),
+                )
+                for r in selected_revisions
+            ),
+            relations=tuple(
+                SemanticRevisionRelation(
+                    tenant_id=tenant_id,
+                    left_revision_key=r["left_revision_key"],
+                    right_revision_key=r["right_revision_key"],
+                    relation=SemanticUpdateRelation(r["relation"]),
+                    effective_at=r["effective_at"],
+                )
+                for r in relation_rows[:max_relations]
+            ),
+            memories_overflow=len(memory_rows) > max_revisions,
+            revisions_overflow=len(revision_rows) > max_revisions,
+            relations_overflow=len(relation_rows) > max_relations,
+        )
+
     async def list_revisions(
         self,
         *,
@@ -1670,13 +1881,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                         updated += 1
                 memory_ids[key] = memory_id
                 await self._upsert_claim(conn, memory_id, memory)
-                await self._replace_derivations(
-                    conn,
-                    memory.tenant_id,
-                    memory_id,
-                    memory.revision_key,
-                    memory.derivations,
-                )
+                # Revision derivations are written below, after the referenced row exists.
                 await self._replace_evidence(conn, memory_id, memory.observation_evidence)
                 await self._replace_entities(conn, memory_id, memory.entities)
 

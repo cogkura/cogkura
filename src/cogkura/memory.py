@@ -58,7 +58,10 @@ from cogkura.algorithms.semantic import (
     defer_conflicting_authority_candidates,
     promotion_basis_value,
     qualify_source_authority,
+    semantic_slot_key,
 )
+from cogkura.algorithms.semantic_diagnostics import SemanticDecisionCollector
+from cogkura.algorithms.source_assessment import assess_context_sources, inspect_slot_sources
 from cogkura.algorithms.working_memory import (
     ApproximateTokenEstimator,
     DeterministicWorkingMemorySelector,
@@ -105,10 +108,17 @@ from cogkura.models import (
     RetrievalInterferenceObservability,
     SemanticConsolidationResult,
     SemanticCorrectionConfig,
+    SemanticDecisionOutcome,
+    SemanticDecisionReason,
     SemanticDerivationRelation,
+    SemanticDiagnosticsConfig,
     SemanticFactCandidate,
     SemanticMemoryStatus,
     SemanticPromotionBasis,
+    SemanticSlotAssessment,
+    SemanticSlotQuery,
+    SourceInspectionLimits,
+    SourceMemoryAssessment,
     StoredEntityRelationship,
     StoredEpisode,
     StoredMemoryLearningState,
@@ -116,6 +126,7 @@ from cogkura.models import (
     StoredSemanticRevision,
     WorkingMemoryConfig,
     WorkingMemorySnapshot,
+    _source_positive_limit,
 )
 from cogkura.observations.encoding_context import RetrievalContext
 from cogkura.observations.models import (
@@ -142,6 +153,7 @@ from cogkura.storage import (
     LearningStore,
     MemoryDynamicsStore,
     ObservationStore,
+    SemanticInspectionStore,
     SemanticMemoryStore,
 )
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
@@ -204,6 +216,8 @@ class Memory:
         inhibition_store: InhibitionStore | None = None,
         inhibition_config: InhibitionConfig | None = None,
         semantic_correction_config: SemanticCorrectionConfig | None = None,
+        semantic_diagnostics_config: SemanticDiagnosticsConfig | None = None,
+        semantic_inspection_store: SemanticInspectionStore | None = None,
         token_estimator: TokenEstimator | None = None,
         context_matcher: ContextMatcher | None = None,
         policy: ObservationPolicy | None = None,
@@ -219,6 +233,14 @@ class Memory:
         self._semantic_store = (
             semantic_store if semantic_store is not None else InMemorySemanticMemoryStore()
         )
+        self._semantic_diagnostics_config = (
+            semantic_diagnostics_config or SemanticDiagnosticsConfig()
+        )
+        self._semantic_inspection_store = semantic_inspection_store
+        if self._semantic_inspection_store is None and isinstance(
+            self._semantic_store, SemanticInspectionStore
+        ):
+            self._semantic_inspection_store = self._semantic_store
         self._activation_store = (
             activation_store if activation_store is not None else InMemoryActivationStore()
         )
@@ -1096,6 +1118,68 @@ class Memory:
         )
         return await resolver.resolve(context, max_evidence=max_evidence)
 
+    async def assess_source_memory(
+        self,
+        context: MemoryContext,
+        *,
+        max_evidence: int = DEFAULT_MAX_PROVENANCE_EVIDENCE,
+    ) -> SourceMemoryAssessment:
+        """Assess selected context evidence without another retrieval or any writes."""
+        _source_positive_limit(max_evidence, "max_evidence")
+        provenance = await self.resolve_provenance(context, max_evidence=max_evidence)
+        return assess_context_sources(context, provenance)
+
+    async def inspect_semantic_slot(
+        self,
+        slot: SemanticSlotQuery,
+        *,
+        tenant_id: str,
+        subject_id: str | None = None,
+        as_of: datetime | None = None,
+        valid_at: datetime | None = None,
+        limits: SourceInspectionLimits | None = None,
+    ) -> SemanticSlotAssessment:
+        """Inspect exact stored semantic state, independent of recall accessibility."""
+        if not isinstance(tenant_id, str) or not tenant_id.strip():
+            raise ValidationError("tenant_id must not be empty.")
+        if not isinstance(slot, SemanticSlotQuery):
+            raise ValidationError("slot must be a SemanticSlotQuery.")
+        if valid_at is not None and (valid_at.tzinfo is None or valid_at.utcoffset() is None):
+            raise ValidationError("valid_at must be timezone-aware.")
+        if subject_id is not None and (not isinstance(subject_id, str) or not subject_id.strip()):
+            raise ValidationError("subject_id must be None or a non-empty string.")
+        evaluation_time = _evaluation_time(as_of)
+        bounds = limits or SourceInspectionLimits()
+        slot_key = semantic_slot_key(
+            tenant_id=tenant_id,
+            subject_entity_id=slot.subject_entity_id,
+            predicate=slot.predicate,
+            qualifiers=slot.qualifiers,
+        )
+        records = (
+            await self._semantic_inspection_store.inspect_slot(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                slot_key=slot_key,
+                max_revisions=bounds.max_revisions,
+                max_relations=bounds.max_relations,
+            )
+            if self._semantic_inspection_store is not None
+            else None
+        )
+        return await inspect_slot_sources(
+            records,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            slot_key=slot_key,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+            historical_currentness=as_of is not None,
+            limits=bounds,
+            observation_store=self._observation_store,
+            episode_store=self._episode_store,
+        )
+
     async def record_access(
         self,
         results: Sequence[RecallResult],
@@ -1470,6 +1554,17 @@ class Memory:
             raise ValidationError("tenant_id must not be empty.")
 
         evaluation_time = _evaluation_time(as_of)
+        diagnostics = (
+            SemanticDecisionCollector(self._semantic_diagnostics_config.max_items)
+            if self._semantic_diagnostics_config.enabled
+            else None
+        )
+        if diagnostics is not None:
+            diagnostics.complete = (
+                type(self._semantic_extractor) is MetadataSemanticExtractor
+                and type(self._semantic_consolidator) is ComplementaryLearningSemanticConsolidator
+                and type(self._semantic_reconciler) is DeterministicSemanticReconciler
+            )
         episodes = await self._episode_store.list(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -1483,10 +1578,21 @@ class Memory:
             observation_ids=observation_ids,
         )
         observations_by_id = {observation.id: observation for observation in observations}
-        extraction = await self._semantic_extractor.extract(
-            episodes,
-            observations=observations_by_id,
-        )
+        if (
+            diagnostics is not None
+            and self._authority_promotion_enabled()
+            and type(self._semantic_extractor) is MetadataSemanticExtractor
+        ):
+            extraction = await self._semantic_extractor.extract(
+                episodes,
+                observations=observations_by_id,
+                diagnostics=diagnostics,
+            )
+        else:
+            extraction = await self._semantic_extractor.extract(
+                episodes,
+                observations=observations_by_id,
+            )
         candidates = extraction.candidates
         authority_invalid = 0
         if self._authority_promotion_enabled():
@@ -1494,6 +1600,7 @@ class Memory:
             candidates, revision_invalid = qualify_source_authority(
                 candidates,
                 await self._authority_revisions(tenant_id=tenant_id, candidates=candidates),
+                diagnostics=diagnostics,
             )
             authority_invalid += revision_invalid
         revision_candidates = self._semantic_consolidator.consolidate(
@@ -1524,6 +1631,7 @@ class Memory:
             existing_memories=existing_memories,
             existing_revisions=existing_revisions,
             admitted_candidates=revision_candidates,
+            diagnostics=diagnostics,
         )
         if correction_qualification.withhold_memory_keys:
             revision_candidates = [
@@ -1534,6 +1642,7 @@ class Memory:
         admitted, authority_deferred_conflict = defer_conflicting_authority_candidates(
             revision_candidates,
             existing_memories,
+            diagnostics=diagnostics,
         )
         retracted_memory_keys = {
             revision.memory_key
@@ -1550,6 +1659,13 @@ class Memory:
                 if candidate.memory_key not in retracted_memory_keys
             ]
             authority_deferred_conflict += len(blocked)
+            if diagnostics is not None:
+                for candidate in blocked:
+                    diagnostics.candidate(
+                        candidate,
+                        outcome=SemanticDecisionOutcome.DEFERRED,
+                        reason=SemanticDecisionReason.READMISSION_AFTER_WITHDRAWAL,
+                    )
         plan = self._semantic_reconciler.reconcile(
             candidates=admitted,
             existing_memories=existing_memories,
@@ -1560,12 +1676,30 @@ class Memory:
             plan,
             correction_qualification.corrections,
             correction_qualification.withdrawals,
+            diagnostics=diagnostics,
         )
         plan = edited.plan
         write_result = await self._semantic_store.apply_reconciliation(
             plan,
             as_of=evaluation_time,
         )
+        if diagnostics is not None:
+            previous_keys = {r.revision_key for r in existing_revisions}
+            committed_keys = {r.revision_key for r in plan.revisions}
+            for candidate in admitted:
+                if candidate.revision_key in committed_keys:
+                    already = candidate.revision_key in previous_keys
+                    diagnostics.candidate(
+                        candidate,
+                        outcome=SemanticDecisionOutcome.ALREADY_APPLIED
+                        if already
+                        else SemanticDecisionOutcome.APPLIED,
+                        reason=SemanticDecisionReason.ALREADY_APPLIED
+                        if already
+                        else SemanticDecisionReason.APPLIED,
+                    )
+                else:
+                    diagnostics.complete = False
         recurrence_promoted = sum(
             promotion_basis_value(candidate.metadata) == SemanticPromotionBasis.RECURRENCE.value
             for candidate in admitted
@@ -1597,6 +1731,15 @@ class Memory:
             authoritative_withdrawals_applied=edited.withdrawals_applied,
             corrections_deferred=correction_qualification.deferred,
             corrections_invalid=correction_qualification.invalid,
+            decisions=diagnostics.report(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                evaluated_at=evaluation_time,
+                authority_evaluated=self._authority_promotion_enabled(),
+                corrections_evaluated=self._semantic_correction_config.enabled,
+            )
+            if diagnostics
+            else None,
         ).with_reconciliation(
             reinforced=plan.reinforced_count,
             coexisting=plan.coexist_count,
