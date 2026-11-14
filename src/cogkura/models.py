@@ -4074,6 +4074,7 @@ class SourceCurrentness:
     older_revision_count: int
     unknown_count: int
     basis: SourceCurrentnessBasis = SourceCurrentnessBasis.STORE_VIEW_AT_INSPECTION
+    is_truncated: bool = False
 
     def __post_init__(self) -> None:
         for value in (self.latest_count, self.older_revision_count, self.unknown_count):
@@ -4082,7 +4083,7 @@ class SourceCurrentness:
 
     @property
     def is_complete(self) -> bool:
-        return self.unknown_count == 0
+        return self.unknown_count == 0 and not self.is_truncated
 
 
 @dataclass(frozen=True, slots=True)

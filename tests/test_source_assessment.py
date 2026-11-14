@@ -485,3 +485,15 @@ def test_omitted_non_applicable_episode_does_not_lower_semantic_relation_coverag
     assert quality.is_truncated
     assert quality.relation_coverage_complete is True
     assert not quality.revision_coverage_complete
+
+
+async def test_cap_omissions_do_not_report_complete_source_currentness() -> None:
+    m = memory()
+    await adopt(m)
+    ctx = await m.prepare_context("deployment policy", tenant_id=TENANT, as_of=T0)
+    report = await m.assess_source_memory(ctx, max_evidence=1)
+    assert report.quality.is_truncated
+    for item in report.items:
+        if item.quality.is_truncated:
+            assert item.currentness.is_truncated
+            assert not item.currentness.is_complete

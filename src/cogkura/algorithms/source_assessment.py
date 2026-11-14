@@ -80,11 +80,16 @@ def evidence_quality(
     )
 
 
-def source_currentness(sources: Sequence[SourceEvidence]) -> SourceCurrentness:
+def source_currentness(
+    sources: Sequence[SourceEvidence],
+    *,
+    referenced_count: int | None = None,
+) -> SourceCurrentness:
     return SourceCurrentness(
         latest_count=sum(s.is_latest_known_revision is True for s in sources),
         older_revision_count=sum(s.is_latest_known_revision is False for s in sources),
         unknown_count=sum(s.is_latest_known_revision is None for s in sources),
+        is_truncated=referenced_count is not None and len(sources) < referenced_count,
     )
 
 
@@ -138,7 +143,7 @@ def assess_context_sources(
                 if isinstance(memory, StoredSemanticMemory)
                 else None,
                 quality=quality,
-                currentness=source_currentness(item.sources),
+                currentness=source_currentness(item.sources, referenced_count=count),
                 promotion=item.promotion,
             )
         )
@@ -381,7 +386,7 @@ async def inspect_slot_sources(
                 valid_until=projected_item.memory.valid_until,
                 sources=tuple(sources),
                 quality=quality,
-                currentness=source_currentness(sources),
+                currentness=source_currentness(sources, referenced_count=count),
                 promotion=semantic_promotion_from_metadata(projected_item.memory.metadata),
                 transitions=projected_item.transitions,
                 historical_attribution_complete=history_complete,
