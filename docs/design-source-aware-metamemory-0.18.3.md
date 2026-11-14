@@ -5,6 +5,11 @@
 The approved design below is retained as the engineering contract. Actual API details
 and clarifications are documented in [source-aware metamemory](source-metamemory.md).
 
+Subsequent Bench validation exposed a capped-evidence ordering gap. The
+[ordering contract review](review-source-inspection-ordering-0.18.3.md) recommends
+a slot-only clarification; that recommendation is pending a decision and does
+not alter the approved context-provenance ordering contract.
+
 **Reviewed baseline:** Core `1a8bc04f7832c77962a6c2e99b2e8dca4dc19958` (`0.18.2`).
 
 **Related validation:** CogKuraBench `ce29fa677a2ca4c861b839c18e74e7079861e29c` (`0.3.10`).
