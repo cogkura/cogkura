@@ -336,14 +336,10 @@ async def inspect_slot_sources(
         if episode_ids
         else {}
     )
-    populations = [_memory_evidence(p.memory, episode_evidence) for p in projected]
-    # Output evidence cap is global. Exact revision lookups are deduplicated.
-    remaining = limits.max_evidence
-    selected = []
-    for population in populations:
-        selected.append(population[:remaining])
-        remaining -= len(selected[-1])
-    references = [ref.identity for population in selected for ref in population]
+    references_by_revision = [_memory_evidence(p.memory, episode_evidence) for p in projected]
+    # Stable source identities and temporal visibility must be known before capping.
+    # max_evidence bounds output occurrences, not the metadata read population.
+    references = [ref.identity for population in references_by_revision for ref in population]
     current, revisions = (
         await _load_evidence_rows(observation_store, tenant_id=tenant_id, references=references)
         if references
@@ -352,14 +348,15 @@ async def inspect_slot_sources(
     items: list[SemanticRevisionAssessment] = []
     all_sources: list[SourceEvidence] = []
     referenced_count = 0
-    for projected_item, population, returned in zip(projected, populations, selected, strict=True):
-        sources: list[SourceEvidence] = []
-        hidden_count = 0
+    remaining = limits.max_evidence
+    for projected_item, references_for_revision in zip(
+        projected, references_by_revision, strict=True
+    ):
+        population: list[SourceEvidence] = []
         history_complete = projected_item.history_complete
-        for reference in returned:
+        for reference in references_for_revision:
             revision = revisions.get(reference.identity)
             if revision is not None and revision.observed_at > as_of:
-                hidden_count += 1
                 history_complete = False
                 reasons.add(SourceAssessmentReason.TEMPORAL_HISTORY_UNAVAILABLE)
                 continue
@@ -368,8 +365,13 @@ async def inspect_slot_sources(
             )
             if historical_currentness:
                 source = replace(source, is_latest_known_revision=None)
-            sources.append(source)
-        count = len(population) - hidden_count
+            population.append(source)
+        # Stored semantic sequences can encode physical UUID order. Slot display
+        # uses logical source identities; context provenance retains its old order.
+        population.sort(key=_slot_evidence_order)
+        sources = population[:remaining]
+        remaining -= len(sources)
+        count = len(population)
         quality = evidence_quality(sources, referenced_count=count, semantic_references=count)
         item_state = (
             projected_item.state if history_complete else SemanticRevisionViewState.INDETERMINATE
@@ -450,6 +452,14 @@ async def inspect_slot_sources(
         inventory_complete=complete,
         reasons=ordered_reasons(reasons),
     )
+
+
+def _slot_evidence_order(source: SourceEvidence) -> tuple[int, str, str, int]:
+    if source.source_namespace is not None and source.source_record_id is not None:
+        return (0, source.source_namespace, source.source_record_id, source.observation_revision)
+    # Missing logical identities form an explicitly unavailable suffix. This
+    # fallback is repeatable within a store, without promising portable ordering.
+    return (1, source.observation_id, "", source.observation_revision)
 
 
 def _source_ids(

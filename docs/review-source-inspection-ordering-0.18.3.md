@@ -1,7 +1,9 @@
 # Review: source inspection ordering in Core 0.18.3
 
-**Status:** Review complete; recommended contract clarification awaiting decision.
-No Core implementation or Bench acceptance gate is changed by this review.
+**Status:** Contract clarification approved by the user on 14 November 2026;
+the slot-only fix is implemented. The measurements below record the original
+review; subsequent validation is recorded in the
+[Core findings](findings/0.18.3-source-aware-metamemory.md).
 
 **Reviewed:** Core `9ab2241ad600ed766b9c6487440e7495fe68254c`, Bench
 `0bc6487` and its executed PostgreSQL 14.18 validation. Date: 14 November 2026.
@@ -113,7 +115,7 @@ availability, `as_of`, `valid_at`, and limits:
    confidence formula, retrieval order, context provenance order, rendered prose
    or counter changes. No new public model, mandatory protocol or migration.
 
-The source/revision ordering rule is the clarification requiring a decision.
+The source/revision ordering rule was explicitly approved before implementation.
 Identity-unavailable references cannot have a universally portable logical order
 without additional retained identity data; inventing that data is outside 0.18.3.
 
@@ -158,6 +160,6 @@ necessary, report that separately rather than adding schema scope silently.
 - Re-pin Bench to the validated Core commit, then rerun its existing strict gate,
   frozen per-case comparisons and diagnostics parity without weakening gold.
 
-The review itself executed source inspection and the three fresh-store probes.
-It did not implement the proposed fix, rerun the full Core/Bench matrix, change
-Bench findings or claim that the outstanding release gate now passes.
+The original review executed source inspection and the three fresh-store probes.
+It did not change Core or Bench. The subsequent approved implementation and
+release-gate results are recorded separately in the linked findings.

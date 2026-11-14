@@ -59,6 +59,22 @@ qualifiers accept finite scalar values; nested qualifier structures are not
 supported by this inspection query. `subject_id` is the storage filter and is
 separate from `subject_entity_id`. All reads require a tenant.
 
+Revisions retain `(memory_key, revision_number, revision_key)` order. Within each
+revision, evidence uses case-sensitive `(source_namespace, source_record_id,
+observation_revision)` order, with numeric revisions. One global occurrence cap
+then selects a prefix across revisions; it does not balance opposing claims.
+Stored semantic sequence numbers and UUID allocation do not rank known source
+identities. This is display ordering, with no trust or authority meaning.
+
+Exact revision data supplies attribution. If that revision is missing, the owning
+observation's immutable namespace/record identity can still supply the sort key;
+revision metadata remains unavailable. References without any resolvable logical
+identity form a suffix within their revision, ordered by opaque observation ID
+and numeric revision. That suffix is repeatable within a store, with no portable
+identity-order guarantee. Unavailable evidence remains explicitly incomplete.
+Future exact revisions are excluded before ordering and capping and make the
+historical view indeterminate. Increasing the cap exposes a longer visible prefix.
+
 The states are:
 
 | State | Meaning |
@@ -143,6 +159,13 @@ current metadata never substitutes for a missing revision. The revision/relation
 and evidence limits bound returned populations, not JSON bytes or all underlying
 derivation rows. Large snapshots and the in-memory inventory scan remain costs to
 measure for each workload.
+
+Slot inspection batch-resolves all candidate evidence in the bounded revision
+population before selecting the output prefix. Even `max_evidence=1` may read
+many source rows and their metadata/content through existing store APIs. Lookups
+are deduplicated with no per-source query, but row counts, bytes, sorting cost and
+latency grow with candidate evidence. The existing context resolver keeps its
+original cap-before-source-lookup behavior and sequence-based evidence order.
 
 The known **0.18.2 episodic-prose limitation remains**: a later re-adoption episode
 can render its assertion even while the semantic claim stays withdrawn. These

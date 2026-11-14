@@ -6,9 +6,9 @@ The approved design below is retained as the engineering contract. Actual API de
 and clarifications are documented in [source-aware metamemory](source-metamemory.md).
 
 Subsequent Bench validation exposed a capped-evidence ordering gap. The
-[ordering contract review](review-source-inspection-ordering-0.18.3.md) recommends
-a slot-only clarification; that recommendation is pending a decision and does
-not alter the approved context-provenance ordering contract.
+[ordering contract review](review-source-inspection-ordering-0.18.3.md) defines
+the subsequently approved slot-only clarification. It preserves the approved
+context-provenance ordering contract.
 
 **Reviewed baseline:** Core `1a8bc04f7832c77962a6c2e99b2e8dca4dc19958` (`0.18.2`).
 
@@ -593,7 +593,16 @@ unselected history merely to call the public context resolver; share its
 lower-level evidence resolution helpers instead.
 
 Slot population ordering is `(memory_key, revision_number, revision_key)`;
-relations order by `(left_revision_key, right_revision_key, relation)`. Pure
+relations order by `(left_revision_key, right_revision_key, relation)`. Within
+each revision, slot evidence orders by case-sensitive source namespace, source
+record ID, then numeric observation revision, before one global occurrence cap.
+Use exact revision identity or immutable owning-observation identity when the
+exact revision is missing, without substituting current revision metadata.
+Identity-unavailable references form a per-revision suffix ordered by opaque
+observation ID and numeric revision; portability is not promised for that suffix.
+Exclude future exact revisions before ordering/capping and mark unsupported
+historical attribution indeterminate. This ordering conveys no trust or authority.
+Stored sequences, context provenance, and cognitive/write paths are unchanged. Pure
 analysis is linear in returned records, relations, and references apart from
 deterministic sorting. Conflict evidence sets use existing relationships rather
 than enumerate every possible source pair. Storage round trips are a fixed
@@ -601,6 +610,10 @@ small number of bounded batch calls, never one per source. The context resolver'
 existing derivation-evidence loading can precede the output cap; do not advertise
 `max_evidence` as a hard database-row or byte budget. Slot evidence and JSON
 snapshot sizes have the same limitation and must be measured.
+Slot inspection resolves the bounded revision population's candidate references
+before selecting its output prefix. Those batch lookups can return more source
+rows and metadata than `max_evidence`; fixed round trips do not bound bytes or
+latency. See the ordering review for the approved tradeoff and regression gates.
 
 Record pass counts before truncation, but do not materialize an unbounded list of
 display decisions: keep bounded deterministically ordered records plus counts.

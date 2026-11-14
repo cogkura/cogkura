@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -22,6 +23,7 @@ from cogkura import (
     SemanticSlotQuery,
     SourceAssessmentReason,
     SourceConflictState,
+    SourceEvidenceResolutionStatus,
     SourceIndependenceState,
     SourceInspectionLimits,
 )
@@ -279,6 +281,258 @@ async def test_contested_sources_do_not_claim_independence() -> None:
     assert report.conflict.state is SourceConflictState.SEMANTIC_CONFLICT
     assert report.conflict.cross_source_disagreement is True
     assert report.conflict.independence is SourceIndependenceState.UNKNOWN
+
+
+async def seed_contested(m: Memory) -> None:
+    """Two ordinary independent identities per claim, with overlapping validity."""
+    for value in ("startup", "pipeline"):
+        for n in range(2):
+            obs = observation(f"{value}-{n}", value=value, authority=False)
+            fact = dict(
+                obs.metadata["semantic_facts"][0],
+                valid_from=T0.isoformat(),
+                valid_until=(T0 + timedelta(days=10)).isoformat(),
+            )
+            await m.observe(replace(obs, metadata={**obs.metadata, "semantic_facts": [fact]}))
+    await m.process(tenant_id=TENANT, as_of=T0)
+
+
+async def test_slot_prefix_ignores_uuid_derived_sequences_and_preserves_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reports = []
+    sequences = []
+    for allocation in ((40, 30, 20, 10), (10, 20, 30, 40)):
+        ids = iter(allocation)
+        m = memory()
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                "cogkura.storage.in_memory_observation.uuid4", lambda ids=ids: UUID(int=next(ids))
+            )
+            await seed_contested(m)
+        stored = await m.list_semantic_memories(tenant_id=TENANT)
+        registry = {
+            o.id: o.source_record_id for o in await m._observation_store.list(tenant_id=TENANT)
+        }
+        sequence = {
+            s.memory_key: tuple(
+                registry[e.observation_id]
+                for e in sorted(s.observation_evidence, key=lambda e: e.sequence_number)
+            )
+            for s in stored
+        }
+        sequences.append(sequence)
+        context = await m.prepare_context("deployment policy", tenant_id=TENANT, as_of=T0)
+        provenance = await m.resolve_provenance(context)
+        assessment = await m.assess_source_memory(context)
+        full = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
+        logical = [
+            (s.source_namespace, s.source_record_id, s.observation_revision)
+            for r in full.revisions
+            for s in r.sources
+        ]
+        reports.append(logical)
+        assert full.state is SemanticKnowledgeState.CONTESTED
+        assert logical == [
+            ("docs", f"{value}-{n}", 1) for value in ("pipeline", "startup") for n in range(2)
+        ]
+        for cap in (1, 2, 3, 4, 5):
+            cut = await m.inspect_semantic_slot(
+                SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=cap)
+            )
+            assert [s for r in cut.revisions for s in r.sources] == [
+                s for r in full.revisions for s in r.sources
+            ][:cap]
+            assert cut.quality.referenced_count == 4
+            assert cut.quality.is_truncated is (cap < 4)
+            assert cut.quality.revision_coverage_complete is (cap >= 4)
+            assert cut.state is full.state
+        assert await m.list_semantic_memories(tenant_id=TENANT) == stored
+        assert await m.resolve_provenance(context) == provenance
+        assert await m.assess_source_memory(context) == assessment
+        assert assessment.provenance == provenance
+        for item in provenance.items:
+            if item.memory_identity.memory_key in sequence:
+                assert (
+                    tuple(s.source_record_id for s in item.sources)
+                    == sequence[item.memory_identity.memory_key]
+                )
+    assert sequences[0] != sequences[1]  # A UUID tie-break-only fix would fail.
+    assert reports[0] == reports[1]
+
+
+async def test_slot_orders_mixed_availability_without_metadata_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = memory()
+    await seed_contested(m)
+    store = m._observation_store
+    rows = await store.list(tenant_id=TENANT)
+    ids = {o.source_record_id: o.id for o in rows}
+    store.revisions[ids["startup-0"]].clear()
+    store.revisions[ids["pipeline-0"]].clear()
+    del store._observations[(TENANT, "docs", "pipeline-0")]
+    store.revisions[ids["startup-1"]][0].metadata.pop("source_ref")
+    calls = []
+    original_current, original_revisions = store.get_many, store.get_revisions_many
+
+    async def current(**kwargs: Any) -> Any:
+        calls.append(("current", len(kwargs["observation_ids"])))
+        return await original_current(**kwargs)
+
+    async def revisions(**kwargs: Any) -> Any:
+        calls.append(("revision", len(kwargs["references"])))
+        return await original_revisions(**kwargs)
+
+    monkeypatch.setattr(store, "get_many", current)
+    monkeypatch.setattr(store, "get_revisions_many", revisions)
+    full = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
+    sources = [s for r in full.revisions for s in r.sources]
+    assert [s.source_record_id for s in sources] == ["pipeline-1", None, "startup-0", "startup-1"]
+    assert [s.resolution_status for s in sources] == [
+        SourceEvidenceResolutionStatus.RESOLVED,
+        SourceEvidenceResolutionStatus.SOURCE_UNAVAILABLE,
+        SourceEvidenceResolutionStatus.REVISION_UNAVAILABLE,
+        SourceEvidenceResolutionStatus.SOURCE_REF_MISSING,
+    ]
+    assert sources[2].source_version is sources[2].source_ref is sources[2].observed_at is None
+    assert sources[2].is_latest_known_revision is None
+    assert full.state is SemanticKnowledgeState.CONTESTED
+    assert not full.quality.revision_coverage_complete
+    assert not full.quality.locator_coverage_complete
+    calls.clear()
+    cut = await m.inspect_semantic_slot(
+        SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=1)
+    )
+    assert [s for r in cut.revisions for s in r.sources] == sources[:1]
+    assert sorted(calls) == [("current", 4), ("revision", 4)]
+    assert cut.quality.referenced_count == 4
+    assert cut.quality.is_truncated
+
+
+async def test_slot_future_evidence_cannot_consume_cap_or_determine_visible_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = memory()
+    await seed_contested(m)
+    store = m._observation_store
+    original = store.get_revisions_many
+    future_name = "a-future-secret"
+
+    async def revisions(**kwargs: Any) -> Any:
+        rows = await original(**kwargs)
+        return {
+            identity: replace(
+                row,
+                observed_at=T0 + timedelta(days=1),
+                source_namespace=future_name,
+                source_record_id=future_name,
+                source_version=future_name,
+                metadata={"source_ref": future_name},
+            )
+            if row.source_record_id == "pipeline-0"
+            else row
+            for identity, row in rows.items()
+        }
+
+    monkeypatch.setattr(store, "get_revisions_many", revisions)
+    reports = []
+    for name in ("a-future-secret", "z-future-secret"):
+        future_name = name
+        report = await m.inspect_semantic_slot(
+            SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=1)
+        )
+        assert [s.source_record_id for r in report.revisions for s in r.sources] == ["pipeline-1"]
+        assert report.quality.referenced_count == 3
+        assert report.quality.returned_count == 1
+        assert report.state is SemanticKnowledgeState.INDETERMINATE
+        assert SourceAssessmentReason.TEMPORAL_HISTORY_UNAVAILABLE in report.reasons
+        assert name not in repr(report)
+        reports.append(report)
+    assert reports[0] == reports[1]
+
+
+async def test_slot_global_cap_preserves_repeated_occurrences_across_revisions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = memory()
+    await seed_contested(m)
+    original = m._semantic_store.inspect_slot
+
+    async def inspect_slot(**kwargs: Any) -> Any:
+        records = await original(**kwargs)
+        # Two revision snapshots may cite the same exact observation revisions.
+        evidence = records.revisions[0].snapshot["observation_evidence"]
+        return replace(
+            records,
+            revisions=tuple(
+                replace(r, snapshot={**r.snapshot, "observation_evidence": evidence})
+                for r in records.revisions
+            ),
+        )
+
+    monkeypatch.setattr(m._semantic_store, "inspect_slot", inspect_slot)
+    full = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
+    sources = [s for r in full.revisions for s in r.sources]
+    assert len(sources) == 4
+    assert [s.observation_id for s in sources[:2]] == [s.observation_id for s in sources[2:]]
+    assert full.quality.distinct_source_count == 2
+    assert full.quality.referenced_count == 4
+    for cap in (1, 2, 3, 4, 5):
+        cut = await m.inspect_semantic_slot(
+            SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=cap)
+        )
+        assert [s for r in cut.revisions for s in r.sources] == sources[:cap]
+        assert cut.quality.referenced_count == 4
+        assert cut.quality.returned_count == min(cap, 4)
+
+
+async def test_slot_case_sensitive_source_identity_and_numeric_revision_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = memory()
+    for namespace, record in (("a", "a"), ("A", "a"), ("A", "Z")):
+        for revision in range(1, 11):
+            await m.observe(
+                replace(observation(record, version=str(revision)), source_namespace=namespace)
+            )
+    await m.process(tenant_id=TENANT, as_of=T0)
+    store = m._semantic_store
+    original = store.inspect_slot
+
+    async def inspect_slot(**kwargs: Any) -> Any:
+        records = await original(**kwargs)
+        # A supported custom snapshot can retain two revisions of one observation.
+        revisions = []
+        for revision in records.revisions:
+            snapshot = dict(revision.snapshot)
+            evidence = snapshot["observation_evidence"]
+            snapshot["observation_evidence"] = [
+                *evidence,
+                *[dict(e, observation_revision=2) for e in evidence],
+            ]
+            revisions.append(replace(revision, snapshot=snapshot))
+        return replace(records, revisions=tuple(revisions))
+
+    monkeypatch.setattr(store, "inspect_slot", inspect_slot)
+    full = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0)
+    expected = [
+        (namespace, record, revision)
+        for namespace, record in (("A", "Z"), ("A", "a"), ("a", "a"))
+        for revision in (2, 10)
+    ]
+    assert [
+        (s.source_namespace, s.source_record_id, s.observation_revision)
+        for r in full.revisions
+        for s in r.sources
+    ] == expected
+    assert full.quality.revision_coverage_complete
+    cut = await m.inspect_semantic_slot(
+        SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=3)
+    )
+    assert [s for r in cut.revisions for s in r.sources] == [
+        s for r in full.revisions for s in r.sources
+    ][:3]
 
 
 async def test_cardinality_many_coexists_without_disagreement() -> None:

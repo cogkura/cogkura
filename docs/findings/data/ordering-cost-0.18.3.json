@@ -1,0 +1,353 @@
+{
+  "methodology": "Five sequential inspections per case; one slot/revision; 1 KiB extra metadata per source. Bytes count serialized metadata and current content returned by observation batches only, excluding row overhead, snapshots, and episode evidence. No latency threshold.",
+  "results": [
+    {
+      "backend": "in_memory",
+      "candidate_references": 2,
+      "max_evidence": 1,
+      "median_latency_ms": 0.572,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 0,
+          "latency_ms": 0.61
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 0,
+          "latency_ms": 0.572
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 0,
+          "latency_ms": 0.541
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 0,
+          "latency_ms": 0.504
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 0,
+          "latency_ms": 0.599
+        }
+      ]
+    },
+    {
+      "backend": "in_memory",
+      "candidate_references": 16,
+      "max_evidence": 1,
+      "median_latency_ms": 0.989,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 0,
+          "latency_ms": 1.028
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 0,
+          "latency_ms": 1.007
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 0,
+          "latency_ms": 0.989
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 0,
+          "latency_ms": 0.951
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 0,
+          "latency_ms": 0.962
+        }
+      ]
+    },
+    {
+      "backend": "in_memory",
+      "candidate_references": 64,
+      "max_evidence": 1,
+      "median_latency_ms": 3.003,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 0,
+          "latency_ms": 3.003
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 0,
+          "latency_ms": 3.251
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 0,
+          "latency_ms": 3.508
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 0,
+          "latency_ms": 2.9
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 0,
+          "latency_ms": 2.804
+        }
+      ]
+    },
+    {
+      "backend": "postgresql",
+      "candidate_references": 2,
+      "max_evidence": 1,
+      "median_latency_ms": 8.379,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 10,
+          "latency_ms": 18.944
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 10,
+          "latency_ms": 18.329
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 10,
+          "latency_ms": 7.925
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 10,
+          "latency_ms": 8.379
+        },
+        {
+          "batches": 2,
+          "returned_rows": 4,
+          "current_ids": 2,
+          "exact_refs": 2,
+          "metadata_bytes": 4988,
+          "content_bytes": 86,
+          "sql_statements": 10,
+          "latency_ms": 7.814
+        }
+      ]
+    },
+    {
+      "backend": "postgresql",
+      "candidate_references": 16,
+      "max_evidence": 1,
+      "median_latency_ms": 10.8,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 10,
+          "latency_ms": 13.199
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 10,
+          "latency_ms": 10.8
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 10,
+          "latency_ms": 10.334
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 10,
+          "latency_ms": 11.0
+        },
+        {
+          "batches": 2,
+          "returned_rows": 32,
+          "current_ids": 16,
+          "exact_refs": 16,
+          "metadata_bytes": 39904,
+          "content_bytes": 688,
+          "sql_statements": 10,
+          "latency_ms": 10.556
+        }
+      ]
+    },
+    {
+      "backend": "postgresql",
+      "candidate_references": 64,
+      "max_evidence": 1,
+      "median_latency_ms": 16.505,
+      "runs": [
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 10,
+          "latency_ms": 20.061
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 10,
+          "latency_ms": 16.505
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 10,
+          "latency_ms": 16.57
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 10,
+          "latency_ms": 16.323
+        },
+        {
+          "batches": 2,
+          "returned_rows": 128,
+          "current_ids": 64,
+          "exact_refs": 64,
+          "metadata_bytes": 159616,
+          "content_bytes": 2752,
+          "sql_statements": 10,
+          "latency_ms": 15.24
+        }
+      ]
+    }
+  ]
+}

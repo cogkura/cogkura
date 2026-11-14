@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import fields, is_dataclass
 from typing import Any
+from uuid import UUID
 
 import pytest
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine
-from test_source_assessment import SLOT, T0, TENANT, adopt, memory, observation
+from test_source_assessment import SLOT, T0, TENANT, adopt, memory, observation, seed_contested
 
 from cogkura import Memory, SemanticKnowledgeState, SourceInspectionLimits
 from cogkura.migrations import apply_migrations
@@ -195,6 +196,61 @@ async def test_postgres_storage_bounds_have_stable_prefixes(pg_memory: Memory) -
     assert not cut.inventory_complete
     assert cut.state is SemanticKnowledgeState.INDETERMINATE
     assert [r.revision_key for r in cut.revisions] == [r.revision_key for r in full.revisions[:1]]
+
+
+async def test_postgres_slot_evidence_prefix_matches_with_opposite_physical_sequences(
+    pg_memory: Memory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control = memory(diagnostics=True)
+    with monkeypatch.context() as patch:
+        ids = iter((40, 30, 20, 10))
+        patch.setattr("cogkura.storage.in_memory_observation.uuid4", lambda: UUID(int=next(ids)))
+        await seed_contested(control)
+    # PostgreSQL ingest allocates an observation ID and a revision row ID per input.
+    with monkeypatch.context() as patch:
+        ids = iter((100, 101, 200, 201, 300, 301, 400, 401))
+        patch.setattr("cogkura.storage.postgres.uuid4", lambda: UUID(int=next(ids)))
+        for value in ("startup", "pipeline"):
+            from dataclasses import replace
+            from datetime import timedelta
+
+            for n in range(2):
+                obs = observation(f"{value}-{n}", value=value, authority=False)
+                fact = dict(
+                    obs.metadata["semantic_facts"][0],
+                    valid_from=T0.isoformat(),
+                    valid_until=(T0 + timedelta(days=10)).isoformat(),
+                )
+                await pg_memory.observe(
+                    replace(obs, metadata={**obs.metadata, "semantic_facts": [fact]})
+                )
+    await pg_memory.process(tenant_id=TENANT, as_of=T0)
+    sequences = []
+    for m in (control, pg_memory):
+        registry = {
+            o.id: o.source_record_id for o in await m._observation_store.list(tenant_id=TENANT)
+        }
+        sequences.append(
+            {
+                s.memory_key: tuple(
+                    registry[e.observation_id]
+                    for e in sorted(s.observation_evidence, key=lambda e: e.sequence_number)
+                )
+                for s in await m.list_semantic_memories(tenant_id=TENANT)
+            }
+        )
+    assert sequences[0] != sequences[1]
+    for cap in (1, 2, 3, 4, 5):
+        a, b = [
+            await m.inspect_semantic_slot(
+                SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_evidence=cap)
+            )
+            for m in (control, pg_memory)
+        ]
+        assert normalized(a) == normalized(b)  # Retain evidence and revision tuple order.
+        assert a.state is SemanticKnowledgeState.CONTESTED
+        assert a.quality.referenced_count == 4
+        assert a.quality.is_truncated is (cap < 4)
 
 
 async def test_postgres_pass_decisions_match_in_memory_with_competing_edits(

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Exact slot inspection now selects canonical source-identity/revision prefixes before capping, independent of UUID-derived stored sequences. Future exact evidence cannot consume a historical query's cap. Context provenance ordering is preserved.
 - Pre-existing PostgreSQL reconciliation wrote derivations before the referenced semantic revision existed; revision derivations now follow their revision insert in the same transaction.
 - Pre-existing optional inhibition timestamp binding now declares its PostgreSQL type, preserving its filter semantics.
 - PostgreSQL migration expectations and test isolation so database-enabled gates execute the intended cases.
