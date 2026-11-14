@@ -11,7 +11,9 @@ and clarifications are documented in [source-aware metamemory](source-metamemory
 
 **Date:** 12 November 2026.
 
-**Branch:** `feat/source-aware-metamemory-0.18.3` for design and subsequent approved implementation.
+**Workflow:** Direct development on `main` with incremental commits, as authorised
+on 14 November 2026. This supersedes the original feature-branch and PR requirement;
+the existing design and implementation commits are preserved.
 
 ## 1. Purpose and release boundary
 
@@ -36,8 +38,9 @@ unresolved-decision enumeration would require a separately approved storage
 extension (review decision D2).
 
 This document records the Phase 1 review and the approved implementation contract.
-The user authorised Core implementation, incremental commits on this branch, and
-one PR after Core validation. Bench, Demo, and Agent remain outside this task.
+The user authorised Core implementation and incremental commits. The subsequent
+workflow decision permits work directly on `main` without a PR. Bench, Demo, and
+Agent remain outside this task.
 Independent Bench validation remains a release gate and will be authorised separately.
 
 ## 2. Architecture review: reuse and gaps
@@ -663,7 +666,7 @@ Do not rewrite frozen fixtures to fit new outputs.
 ## 11. Acceptance and implementation gates after approval
 
 1. Approve or revise D1–D6 below before changing Core code.
-2. Implement only approved additive contracts and tests on this feature branch;
+2. Implement only approved additive contracts and tests directly on `main`;
    commit coherent increments. Update docs to distinguish shipped behavior from
    known gaps only after verification. No version bump during design review.
 3. Every deterministic matrix case passes. At fixed inputs, repeated reports
@@ -694,9 +697,9 @@ Do not rewrite frozen fixtures to fit new outputs.
    work described below. Document measured performance and any unsupported
    historical or custom-backend cases; do not claim full evidence completeness
    from a limited or incomplete population.
-8. Open **one PR only after the complete approved implementation and required
-   validation are finished**. This design-only checkpoint does not open a PR.
-   Do not push or publish merely to obtain design approval.
+8. Commit directly to `main` under the revised workflow. A feature branch and PR
+   are no longer required. Required validation and the separate release process
+   still apply.
 
 ### Phase 1 checks actually executed
 
@@ -778,5 +781,6 @@ that relation coverage must distinguish non-applicable semantic relations, decis
 diagnostics must observe actual existing outcomes without duplicated decisions or
 counter changes, and the 0.18.2 stale episodic prose limitation must remain.
 These clarifications do not require renewed approval unless a material architectural
-change is discovered. Core validation precedes the one implementation PR;
-independent Bench validation remains a separately authorised release gate.
+change is discovered. The subsequent direct-to-`main` workflow supersedes the
+implementation PR requirement; independent Bench validation remains a separately
+authorised release gate.

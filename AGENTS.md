@@ -106,7 +106,8 @@ After substantive code changes, run the validation commands above before finishi
 - Do not advance connector checkpoints before a successful batch.
 - Do not permit unscoped cross-tenant queries in the public API.
 - Do not strip useful README/example/doc content without an explicit reason; prefer surgical edits over full-file rewrites.
-- Do not commit or push unless the user asks.
+- Develop directly on `main` with incremental commits. Create feature branches or pull requests only when the user explicitly requests them.
+- Keep release tags and package publication within the separate release process.
 
 ## Style
 
