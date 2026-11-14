@@ -358,7 +358,7 @@ in section 8; it must not return an empty inventory classified `UNKNOWN`.
 | Field | Exact meaning |
 | --- | --- |
 | `referenced_count: int` | Evidence occurrences referenced by the memory or report population, before capping. |
-| `returned_count: int` | Referenced occurrences actually examined after the cap. |
+| `returned_count: int` | Referenced occurrences returned after the cap. Candidate metadata reads needed for ordering do not count as returned coverage. |
 | `revision_resolved_count: int` | Examined occurrences with the exact revision available, including `SOURCE_REF_MISSING`. |
 | `locator_present_count: int` | Examined occurrences with a usable revision-specific `source_ref`. |
 | `relation_known_count: int` | Examined semantic occurrences with proven support/contradiction relations; direct episodic references are not applicable. |

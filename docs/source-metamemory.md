@@ -166,6 +166,8 @@ many source rows and their metadata/content through existing store APIs. Lookups
 are deduplicated with no per-source query, but row counts, bytes, sorting cost and
 latency grow with candidate evidence. The existing context resolver keeps its
 original cap-before-source-lookup behavior and sequence-based evidence order.
+Coverage and currentness counts describe returned evidence; candidate metadata
+read to establish the prefix does not make omitted evidence coverage complete.
 
 The known **0.18.2 episodic-prose limitation remains**: a later re-adoption episode
 can render its assertion even while the semantic claim stays withdrawn. These

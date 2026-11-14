@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Existing recurrence, consolidation decisions/counters, confidence, activation, retrieval, forgetting, interference, inhibition, and rendered context.
 - The known 0.18.2 limitation where later re-adoption episode prose can render while semantic state remains withdrawn.
-- Source independence remains unknown. Independent Bench validation is pending and remains a release gate.
+- Source independence remains unknown. Required independent Bench validation now passes, including strict capped PostgreSQL attribution; the candidate remains unreleased.
 
 ## [0.18.2] - 2026-11-07
 

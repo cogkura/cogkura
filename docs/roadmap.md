@@ -323,10 +323,10 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - benchmark suites;
 - enterprise-oriented extensions.
 
-## 0.18.3 — Source-aware metamemory (Core implementation; release validation pending)
+## 0.18.3 — Source-aware metamemory (validated candidate; unreleased)
 
 - Separate source assessment and exact slot inspection, optional bounded storage capability.
 - Pass-local typed decision diagnostics; no persistent unresolved ledger.
 - Conservative historical attribution and unknown independence; cognitive behavior unchanged.
-- Independent Bench validation remains separately authorised before release readiness.
+- Required Core and separately authorised independent Bench gates pass, including canonical capped-source parity on PostgreSQL. Tags/publication remain separate.
 - [Design](design-source-aware-metamemory-0.18.3.md) and [usage](source-metamemory.md).
