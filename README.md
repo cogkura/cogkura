@@ -492,7 +492,9 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. The unreleased `0.18.3` candidate adds explicit source assessments, bounded slot inspection, and optional pass-local diagnostics while preserving cognitive behavior. Required Core and independent Bench validation now pass, including strict PostgreSQL attribution parity after the approved ordering fix. See the [findings](docs/findings/0.18.3-source-aware-metamemory.md); publication remains a separate release step.
+Cogkura is in development. The unreleased `0.18.4` candidate adds the source-provenance contract audit and combined freeze suite, plus the separately approved stale-readmission context correction. Core gates pass; freeze acceptance remains pending independent Bench validation and the explicit decision on one intentional frozen-output correction. See the [0.18.4 findings](docs/findings/0.18.4-source-provenance-architecture-freeze.md).
+
+The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
 
 `0.18.2` adds opt-in authoritative replacement and withdrawal of one named semantic revision. Historical evidence stays on a revision snapshot, and a correction is not visible to retrieval before its asserting observation. Recurrence and `0.18.1` single-fact admission stay the default when correction is off. `0.17.7` remains the frozen interference and inhibition retrieval contract.
 

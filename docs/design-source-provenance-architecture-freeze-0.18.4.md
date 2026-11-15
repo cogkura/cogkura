@@ -52,7 +52,7 @@ part of the full required gate. New combined checks are in the freeze suite.
 | Existing 0.17.7 cognitive baseline | `test_interference_inhibition_architecture_freeze.py`, `test_contextual_memory_architecture_freeze.py`, activation/forgetting/learning/context tests | Run unchanged full suite and independent frozen Bench signatures |
 | Batched reads; output cap does not bound bytes | PostgreSQL constant-query/read-only tests; 0.18.3 ordering-cost measurements | Repeat fixture against exact baseline/current sources; report source rows, bytes, queries and latency |
 | No locator fetching | Allow-listed resolver reads only observation/episode stores; locators remain inert strings | Resolver audit plus deliberately non-fetchable locator in lifecycle fixture |
-| Later readmission cannot expose withdrawn assertion as current prose | Existing test covers semantic deferral only; original supporting-episode redaction tests do not cover later episode | **GAP / RELEASE BLOCKER:** separately designed correction needs approval; do not freeze leaked prose |
+| Later readmission cannot expose withdrawn assertion as current prose | Existing test covered semantic deferral only; original supporting-episode redaction tests did not cover later episode | **GAP RESOLVED BY APPROVED CORRECTION:** new combined rendering/exact-metadata regressions pass on both backends; the intentional Bench fingerprint change still requires a separate decision |
 
 ## Clarifications from the audit
 
@@ -80,11 +80,11 @@ complete bitemporal history are not promised.
 
 ## Stale prose disposition
 
-The existing readmission gap is a correctness defect and is not safe to certify
+The original readmission gap was a correctness defect and was not safe to certify
 as an invariant for production Agent use. A deterministic public-API reproduction
-shows `WITHDRAWN`, a deferred readmission, and the same assertion in current rendered
-context. The separate corrective design specifies a narrow read-side projection
-change and an explicit approval boundary for any frozen output deviation.
+showed `WITHDRAWN`, a deferred readmission, and the same assertion in current context.
+The user separately approved its narrow read-side correction; the new regressions
+now pass. Frozen-output deviations remain a separate explicit approval boundary.
 
 ## Validation and release closure
 

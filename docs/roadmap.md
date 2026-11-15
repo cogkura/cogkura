@@ -335,6 +335,6 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 
 - Consolidated contract audit and cross-feature in-memory/PostgreSQL regression suite.
 - Separately approved read-side correction for stale prose from deferred readmissions.
-- Required Core gates pass; independent Bench and any intentional frozen-output deviation decision remain gates.
+- Core and independent Bench CI gates pass; raw strict comparison identifies exactly one intended correction. Freeze acceptance awaits the separate frozen-output decision.
 - No new cognitive capability, mandatory protocol, migration or dependency.
 - [Freeze design and invariant matrix](design-source-provenance-architecture-freeze-0.18.4.md), [corrective design](design-withdrawn-readmission-context-correction.md), and [findings](findings/0.18.4-source-provenance-architecture-freeze.md).

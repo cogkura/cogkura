@@ -169,10 +169,18 @@ original cap-before-source-lookup behavior and sequence-based evidence order.
 Coverage and currentness counts describe returned evidence; candidate metadata
 read to establish the prefix does not make omitted evidence coverage complete.
 
-The known **0.18.2 episodic-prose limitation remains**: a later re-adoption episode
+The **0.18.3 baseline retained the 0.18.2 episodic-prose limitation**: a later re-adoption episode
 can render its assertion even while the semantic claim stays withdrawn. These
 reports distinguish semantic state from recalled prose; they do not redesign
 retrieval or add suppression rules.
+
+The 0.18.4 candidate separately corrects that case when exact structured evidence
+establishes the closed claim identity, extending the existing stale projection to
+deferred later episodes. It preserves separable unrelated prose and stored source
+history. This is an explicitly approved correctness change, not behavior added by
+source assessment. See the [corrective design](design-withdrawn-readmission-context-correction.md)
+and [freeze findings](findings/0.18.4-source-provenance-architecture-freeze.md) for
+the remaining limitations and pending frozen-output decision.
 
 Applications own uncertainty and abstention policy. Complete attribution,
 application authority, and strong retrieval never imply factual certainty.
