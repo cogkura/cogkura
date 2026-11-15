@@ -1,0 +1,11 @@
+{
+  "approved_queries": [
+    "authoritative_corrections_v1/ac-q-c03",
+    "source_aware_metamemory_v1/sm-contested",
+    "source_aware_metamemory_v1/sm-evidence-cap"
+  ],
+  "core_commit": "fa9c993d82fd2dda74a9b18f2b80c3b857a26fc7",
+  "raw_passed": false,
+  "reviewed_sqlite_comparison_passed": true,
+  "unapproved_mismatches": []
+}

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — SQLite embedded memory
+## [0.19.5] - 2026-11-15 — Embedded memory architecture freeze
 
 ### Added
 
@@ -18,7 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Linux, macOS and Windows CI coverage with linked SQLite, filesystem and durability-setting reporting; add WAL-tail and disk-full recovery tests.
 - Restart, migration, transactional rollback, correction, source-provenance and cross-backend contract tests. See [SQLite storage](docs/sqlite-storage.md) for configuration and current limitations.
 
-### Validation status
+### Validation
+
+- Independent Bench comparisons on candidate `f289035` matched across in-memory, SQLite and PostgreSQL on four workloads, with three explicitly approved supporting-event order differences. The frozen Python 3.12–3.13 gate passed with the separately approved one-query correction; Python 3.11 matched the previous Core in a same-runtime comparison but retains differences from historical gold. See [freeze findings](docs/findings/0.19.5-embedded-architecture-freeze.md) for raw reports and scope.
 
 - Full Core suites pass against PostgreSQL 16 and SQLite 3.53.1 on Python 3.11, 3.12 and 3.13: 1,031 tests per runtime, no skips. The built wheel opens and reopens the embedded runtime without optional dependencies. Ruff, formatting and mypy pass on all three runtimes. The source-provenance freeze cases cover SQLite, PostgreSQL and in-memory storage.
 - Semantic operations still materialize a tenant's semantic inventory; the 0.19.4 workload captures the remaining latency, memory and query costs. Cognitive-state stores remain in memory unless SQLite implementations are explicitly injected.

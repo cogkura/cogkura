@@ -338,3 +338,10 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - Core and independent Bench CI/strict gates pass: 392 unchanged query signatures plus one separately approved exact correction, with original gold/raw mismatch retained. All freeze acceptance criteria are resolved for the candidate.
 - No new cognitive capability, mandatory protocol, migration or dependency.
 - [Freeze design and invariant matrix](design-source-provenance-architecture-freeze-0.18.4.md), [corrective design](design-withdrawn-readmission-context-correction.md), and [findings](findings/0.18.4-source-provenance-architecture-freeze.md).
+
+## 0.19.5 — Embedded memory architecture freeze (2026-11-15)
+
+- Core candidate `f289035351e3c101fd932f4d6d9e9cd56583ace0` adds the SQLite storage bundle and embedded lifecycle developed across 0.19.0–0.19.4, plus a PostgreSQL tenant learning-cleanup correction found during freeze validation.
+- Core Python 3.11–3.13 and hosted cross-platform CI passed. Bench's strict frozen comparison passed on Python 3.12–3.13, with the separately approved frozen correction. On Python 3.11 it reports pre-existing additional differences from the original gold; all 22 run signatures match the earlier Core on the same runtime. Three-backend comparisons pass with the separately approved support-order differences. Raw comparisons and limits remain documented.
+- Bench three-backend checks cover four representative workloads; Core contract and restart tests provide additional coverage. The documented validation applies to the identified source candidate; the release commit adds documentation and version metadata.
+- [Freeze design](design-embedded-architecture-freeze-0.19.5.md), [candidate review](review-0.19.5-f289-candidate.md), and [findings](findings/0.19.5-embedded-architecture-freeze.md).

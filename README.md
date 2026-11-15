@@ -494,7 +494,7 @@ uv run pytest -m postgres
 
 ## Current status
 
-Cogkura is in development. Release `0.18.4` completes the source-provenance architecture freeze, with a contract audit, combined regression suite and separately approved stale-readmission context correction. It includes the previously validated 0.18.3 source-aware metamemory capabilities. Core and independent Bench gates pass, including the separately approved exact one-query output deviation. See the [0.18.4 findings](docs/findings/0.18.4-source-provenance-architecture-freeze.md) for validated contracts and retained limitations.
+Cogkura is in development. Release `0.19.5` freezes the embedded memory architecture, adding a durable SQLite backend and embedded lifecycle alongside the existing in-memory and PostgreSQL implementations. See the [0.19.5 findings](docs/findings/0.19.5-embedded-architecture-freeze.md) for validation, approved comparison differences and limitations.
 
 The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
 
