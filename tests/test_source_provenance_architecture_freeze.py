@@ -189,6 +189,51 @@ async def test_conflict_prefixes_and_storage_bounds_remain_observational(
     assert not bounded.inventory_complete
     assert bounded.state is SemanticKnowledgeState.INDETERMINATE
     assert await m.list_semantic_revisions(tenant_id=TENANT) == before
+    # Exercise relation overflow independently of revision overflow. Three
+    # incompatible ordinary claims produce multiple retained conflict edges.
+    for n in (0, 1):
+        obs = observation(f"manual-{n}", value="manual", authority=False)
+        fact = dict(
+            obs.metadata["semantic_facts"][0],
+            valid_from=T0.isoformat(),
+            valid_until=(T0 + timedelta(days=10)).isoformat(),
+        )
+        await m.observe(replace(obs, metadata={**obs.metadata, "semantic_facts": [fact]}))
+    await m.process(tenant_id=TENANT, as_of=T0)
+    store = m._semantic_inspection_store
+    records = await store.inspect_slot(
+        tenant_id=TENANT,
+        subject_id=None,
+        slot_key=full.slot_key,
+        max_revisions=128,
+        max_relations=256,
+    )
+    assert len(records.relations) > 1
+    for cap in (1, 2, len(records.relations), len(records.relations) + 1):
+        cut = await store.inspect_slot(
+            tenant_id=TENANT,
+            subject_id=None,
+            slot_key=full.slot_key,
+            max_revisions=128,
+            max_relations=cap,
+        )
+        assert cut.relations == records.relations[:cap]
+        assert cut.relations_overflow is (cap < len(records.relations))
+    for cap in (1, 2, len(records.revisions), len(records.revisions) + 1):
+        cut = await store.inspect_slot(
+            tenant_id=TENANT,
+            subject_id=None,
+            slot_key=full.slot_key,
+            max_revisions=cap,
+            max_relations=256,
+        )
+        assert cut.revisions == records.revisions[:cap]
+        assert cut.revisions_overflow is (cap < len(records.revisions))
+    cut = await m.inspect_semantic_slot(
+        SLOT, tenant_id=TENANT, as_of=T0, limits=SourceInspectionLimits(max_relations=1)
+    )
+    assert not cut.inventory_complete
+    assert cut.state is SemanticKnowledgeState.INDETERMINATE
 
 
 async def test_competing_edits_defer_without_inventing_contested_durable_state(
