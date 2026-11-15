@@ -2974,15 +2974,15 @@ class PostgresLearningStore(LearningStore):
 
     async def clear(self, *, tenant_id: str) -> None:
         async with self._engine.begin() as conn:
-            await conn.execute(
-                text(
-                    f"""
-                    DELETE FROM {self._table("memory_learning_events")}
-                    WHERE tenant_id = :tenant_id
-                    """
-                ),
-                {"tenant_id": tenant_id},
-            )
+            for table in (
+                "memory_learning_events",
+                "memory_learning_state",
+                "memory_learned_associations",
+            ):
+                await conn.execute(
+                    text(f"DELETE FROM {self._table(table)} WHERE tenant_id = :tenant_id"),
+                    {"tenant_id": tenant_id},
+                )
 
 
 def _learning_state_from_row(row: Mapping[str, Any]) -> StoredMemoryLearningState:
