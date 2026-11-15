@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +32,15 @@ from cogkura.observations.retention import RetainedObservation
 
 _T = TypeVar("_T")
 _APPLICATION_ID = 0x434F474B
+
+
+def _has_safe_wal_version(version: tuple[int, int, int]) -> bool:
+    """Recognize SQLite releases with the 2026 WAL-reset corruption fix."""
+    return (
+        (version >= (3, 51, 3) and version != (3, 52, 0))
+        or (3, 50, 7) <= version < (3, 51, 0)
+        or (3, 44, 6) <= version < (3, 45, 0)
+    )
 
 
 def _migrations() -> list[Path]:
@@ -140,6 +150,12 @@ class SQLiteStorage:
         return owner
 
     def _open(self) -> None:
+        if not _has_safe_wal_version(sqlite3.sqlite_version_info):
+            raise StorageError(
+                f"SQLite {sqlite3.sqlite_version} may contain the WAL-reset corruption bug; "
+                "use a fixed SQLite release (3.51.3+, excluding withdrawn 3.52.0, "
+                "or the 3.50.7/3.44.6 backports)."
+            )
         conn = sqlite3.connect(self._path, timeout=self._timeout, isolation_level=None)
         self._connection = conn
         conn.row_factory = sqlite3.Row
@@ -170,6 +186,10 @@ class SQLiteStorage:
         if mode.lower() != "wal":
             raise StorageError("SQLite WAL mode could not be enabled")
         conn.execute("PRAGMA synchronous = FULL")
+        if sys.platform == "darwin":
+            conn.execute("PRAGMA fullfsync = ON")
+            if conn.execute("PRAGMA fullfsync").fetchone()[0] != 1:
+                raise StorageError("SQLite fullfsync could not be enabled")
         if conn.execute("PRAGMA synchronous").fetchone()[0] != 2:
             raise StorageError("SQLite FULL synchronous mode could not be enabled")
         _initialize(conn)

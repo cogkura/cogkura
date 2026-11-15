@@ -380,3 +380,65 @@ async def test_missing_schema_table_is_rejected(tmp_path: Path) -> None:
         conn.execute("DROP TABLE connector_checkpoints")
     with pytest.raises(StorageError, match="required tables"):
         await SQLiteStorage.open(path)
+
+
+@pytest.mark.parametrize(
+    ("version", "safe"),
+    [
+        ((3, 43, 2), False),
+        ((3, 44, 5), False),
+        ((3, 44, 6), True),
+        ((3, 45, 0), False),
+        ((3, 50, 1), False),
+        ((3, 50, 6), False),
+        ((3, 50, 7), True),
+        ((3, 51, 2), False),
+        ((3, 51, 3), True),
+        ((3, 52, 0), False),
+        ((3, 53, 1), True),
+    ],
+)
+def test_wal_version_gate(version: tuple[int, int, int], safe: bool) -> None:
+    from cogkura.storage.sqlite import _has_safe_wal_version
+
+    assert _has_safe_wal_version(version) is safe
+
+
+@pytest.mark.asyncio
+async def test_unsafe_sqlite_rejected_before_file_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sqlite3
+
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", (3, 50, 1))
+    monkeypatch.setattr(sqlite3, "sqlite_version", "3.50.1")
+    path = tmp_path / "unsafe.db"
+    with pytest.raises(StorageError, match="WAL-reset"):
+        await SQLiteStorage.open(path)
+    assert not path.exists()
+    path.write_bytes(b"existing user data")
+    with pytest.raises(StorageError, match="WAL-reset"):
+        await SQLiteStorage.open(path)
+    assert path.read_bytes() == b"existing user data"
+
+
+@pytest.mark.asyncio
+async def test_durability_pragmas_on_every_connection(tmp_path: Path) -> None:
+    import sys
+
+    first, second = await asyncio.gather(
+        SQLiteStorage.open(tmp_path / "db"), SQLiteStorage.open(tmp_path / "db")
+    )
+    for owner in (first, second):
+        settings = await owner._run(
+            lambda current=owner: (
+                current._conn().execute("PRAGMA journal_mode").fetchone()[0],
+                current._conn().execute("PRAGMA synchronous").fetchone()[0],
+                current._conn().execute("PRAGMA foreign_keys").fetchone()[0],
+                current._conn().execute("PRAGMA fullfsync").fetchone()[0],
+            )
+        )
+        assert settings[:3] == ("wal", 2, 1)
+        if sys.platform == "darwin":
+            assert settings[3] == 1
+    await asyncio.gather(first.close(), second.close())
