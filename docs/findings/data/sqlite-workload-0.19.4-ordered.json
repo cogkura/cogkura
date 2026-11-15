@@ -1,0 +1,68 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 80,
+      "observation_revisions": 400,
+      "observations": 80,
+      "semantic_memories": 80,
+      "semantic_revisions": 80
+    },
+    "ingest_seconds_per_pass": [
+      0.01593476498965174,
+      0.013928654021583498,
+      0.013928711996413767,
+      0.012823369004763663,
+      0.013196792977396399
+    ],
+    "peak_python_traced_bytes": 2181832,
+    "process_created_episodes": 80,
+    "process_seconds": 0.1868871879996732,
+    "recall_median_ms": 4128.162698005326,
+    "recall_p95_ms": 4196.211247006431,
+    "recall_sql_statements_total": null
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 80,
+      "observation_revisions": 400,
+      "observations": 80,
+      "semantic_memories": 80,
+      "semantic_revisions": 80
+    },
+    "database_bytes_after_close": 1212416,
+    "file_bytes": {
+      "": 720896,
+      "-shm": 32768,
+      "-wal": 4165352
+    },
+    "ingest_seconds_per_pass": [
+      0.10730071197031066,
+      0.10475079203024507,
+      0.11133733799215406,
+      0.10379120602738112,
+      0.11137097602477297
+    ],
+    "peak_python_traced_bytes": 5155569,
+    "process_created_episodes": 80,
+    "process_seconds": 0.44205348298419267,
+    "recall_median_ms": 4358.879492501728,
+    "recall_p95_ms": 4430.927590990905,
+    "recall_sql_statements_total": 840
+  },
+  "workload": {
+    "observations": 80,
+    "recall_queries": 4,
+    "revisions_per_observation": 5
+  }
+}

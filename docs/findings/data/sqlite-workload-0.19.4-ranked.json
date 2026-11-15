@@ -1,0 +1,298 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 80,
+      "observation_revisions": 400,
+      "observations": 80,
+      "semantic_memories": 80,
+      "semantic_revisions": 80
+    },
+    "ingest_seconds_per_pass": [
+      0.01655392796965316,
+      0.01329015800729394,
+      0.013785918010398746,
+      0.012849863967858255,
+      0.011916249990463257
+    ],
+    "peak_python_traced_bytes": 2181925,
+    "process_created_episodes": 80,
+    "process_seconds": 0.17728377098683268,
+    "recall_median_ms": 4166.097943030763,
+    "recall_p95_ms": 4206.715325010009,
+    "recall_sql_statements_total": null
+  },
+  "logical_comparisons": {
+    "in_memory": {
+      "historical_values_sha256": "256afe687f0342f89487c6d2064e9d47203174306a545b245ed822f2e0716cd4",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment env-0000",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0000 deploys to environment env-0000, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0001 deploys to environment env-0001, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0046 deployment environment env-0046",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment env-0002",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0002 deploys to environment env-0002, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0003 deployment environment env-0003",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0003 deploys to environment env-0003, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "bcf5bcefb3bf99138cb24789018c64639ceba4329ab498536b0c25a36f168010"
+    },
+    "sqlite": {
+      "historical_values_sha256": "256afe687f0342f89487c6d2064e9d47203174306a545b245ed822f2e0716cd4",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment env-0000",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0000 deploys to environment env-0000, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0001 deploys to environment env-0001, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0046 deployment environment env-0046",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment env-0002",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0002 deploys to environment env-0002, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0003 deployment environment env-0003",
+            0.99951998
+          ],
+          [
+            "episode",
+            "Service 0003 deploys to environment env-0003, revision 5.",
+            0.99946969
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935573
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935573
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "bcf5bcefb3bf99138cb24789018c64639ceba4329ab498536b0c25a36f168010"
+    }
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 80,
+      "observation_revisions": 400,
+      "observations": 80,
+      "semantic_memories": 80,
+      "semantic_revisions": 80
+    },
+    "database_bytes_after_close": 1212416,
+    "file_bytes": {
+      "": 708608,
+      "-shm": 32768,
+      "-wal": 4157112
+    },
+    "ingest_seconds_per_pass": [
+      0.10371764295268804,
+      0.11917799699585885,
+      0.10666996997315437,
+      0.10251086199423298,
+      0.09767302899854258
+    ],
+    "peak_python_traced_bytes": 5151660,
+    "process_created_episodes": 80,
+    "process_seconds": 0.43927630002144724,
+    "recall_median_ms": 4400.959681486711,
+    "recall_p95_ms": 4651.35568002006,
+    "recall_sql_statements_total": 840
+  },
+  "workload": {
+    "observations": 80,
+    "recall_queries": 4,
+    "revisions_per_observation": 5
+  }
+}

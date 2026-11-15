@@ -52,8 +52,29 @@ Activation references, forgetting state, learning, inhibition and entity relatio
 
 SQLite work runs on a dedicated worker thread. Each observation and its revision commit together; connector checkpoints commit separately after a successful ingestion batch. A failed or interrupted batch can leave earlier observations committed while its checkpoint remains unchanged; replay is expected. Cancellation of an awaiting write does not establish whether it committed. Retry using the same source identity and version after checking the result.
 
-Semantic reads and writes currently materialize the tenant’s semantic inventory in memory; some cognitive-state operations also scan tenant-scoped records. Workloads with large histories may have significant latency and memory costs. Slot inspection limits its inventory queries, but broad performance and workload validation are planned for 0.19.4.
+Semantic reads and writes materialize the tenant's semantic inventory in memory; some cognitive-state operations also scan tenant-scoped records. Batched semantic child reads reduce SQL statement counts, but large histories can still have substantial latency and memory costs. Slot inspection limits its inventory queries. See the [0.19.4 workload findings](findings/0.19.4-embedded-reliability.md) for the measured workload and limits.
 
 The backend uses WAL, foreign keys, `synchronous=FULL` and a five-second default busy timeout; pass `busy_timeout` in seconds to `open` to change it. Independent connections can read concurrently and writes are serialized by SQLite. Lock timeouts and database failures raise `StorageError`. Use a filesystem that supports SQLite WAL and locking. SQLite may create `-wal` and `-shm` sidecars; use SQLite-supported backup mechanisms rather than copying a live database file alone.
 
 The database and sidecars are not encrypted by Cogkura and may contain retained content, metadata and checkpoints. Protect them with host-device encryption and filesystem permissions appropriate to the application. Retention policies still apply before storage; they are not encryption or secure deletion.
+
+## Backup, restore and file access
+
+Use SQLite's online backup API to create a consistent copy, including committed data still in the WAL. For example, this synchronous function can run in `asyncio.to_thread` when called by an asynchronous application:
+
+```python
+import sqlite3
+from pathlib import Path
+
+
+def backup_database(source_path: str, new_backup_path: str) -> None:
+    source_uri = Path(source_path).resolve().as_uri() + "?mode=ro"
+    with sqlite3.connect(source_uri, uri=True) as source:
+        Path(new_backup_path).touch(mode=0o600, exist_ok=False)
+        with sqlite3.connect(new_backup_path) as backup:
+            source.backup(backup)
+```
+
+Choose a new destination in a protected directory. To restore, close owners of the destination database first and restore the complete backup as a new database file; open it with `EmbeddedMemory.open`. Do not replace a live database or copy only its main file while WAL is active. A backup is a point-in-time snapshot: writes committed after that snapshot are not included. Protect and test backups as carefully as the live database.
+
+Cogkura does not set a universal file owner or file mode: the host account, parent directory permissions and process umask control database and sidecar creation. Set those before opening the runtime, restrict access to the database directory and backups, and use host-device encryption as appropriate. POSIX restrictive-umask behavior is tested; behavior on other platforms and filesystems follows their SQLite and OS rules. Cogkura does not provide encryption, secure deletion, tamper detection or cross-user isolation within a shared SQLite file. Tenant scoping is an application storage contract, not an operating-system security boundary.

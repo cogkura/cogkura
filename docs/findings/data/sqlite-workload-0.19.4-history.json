@@ -1,0 +1,78 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 160,
+      "observation_revisions": 1600,
+      "observations": 160,
+      "semantic_memories": 160,
+      "semantic_revisions": 160
+    },
+    "ingest_seconds_per_pass": [
+      0.032289250986650586,
+      0.02582982397871092,
+      0.027117535995785147,
+      0.025593348022084683,
+      0.02539458399405703,
+      0.028560001985169947,
+      0.027128200978040695,
+      0.02911714103538543,
+      0.029483312973752618,
+      0.028013264993205667
+    ],
+    "peak_python_traced_bytes": 5820113,
+    "process_created_episodes": 160,
+    "process_seconds": 0.3932261459995061,
+    "recall_median_ms": 16074.141396966297,
+    "recall_p95_ms": 16074.141396966297,
+    "recall_sql_statements_total": null
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 160,
+      "observation_revisions": 1600,
+      "observations": 160,
+      "semantic_memories": 160,
+      "semantic_revisions": 160
+    },
+    "database_bytes_after_close": 2830336,
+    "file_bytes": {
+      "": 1896448,
+      "-shm": 32768,
+      "-wal": 4136512
+    },
+    "ingest_seconds_per_pass": [
+      0.1944858129718341,
+      0.2060347200022079,
+      0.20096425199881196,
+      0.19952298898715526,
+      0.21036522701615468,
+      0.2081584149855189,
+      0.1973408559570089,
+      0.1899551340029575,
+      0.20924452500184998,
+      0.19754930899944156
+    ],
+    "peak_python_traced_bytes": 11397710,
+    "process_created_episodes": 160,
+    "process_seconds": 0.904266516037751,
+    "recall_median_ms": 16603.613443032373,
+    "recall_p95_ms": 16603.613443032373,
+    "recall_sql_statements_total": 370
+  },
+  "workload": {
+    "observations": 160,
+    "recall_queries": 1,
+    "revisions_per_observation": 10
+  }
+}
