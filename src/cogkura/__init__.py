@@ -50,6 +50,7 @@ from cogkura.algorithms.working_memory import (
     TokenEstimator,
     WorkingMemorySelector,
 )
+from cogkura.embedded import EmbeddedMemory
 from cogkura.exceptions import RecallInspectionUnsupportedError
 from cogkura.memory import Memory
 from cogkura.models import (
@@ -295,6 +296,7 @@ __all__ = [
     "EntityRelationshipInput",
     "EpisodeWriteStatus",
     "EpisodicEncoder",
+    "EmbeddedMemory",
     "ForgettingConfig",
     "ForgettingResult",
     "IngestionResult",

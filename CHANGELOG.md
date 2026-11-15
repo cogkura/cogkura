@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency-free SQLite observation and checkpoint stores with versioned migrations, a dedicated asynchronous worker, WAL and explicit lifecycle.
 - SQLite episodic and semantic stores, including source evidence, encoding context, historical revisions, snapshots, reconciliation and bounded slot inspection.
 - SQLite activation, forgetting, learning, inhibition and entity-relationship stores, including atomic, idempotent learning plans.
+- `EmbeddedMemory.open(path)` for a cohesive SQLite-backed `Memory` with explicit and context-managed shutdown.
 - Restart, migration, transactional rollback, correction, source-provenance and cross-backend contract tests. See [SQLite storage](docs/sqlite-storage.md) for configuration and current limitations.
 
 ### Validation status
 
-- Full Core suites pass against PostgreSQL 16 on Python 3.11, 3.12 and 3.13: 992 tests per runtime, no skips; a subsequent upgrade test passed separately on all three. Ruff, formatting and mypy pass on all three runtimes. The source-provenance freeze cases cover SQLite, PostgreSQL and in-memory storage.
+- Full Core suites pass against PostgreSQL 16 on Python 3.11, 3.12 and 3.13: 1,002 tests per runtime, no skips. The built wheel opens and reopens the embedded runtime without optional dependencies. Ruff, formatting and mypy pass on all three runtimes. The source-provenance freeze cases cover SQLite, PostgreSQL and in-memory storage.
 - Semantic operations currently materialize a tenant's semantic inventory and require workload and performance hardening in the proposed 0.19.4 milestone. Cognitive-state stores remain in memory unless SQLite implementations are explicitly injected.
 
 ## [0.18.4] - 2026-11-15

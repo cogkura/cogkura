@@ -80,7 +80,7 @@ Lower-level APIs (`encode_episodes()`, `consolidate_semantics()`, `recall()`, `i
 
 See [`docs/architecture.md`](docs/architecture.md) for storage protocols, deployment models, and package layout.
 
-For local persistence of observations, checkpoints, derived memories and cognitive state, see [SQLite storage](docs/sqlite-storage.md).
+Use `EmbeddedMemory.open(path)` to run Cogkura with local persistent storage and no database server. See [SQLite storage](docs/sqlite-storage.md) for lifecycle, configuration and operational details.
 
 ## Installation
 

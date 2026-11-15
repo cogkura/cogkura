@@ -1,6 +1,19 @@
 # SQLite storage
 
-Cogkura's standard-library SQLite backend persists observations, connector checkpoints, episodes, semantic memories and cognitive state in one local database. It retains observation and semantic revision history, evidence and semantic relationships. Install Core without extra dependencies and inject the stores into the existing `Memory` facade:
+Cogkura's standard-library SQLite backend persists observations, connector checkpoints, episodes, semantic memories and cognitive state in one local database. It retains observation and semantic revision history, evidence and semantic relationships. Install Core without extra dependencies and open an embedded instance:
+
+```python
+from cogkura import EmbeddedMemory, ObservationInput
+
+async with await EmbeddedMemory.open("cogkura.db") as memory:
+    await memory.observe(ObservationInput(...))
+    await memory.process(tenant_id="my-tenant")
+    context = await memory.prepare_context("What do I know?", tenant_id="my-tenant")
+```
+
+The context manager closes the database on exit. For an explicit lifetime, use `runtime = await EmbeddedMemory.open(path)`, access `runtime.memory`, and call `await runtime.close()` when finished. The parent directory must exist. `open` accepts a finite non-negative `busy_timeout` in seconds and non-storage `Memory` constructor options such as `activation_config`; it rejects storage overrides to keep the bundle fully durable. Reopen with a new runtime after closing. Do not use a previously acquired `Memory` after its owner closes.
+
+For advanced dependency injection, the individual stores can also be constructed explicitly:
 
 ```python
 from cogkura import Memory
@@ -35,11 +48,11 @@ finally:
 
 Opening creates a new database or migrates a supported SQLite schema; it rejects unrelated or newer databases. The caller owns the shared storage object and must close it after use. Close drains accepted work. Reopen the same path to recover observations and checkpoints. `Memory.clear()` clears observations for the requested tenant but does not clear connector checkpoints.
 
-Activation references, forgetting state, learning, inhibition and entity relationships survive restart when the SQLite stores shown above are injected. Any stores omitted from the constructor still default to in-memory storage. Working-memory snapshots remain transient. A cohesive embedded runtime is a later proposed milestone.
+Activation references, forgetting state, learning, inhibition and entity relationships survive restart when the SQLite stores shown above are injected. Any stores omitted from the constructor still default to in-memory storage. Working-memory snapshots remain transient.
 
 SQLite work runs on a dedicated worker thread. Each observation and its revision commit together; connector checkpoints commit separately after a successful ingestion batch. A failed or interrupted batch can leave earlier observations committed while its checkpoint remains unchanged; replay is expected. Cancellation of an awaiting write does not establish whether it committed. Retry using the same source identity and version after checking the result.
 
-Semantic reads and writes currently materialize the tenant’s semantic inventory in memory; some cognitive-state operations also scan tenant-scoped records. workloads with large histories may have significant latency and memory costs. Slot inspection limits its inventory queries, but broad performance and workload validation are planned for 0.19.4.
+Semantic reads and writes currently materialize the tenant’s semantic inventory in memory; some cognitive-state operations also scan tenant-scoped records. Workloads with large histories may have significant latency and memory costs. Slot inspection limits its inventory queries, but broad performance and workload validation are planned for 0.19.4.
 
 The backend uses WAL, foreign keys, `synchronous=FULL` and a five-second default busy timeout; pass `busy_timeout` in seconds to `open` to change it. Independent connections can read concurrently and writes are serialized by SQLite. Lock timeouts and database failures raise `StorageError`. Use a filesystem that supports SQLite WAL and locking. SQLite may create `-wal` and `-shm` sidecars; use SQLite-supported backup mechanisms rather than copying a live database file alone.
 
