@@ -3,7 +3,10 @@
 **Status:** Audit and non-behavioral implementation authorised by the user's
 15 November 2026 request. The user also explicitly approved the separate
 [withdrawn-readmission correction](design-withdrawn-readmission-context-correction.md).
-Implementation/verification is in progress; freeze acceptance remains pending.
+Implementation and Core/independent Bench verification are complete. The user
+separately approved the one exact frozen-output deviation and scoped acceptance;
+see [final findings](findings/0.18.4-source-provenance-architecture-freeze.md).
+Architecture freeze verified; candidate remains unreleased.
 **Baseline:** validated Core 0.18.3, `f62096a`; Bench 0.3.11, `fca1f90`.
 **Release actions:** direct commits on `main`; tags/publication remain separate.
 
@@ -19,7 +22,7 @@ no new cognitive capability. The normative source contracts remain the preceding
 The user's supplied 0.18.4 proposal is the acceptance specification; this note
 records its audit, implementation boundary and required release decisions.
 
-Add `test_source_provenance_architecture_freeze.py` for combined feature paths.
+Added `test_source_provenance_architecture_freeze.py` for combined feature paths.
 Retain focused algorithm tests rather than copying them to inflate counts. The
 invariant matrix maps the full contract to existing coverage plus these additions.
 No runtime algorithm, storage protocol, schema, dependency or default is changed
@@ -52,7 +55,7 @@ part of the full required gate. New combined checks are in the freeze suite.
 | Existing 0.17.7 cognitive baseline | `test_interference_inhibition_architecture_freeze.py`, `test_contextual_memory_architecture_freeze.py`, activation/forgetting/learning/context tests | Run unchanged full suite and independent frozen Bench signatures |
 | Batched reads; output cap does not bound bytes | PostgreSQL constant-query/read-only tests; 0.18.3 ordering-cost measurements | Repeat fixture against exact baseline/current sources; report source rows, bytes, queries and latency |
 | No locator fetching | Allow-listed resolver reads only observation/episode stores; locators remain inert strings | Resolver audit plus deliberately non-fetchable locator in lifecycle fixture |
-| Later readmission cannot expose withdrawn assertion as current prose | Existing test covered semantic deferral only; original supporting-episode redaction tests did not cover later episode | **GAP RESOLVED BY APPROVED CORRECTION:** new combined rendering/exact-metadata regressions pass on both backends; the intentional Bench fingerprint change still requires a separate decision |
+| Later readmission cannot expose withdrawn assertion as current prose | Existing test covered semantic deferral only; original supporting-episode redaction tests did not cover later episode | **GAP RESOLVED BY APPROVED CORRECTION:** new combined rendering/exact-metadata regressions pass on both backends; the one exact Bench fingerprint change and scoped acceptance were separately approved |
 
 ## Clarifications from the audit
 
@@ -84,7 +87,8 @@ The original readmission gap was a correctness defect and was not safe to certif
 as an invariant for production Agent use. A deterministic public-API reproduction
 showed `WITHDRAWN`, a deferred readmission, and the same assertion in current context.
 The user separately approved its narrow read-side correction; the new regressions
-now pass. Frozen-output deviations remain a separate explicit approval boundary.
+now pass. The resulting one-query Bench deviation and exact version/commit/hash
+acceptance were separately approved; further deviations require their own review.
 
 ## Validation and release closure
 
@@ -102,4 +106,7 @@ changes frozen signatures, report exact differences and obtain separate approval
 Version metadata advances consistently to the 0.18.4 candidate after approval of
 the correction. The 0.18.3 baseline remains the comparison point; the architecture
 is not declared frozen before all gates and any deviation decisions are resolved.
+Those gates and the explicit one-query decision are now resolved: Core 923 tests
+and Bench 317 tests per runtime, zero skips, full CLI matrix and approved strict
+gate. The architecture is frozen subject to the documented conservative limits.
 No release is published by this work.

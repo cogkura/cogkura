@@ -331,10 +331,10 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - Required Core and separately authorised independent Bench gates pass, including canonical capped-source parity on PostgreSQL. Tags/publication remain separate.
 - [Design](design-source-aware-metamemory-0.18.3.md) and [usage](source-metamemory.md).
 
-## 0.18.4 — Source provenance architecture freeze (candidate; acceptance pending)
+## 0.18.4 — Source provenance architecture freeze (verified candidate; unreleased)
 
 - Consolidated contract audit and cross-feature in-memory/PostgreSQL regression suite.
 - Separately approved read-side correction for stale prose from deferred readmissions.
-- Core and independent Bench CI gates pass; raw strict comparison identifies exactly one intended correction. Freeze acceptance awaits the separate frozen-output decision.
+- Core and independent Bench CI/strict gates pass: 392 unchanged query signatures plus one separately approved exact correction, with original gold/raw mismatch retained. All freeze acceptance criteria are resolved for the candidate.
 - No new cognitive capability, mandatory protocol, migration or dependency.
 - [Freeze design and invariant matrix](design-source-provenance-architecture-freeze-0.18.4.md), [corrective design](design-withdrawn-readmission-context-correction.md), and [findings](findings/0.18.4-source-provenance-architecture-freeze.md).

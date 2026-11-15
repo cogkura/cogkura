@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Validation
 
-- Core Python 3.11–3.13 required gates pass with PostgreSQL: 923 tests per runtime, zero skips. Independent Bench CI also passes (289 tests per runtime); its raw strict gate identifies one intentional stale-readmission correction. Freeze acceptance awaits explicit approval of that exact fingerprint deviation.
+- Core Python 3.11–3.13 required gates pass with PostgreSQL: 923 tests per runtime, zero skips. Independent Bench CI also passes (317 tests per runtime) with all CLI steps. Strict acceptance passes with 392 unchanged signatures plus the separately approved exact stale-readmission correction; original gold and the raw mismatch remain intact. Architecture freeze verified; publication remains separate.
 - No schema, mandatory protocol, dependency, authority rule, ranking formula or retrieval default change. The documented stale-prose correction is an intentional eligibility/rendering change, not a claim of complete cognitive output non-interference.
 
 ## [0.18.3] - Validated candidate, unreleased

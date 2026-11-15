@@ -180,7 +180,7 @@ deferred later episodes. It preserves separable unrelated prose and stored sourc
 history. This is an explicitly approved correctness change, not behavior added by
 source assessment. See the [corrective design](design-withdrawn-readmission-context-correction.md)
 and [freeze findings](findings/0.18.4-source-provenance-architecture-freeze.md) for
-the remaining limitations and pending frozen-output decision.
+the remaining limitations and separately approved exact one-query acceptance.
 
 Applications own uncertainty and abstention policy. Complete attribution,
 application authority, and strong retrieval never imply factual certainty.

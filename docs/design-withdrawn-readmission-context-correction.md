@@ -1,9 +1,10 @@
 # Corrective design: withdrawn readmission in current context
 
 **Status:** Approved explicitly by the user on 15 November 2026; implementation
-and validation in progress. Frozen-baseline deviations still require separate approval.
+and Core/independent Bench validation complete. The resulting exact one-query
+frozen-output deviation and scoped acceptance were separately approved that day.
 **Reviewed baseline:** Core `f62096a` / runtime `0.18.3`, 15 November 2026.
-**Relationship:** Correctness prerequisite to the proposed 0.18.4 architecture freeze.
+**Relationship:** Correctness prerequisite to the verified 0.18.4 architecture freeze.
 
 ## Finding and release decision
 
@@ -17,7 +18,9 @@ This is a correctness defect, not an acceptable frozen invariant. It violates
 the intended current-context boundary in the
 [0.18.2 design](design-authoritative-corrections-0.18.2.md). It is not safe to call
 the architecture dependable for production Agent integration while this remains
-unresolved. The freeze stays unapproved; no claim of Agent readiness is made.
+unresolved. This finding originally blocked the freeze. The approved correction
+and its validation now resolve that blocker; production Agent readiness remains
+the separate 0.20.0 integration milestone.
 
 Existing `test_readmission_after_withdrawal_does_not_restore_the_assertion` checks
 deferral and durable semantic history, but never recalls or renders context.
@@ -80,6 +83,10 @@ failed comparison and enumerate the exact affected queries, before/after content
 and metrics for separate approval. Do not rebaseline, weaken comparisons, or
 declare the strict gate passed without that explicit decision.
 
-**Approval requested:** implement this narrow retrieval correction before completing
-0.18.4. Approval of the architecture-freeze work itself does not approve this change
-or any future frozen-baseline deviation.
+**Approval and outcome:** the user approved this narrow retrieval correction, then
+separately approved the one observed `ac-q-c20` deviation with exact version,
+commit, gold digest and before/after fingerprints. The original failed comparison
+remains intact; the opt-in approved gate passes without other drift. See
+[freeze findings](findings/0.18.4-source-provenance-architecture-freeze.md) for exact
+commits, full gates, read costs and residual limitations. Future retrieval changes
+or baseline deviations require their own review.
