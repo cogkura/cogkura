@@ -14,6 +14,7 @@ def _observation(
     source_record_id: str,
     content: str,
     metadata: dict | None = None,
+    observed_at: datetime | None = None,
 ) -> ObservationInput:
     return ObservationInput(
         tenant_id="company_123",
@@ -23,7 +24,7 @@ def _observation(
         source_record_id=source_record_id,
         event_type="message",
         content=content,
-        observed_at=datetime.now(UTC),
+        observed_at=observed_at or datetime.now(UTC),
         metadata=metadata or {},
     )
 
@@ -35,6 +36,7 @@ async def test_encode_and_list_episodes() -> None:
         _observation(
             source_record_id="message_1",
             content="Redis would add too much operational complexity.",
+            observed_at=datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC),
             metadata={
                 "conversation_id": "architecture_123",
                 "entity_ids": ["customer_42", "redis"],
@@ -45,6 +47,7 @@ async def test_encode_and_list_episodes() -> None:
         _observation(
             source_record_id="message_2",
             content="The team agreed to evaluate PostgreSQL-backed caching.",
+            observed_at=datetime(2024, 1, 1, 0, 0, 1, tzinfo=UTC),
             metadata={
                 "conversation_id": "architecture_123",
                 "entity_ids": ["customer_42", "postgresql"],
