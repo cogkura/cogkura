@@ -1,0 +1,1292 @@
+{
+  "baseline": {
+    "core_version": "0.18.3",
+    "label": "f62096a",
+    "methodology": "Five reads per case; source rows returned and metadata/content bytes only, excluding SQL row overhead, semantic snapshots, episode evidence and engine pages scanned. Context fixture has one later structured readmission plus unrelated candidate episodes. No latency threshold.",
+    "postgresql": "14.18 (Homebrew)",
+    "python": "3.11.15",
+    "results": [
+      {
+        "backend": "in_memory",
+        "fixture_sources": 2,
+        "median_latency_ms": 0.446,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.625,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.471,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.446,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.438,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.405,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 16,
+        "median_latency_ms": 0.997,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.014,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.023,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 0.997,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 0.959,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 0.904,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 64,
+        "median_latency_ms": 3.016,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.827,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 3.409,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 3.016,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 3.042,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.803,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 2,
+        "median_latency_ms": 2.479,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.905,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.479,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.963,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.417,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.107,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 16,
+        "median_latency_ms": 6.2,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 7.061,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.2,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.136,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.764,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.061,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 64,
+        "median_latency_ms": 31.012,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 31.409,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 29.694,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 31.884,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 31.012,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 29.657,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 0,
+            "withdrawn_prose_present": true
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 2,
+        "median_latency_ms": 9.234,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 86,
+            "latency_ms": 18.706,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 19.678,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 9.234,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 7.5,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 7.182,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 16,
+        "median_latency_ms": 8.268,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 688,
+            "latency_ms": 10.852,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 9.281,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 8.105,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 7.549,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 8.268,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 64,
+        "median_latency_ms": 15.131,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.131,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.269,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 14.879,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 14.949,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 16.064,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 2,
+        "median_latency_ms": 16.946,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 17.371,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 23,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 16.946,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 23,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 17.09,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 23,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 16.708,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 23,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 16.319,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 23,
+            "withdrawn_prose_present": true
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 16,
+        "median_latency_ms": 43.529,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 40.902,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 65,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 43.529,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 65,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 43.989,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 65,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 43.403,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 65,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 43.774,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 65,
+            "withdrawn_prose_present": true
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 64,
+        "median_latency_ms": 137.66,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 153.855,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 209,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 139.965,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 209,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 134.198,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 209,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 134.103,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 209,
+            "withdrawn_prose_present": true
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 137.66,
+            "metadata_bytes": 0,
+            "observation_batches": 0,
+            "observation_rows_returned": 0,
+            "sql_statements": 209,
+            "withdrawn_prose_present": true
+          }
+        ]
+      }
+    ]
+  },
+  "candidate": {
+    "core_version": "0.18.4",
+    "label": "candidate-working-tree",
+    "methodology": "Five reads per case; source rows returned and metadata/content bytes only, excluding SQL row overhead, semantic snapshots, episode evidence and engine pages scanned. Context fixture has one later structured readmission plus unrelated candidate episodes. No latency threshold.",
+    "postgresql": "14.18 (Homebrew)",
+    "python": "3.11.15",
+    "results": [
+      {
+        "backend": "in_memory",
+        "fixture_sources": 2,
+        "median_latency_ms": 0.513,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.563,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.595,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.513,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.437,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 0.415,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 16,
+        "median_latency_ms": 1.125,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.183,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.125,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.337,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 1.045,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 0.947,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 64,
+        "median_latency_ms": 2.846,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.916,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.846,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.762,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 3.011,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 2.736,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 2,
+        "median_latency_ms": 2.888,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 3.501,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.769,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.621,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.888,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 2.985,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 16,
+        "median_latency_ms": 7.291,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 7.451,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 8.379,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.724,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 7.291,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 6.772,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "in_memory",
+        "fixture_sources": 64,
+        "median_latency_ms": 34.119,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 39.682,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 35.907,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 33.673,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 34.119,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 33.714,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 0,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 2,
+        "median_latency_ms": 13.331,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 86,
+            "latency_ms": 25.974,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 28.833,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 11.056,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 10.474,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 86,
+            "latency_ms": 13.331,
+            "metadata_bytes": 5012,
+            "observation_batches": 2,
+            "observation_rows_returned": 4,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 16,
+        "median_latency_ms": 11.591,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 688,
+            "latency_ms": 13.166,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 11.598,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 11.591,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 9.744,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 688,
+            "latency_ms": 9.215,
+            "metadata_bytes": 40096,
+            "observation_batches": 2,
+            "observation_rows_returned": 32,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 64,
+        "median_latency_ms": 15.539,
+        "mode": "slot",
+        "runs": [
+          {
+            "content_bytes": 2752,
+            "latency_ms": 17.003,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.539,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.051,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.701,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 2752,
+            "latency_ms": 15.258,
+            "metadata_bytes": 160384,
+            "observation_batches": 2,
+            "observation_rows_returned": 128,
+            "sql_statements": 10,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 2,
+        "median_latency_ms": 21.501,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 21.501,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 24,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 24.253,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 24,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 22.102,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 24,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 18.944,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 24,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 18.92,
+            "metadata_bytes": 2646,
+            "observation_batches": 1,
+            "observation_rows_returned": 3,
+            "sql_statements": 24,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 16,
+        "median_latency_ms": 46.915,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 46.915,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 66,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 56.368,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 66,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 52.158,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 66,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 46.85,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 66,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 45.991,
+            "metadata_bytes": 18662,
+            "observation_batches": 1,
+            "observation_rows_returned": 17,
+            "sql_statements": 66,
+            "withdrawn_prose_present": false
+          }
+        ]
+      },
+      {
+        "backend": "postgresql",
+        "fixture_sources": 64,
+        "median_latency_ms": 148.528,
+        "mode": "context",
+        "runs": [
+          {
+            "content_bytes": 0,
+            "latency_ms": 148.528,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 210,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 156.083,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 210,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 148.361,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 210,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 151.314,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 210,
+            "withdrawn_prose_present": false
+          },
+          {
+            "content_bytes": 0,
+            "latency_ms": 148.209,
+            "metadata_bytes": 73574,
+            "observation_batches": 1,
+            "observation_rows_returned": 65,
+            "sql_statements": 210,
+            "withdrawn_prose_present": false
+          }
+        ]
+      }
+    ]
+  }
+}

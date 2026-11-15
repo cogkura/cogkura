@@ -14,6 +14,8 @@ from cogkura.algorithms.retrieval_features import (
     predicate_content_features,
 )
 from cogkura.algorithms.semantic import (
+    _candidate_from_revision_fact,
+    _canonicalize_candidate,
     _parse_optional_datetime,
     generate_revision_key,
     promotion_basis_value,
@@ -28,6 +30,7 @@ from cogkura.models import (
     SemanticDecisionReason,
     SemanticDerivationInput,
     SemanticDerivationRelation,
+    SemanticFactCandidate,
     SemanticMemoryInput,
     SemanticMemoryStatus,
     SemanticPolarity,
@@ -47,6 +50,7 @@ from cogkura.observations.models import (
     StoredObservation,
     StoredObservationRevision,
 )
+from cogkura.storage.base import ObservationStore
 
 SNAPSHOT_VERSION = "semantic-revision-snapshot-v1"
 _EPISODE_FRAGMENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+|\n+")
@@ -505,12 +509,14 @@ def hidden_current_episode_ids(
     return set()
 
 
-def selectively_filter_stale_episode_content(
+async def selectively_filter_stale_episode_content(
     episodes: Sequence[StoredEpisode],
     revisions: Sequence[StoredSemanticRevision],
     *,
     as_of: datetime,
     valid_at: datetime | None,
+    tenant_id: str,
+    observation_store: ObservationStore,
 ) -> list[StoredEpisode]:
     """Remove known stale assertion fragments from current-state episode reads.
 
@@ -520,13 +526,69 @@ def selectively_filter_stale_episode_content(
     If the source cannot be separated safely, the episode is omitted rather than
     leaking stale context.
     """
-    stale_assertions = _stale_episode_assertions(
+    stale_assertions, closed_claims = _stale_episode_assertions(
         revisions,
         as_of=as_of,
         valid_at=valid_at,
     )
-    if not stale_assertions:
+    if not stale_assertions and not closed_claims:
         return list(episodes)
+    # Deferred readmissions never became predecessor derivations. Resolve their
+    # exact structured claims without qualifying, consolidating, or substituting
+    # latest observation metadata. Existing supporting episodes retain their path.
+    unlinked = (
+        [e for e in episodes if e.id not in stale_assertions and e.tenant_id == tenant_id]
+        if closed_claims
+        else []
+    )
+    references = sorted(
+        {
+            ObservationRevisionIdentity(e.observation_id, e.observation_revision)
+            for episode in unlinked
+            for e in episode.evidence
+        },
+        key=lambda r: (r.observation_id, r.observation_revision),
+    )
+    exact = (
+        await observation_store.get_revisions_many(tenant_id=tenant_id, references=references)
+        if references
+        else {}
+    )
+    for episode in unlinked:
+        for evidence in episode.evidence:
+            identity = ObservationRevisionIdentity(
+                evidence.observation_id, evidence.observation_revision
+            )
+            revision = exact.get(identity)
+            if revision is None or revision.tenant_id != tenant_id or revision.observed_at > as_of:
+                continue
+            template = SemanticFactCandidate(
+                tenant_id=tenant_id,
+                source_episode_id=episode.id,
+                subject_entity_id=episode.subject_id,
+                predicate="unparsed",
+                object_value="unparsed",
+                object_entity_id=None,
+                polarity=SemanticPolarity.AFFIRM,
+                cardinality=SemanticCardinality.MANY,
+                confidence=1.0,
+                observed_at=revision.observed_at,
+                source_observation_id=identity.observation_id,
+                source_observation_revision=identity.observation_revision,
+            )
+            for raw_fact in _raw_facts_from_revision(revision):
+                if not isinstance(raw_fact, Mapping):
+                    continue
+                try:
+                    candidate, _ = _candidate_from_revision_fact(template, raw_fact)
+                    claim = _canonicalize_candidate(candidate)
+                except (ValidationError, ValueError):
+                    continue
+                assertion = closed_claims.get(
+                    (tenant_id, claim.claim_key, candidate.cardinality.value)
+                )
+                if assertion is not None:
+                    stale_assertions.setdefault(episode.id, set()).add(assertion)
     filtered: list[StoredEpisode] = []
     for episode in episodes:
         assertions = stale_assertions.get(episode.id)
@@ -563,9 +625,12 @@ def _stale_episode_assertions(
     *,
     as_of: datetime,
     valid_at: datetime | None,
-) -> dict[str, set[_StaleEpisodeAssertion]]:
+) -> tuple[
+    dict[str, set[_StaleEpisodeAssertion]], dict[tuple[str, str, str], _StaleEpisodeAssertion]
+]:
     by_key = {revision.revision_key: revision for revision in revisions}
     stale: dict[str, set[_StaleEpisodeAssertion]] = {}
+    closed_claims: dict[tuple[str, str, str], _StaleEpisodeAssertion] = {}
     for revision in revisions:
         predecessor_key = _predecessor_key(revision.snapshot)
         if predecessor_key is None or _transition_hidden(
@@ -584,10 +649,18 @@ def _stale_episode_assertions(
                 _optional_str(predecessor.snapshot.get("predicate"))
             ),
         )
+        if snapshot_is_present(predecessor.snapshot):
+            closed_claims[
+                (
+                    predecessor.tenant_id,
+                    predecessor.memory_key,
+                    str(predecessor.snapshot.get("cardinality")),
+                )
+            ] = assertion
         for derivation in predecessor.derivations:
             if derivation.relation is SemanticDerivationRelation.SUPPORTS:
                 stale.setdefault(derivation.episode_id, set()).add(assertion)
-    return stale
+    return stale, closed_claims
 
 
 def _fragment_carries_assertion(

@@ -208,3 +208,20 @@ option. Enabling it returns pass-local `SemanticConsolidationResult.decisions`;
 it does not enable source authority/corrections or change old counters. Existing
 `MetamemoryConfig` and retrieval interfaces stay unchanged. See
 [source-aware metamemory](source-metamemory.md) for coverage and historical limits.
+
+### Source provenance freeze candidate (0.18.4)
+
+No new configuration switch is introduced. Existing explicit authority and
+correction opt-ins retain their defaults. The approved stale-readmission fix
+projects known closed assertions out of current episodic context using exact
+structured evidence, including deferred episodes not retained as semantic support.
+Reads may add one batched exact-revision lookup when such a closing transition is
+known/effective; ordinary reads without one add no source lookup for this fix.
+
+`valid_at` remains factual time and `as_of` retains operation-specific semantics.
+Exact slot inspection with explicit historical `as_of` masks present-store
+currentness. `assess_source_memory(context)` preserves the resolver's present-store
+currentness even when the context was prepared historically; it has no historical
+latest-pointer option. Missing revision evidence reduces attribution coverage but
+does not by itself erase a proven slot state. Unsupported temporal reconstruction
+remains indeterminate. Output limits do not establish hard database-byte budgets.

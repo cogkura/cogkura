@@ -218,7 +218,31 @@ Source identity is `(tenant_id, source_namespace, source_record_id)`. Revision e
 
 Semantic consolidation still requires repeated episodes unless the application opts in with `allow_authoritative_single_episode=True` and one `semantic_facts` entry declares `authority.basis=application_asserted`. The declaration is checked against the episode's current, non-deleted observation revision. It admits that fact only. It does not raise confidence, activation, or retrieval priority, and it does not supersede a competing current claim unless `SemanticCorrectionConfig(enabled=True)` names that revision. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md) and [`design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md).
 
-## Current implementation boundary (0.18.2)
+## Source provenance freeze candidate (0.18.4)
+
+The [freeze audit](design-source-provenance-architecture-freeze-0.18.4.md) maps the
+0.18 provenance, authority, correction and metamemory contracts to existing and
+combined regression coverage. Exact slot source ordering remains separate from
+prepared-context provenance and arbitrary-UUID retrieval determinism.
+
+The separately [approved correctness correction](design-withdrawn-readmission-context-correction.md)
+extends stale episodic projection to later structured assertions of a known
+closed claim. Exact observation revisions establish the canonical claim identity;
+the existing fragment filter preserves unrelated facts where separation is safe.
+This intentionally changes stale eligible/rendered content. It changes no stored
+episode, semantic decision, confidence/ranking formula, learning or use behavior.
+Source diagnostics themselves remain read-only downstream observations.
+
+The correction performs one deduplicated exact-revision batch for candidate
+episodes when a provable closing transition is visible/effective. It does not
+fetch locators, infer source trust or parse arbitrary prose into facts. Missing
+exact metadata or unsupported custom/legacy claim representations do not gain a
+fabricated identity. This is not a guarantee that all inconsistent natural-language
+content can be discovered. Full cross-store atomicity and bitemporal history remain
+outside the contract. Freeze acceptance depends on the recorded Core/Bench gates
+and any separately approved intentional frozen-output deviation.
+
+## Current implementation boundary (0.18.4 candidate)
 
 Implemented:
 

@@ -330,3 +330,11 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - Conservative historical attribution and unknown independence; cognitive behavior unchanged.
 - Required Core and separately authorised independent Bench gates pass, including canonical capped-source parity on PostgreSQL. Tags/publication remain separate.
 - [Design](design-source-aware-metamemory-0.18.3.md) and [usage](source-metamemory.md).
+
+## 0.18.4 — Source provenance architecture freeze (candidate; acceptance pending)
+
+- Consolidated contract audit and cross-feature in-memory/PostgreSQL regression suite.
+- Separately approved read-side correction for stale prose from deferred readmissions.
+- Required Core gates pass; independent Bench and any intentional frozen-output deviation decision remain gates.
+- No new cognitive capability, mandatory protocol, migration or dependency.
+- [Freeze design and invariant matrix](design-source-provenance-architecture-freeze-0.18.4.md), [corrective design](design-withdrawn-readmission-context-correction.md), and [findings](findings/0.18.4-source-provenance-architecture-freeze.md).

@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release focus: `0.18.3` source-aware metamemory and conflict observability (cognitive behavior stays frozen; independent Bench validation remains a separate release gate)
+- Current release focus: `0.18.4` source provenance architecture freeze, including the separately approved withdrawn-readmission context correction. Core and independent Bench gates plus any intentional frozen-output deviation decision are required before freeze acceptance.
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

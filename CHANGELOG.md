@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.3] - Unreleased
+## [0.18.4] - Unreleased
+
+### Added
+
+- Consolidated cross-feature source-provenance architecture-freeze tests and an invariant/coverage audit referencing the 0.18.0–0.18.3 contracts.
+- Repeatable baseline/candidate probe for inspection and corrected context reads, measuring source batches, rows, payload and elapsed time on both built-in backends.
+
+### Fixed
+
+- Separately approved correctness correction: later structured readmission of a known closed claim is filtered from current episodic context even when it never became semantic support. Exact episode revision metadata establishes claim identity; unrelated separable prose remains available and stored evidence/history is unchanged.
+
+### Validation
+
+- Core Python 3.11–3.13 required gates pass with PostgreSQL: 923 tests per runtime, zero skips. Independent Bench comparison and freeze acceptance remain pending; any intentional frozen fingerprint deviation requires explicit review.
+- No schema, mandatory protocol, dependency, authority rule, ranking formula or retrieval default change. The documented stale-prose correction is an intentional eligibility/rendering change, not a claim of complete cognitive output non-interference.
+
+## [0.18.3] - Validated candidate, unreleased
 
 ### Added
 

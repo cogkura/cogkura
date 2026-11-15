@@ -619,11 +619,13 @@ class Memory:
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
         episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
-        episodes = selectively_filter_stale_episode_content(
+        episodes = await selectively_filter_stale_episode_content(
             episodes,
             revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
+            tenant_id=tenant_id,
+            observation_store=self._observation_store,
         )
         if valid_at is None:
             eligible_semantics = [
@@ -834,11 +836,13 @@ class Memory:
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
         episodes = [episode for episode in episodes if episode.id not in hidden_episodes]
-        episodes = selectively_filter_stale_episode_content(
+        episodes = await selectively_filter_stale_episode_content(
             episodes,
             revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
+            tenant_id=tenant_id,
+            observation_store=self._observation_store,
         )
         if valid_at is None:
             eligible_semantics = [
