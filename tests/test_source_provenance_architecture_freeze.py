@@ -6,6 +6,7 @@ import random
 from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -28,11 +29,14 @@ from cogkura import (
 )
 
 
-@pytest.fixture(params=["in_memory", pytest.param("postgres", marks=pytest.mark.postgres)])
+@pytest.fixture(
+    params=["in_memory", "sqlite", pytest.param("postgres", marks=pytest.mark.postgres)]
+)
 async def source_memory(
-    request: pytest.FixtureRequest, postgres_memory_url: str | None
+    request: pytest.FixtureRequest, postgres_memory_url: str | None, tmp_path: Path
 ) -> AsyncIterator[Memory]:
     engine = None
+    sqlite_storage = None
     if request.param == "postgres":
         if not postgres_memory_url:
             pytest.skip("COGKURA_POSTGRES_MEMORY_URL unset; freeze parity NOT EXECUTED")
@@ -53,6 +57,18 @@ async def source_memory(
             observation_store=PostgresObservationStore(engine),
             episode_store=PostgresEpisodeStore(engine),
         )
+    elif request.param == "sqlite":
+        from cogkura.storage.sqlite import SQLiteObservationStore, SQLiteStorage
+        from cogkura.storage.sqlite_episode import SQLiteEpisodeStore
+        from cogkura.storage.sqlite_semantic import SQLiteSemanticMemoryStore
+
+        sqlite_storage = await SQLiteStorage.open(tmp_path / "source-freeze.db")
+        m = memory(
+            diagnostics=True,
+            store=SQLiteSemanticMemoryStore(sqlite_storage),
+            observation_store=SQLiteObservationStore(sqlite_storage),
+            episode_store=SQLiteEpisodeStore(sqlite_storage),
+        )
     else:
         m = memory(diagnostics=True)
     await m.clear(tenant_id=TENANT)
@@ -62,6 +78,8 @@ async def source_memory(
         await m.clear(tenant_id=TENANT)
         if engine is not None:
             await engine.dispose()
+        if sqlite_storage is not None:
+            await sqlite_storage.close()
 
 
 def test_source_defaults_preserve_opt_in_boundaries() -> None:

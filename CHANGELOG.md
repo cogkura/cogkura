@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — SQLite foundation and derived memory
+
+### Added
+
+- Dependency-free SQLite observation and checkpoint stores with versioned migrations, a dedicated asynchronous worker, WAL and explicit lifecycle.
+- SQLite episodic and semantic stores, including source evidence, encoding context, historical revisions, snapshots, reconciliation and bounded slot inspection.
+- Restart, migration, transactional rollback, correction, source-provenance and cross-backend contract tests. See [SQLite storage](docs/sqlite-storage.md) for configuration and current limitations.
+
+### Validation status
+
+- Full Core suites pass against PostgreSQL 16 on Python 3.11, 3.12 and 3.13: 980 tests per runtime, no skips. Ruff, formatting and mypy pass on all three runtimes. The source-provenance freeze cases cover SQLite, PostgreSQL and in-memory storage.
+- Semantic operations currently materialize a tenant's semantic inventory and require workload and performance hardening in the proposed 0.19.4 milestone. Cognitive-state stores remain in memory by default.
+
 ## [0.18.4] - 2026-11-15
 
 This release also ships the previously validated, unreleased 0.18.3 capabilities
