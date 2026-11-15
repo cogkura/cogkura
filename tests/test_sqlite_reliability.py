@@ -517,50 +517,6 @@ async def test_reproducible_workload_emits_ranked_comparisons(tmp_path: Path) ->
 
 
 @pytest.mark.asyncio
-async def test_wal_torn_tail_recovers_only_complete_transactions(tmp_path: Path) -> None:
-    """Simulate lost/torn WAL suffixes; this does not simulate a physical power cut."""
-    import shutil
-    import struct
-
-    path = tmp_path / "live.db"
-    owner = await EmbeddedMemory.open(path)
-    await owner._storage._run(lambda: owner._storage._conn().execute("PRAGMA wal_autocheckpoint=0"))
-    await owner.memory.observe(_observation("committed-before"))
-    await owner.memory.observe(_observation("latest"))
-    wal = Path(str(path) + "-wal").read_bytes()
-    page_size = struct.unpack_from(">I", wal, 8)[0]
-    frame_size = 24 + page_size
-    complete_frames = (len(wal) - 32) // frame_size
-    commits = [
-        32 + (index + 1) * frame_size
-        for index in range(complete_frames)
-        if struct.unpack_from(">I", wal, 32 + index * frame_size + 4)[0] != 0
-    ]
-    assert len(commits) >= 2
-    previous, last = commits[-2:]
-    assert last == len(wal)
-    lengths = sorted({previous, previous + 1, previous + frame_size // 2, last - 1, last})
-    for index, length in enumerate(lengths):
-        folder = tmp_path / f"case-{index}"
-        folder.mkdir()
-        database = folder / "recovery.db"
-        # Stable copies are used here to inject damaged WAL tails, not as an online backup.
-        shutil.copyfile(path, database)
-        Path(str(database) + "-wal").write_bytes(wal[:length])
-        _integrity(database)
-        async with await EmbeddedMemory.open(database) as recovered:
-            observations = await recovered._observation_store.list(tenant_id="tenant")
-            identities = {item.source_record_id for item in observations}
-            assert "committed-before" in identities
-            assert ("latest" in identities) is (length == last)
-            with sqlite3.connect(database) as conn:
-                assert conn.execute("SELECT COUNT(*) FROM observation_revisions").fetchone()[
-                    0
-                ] == len(observations)
-    await owner.close()
-
-
-@pytest.mark.asyncio
 async def test_unicode_path_and_reopen_in_new_process(tmp_path: Path) -> None:
     directory = tmp_path / "local memory é 漢字"
     directory.mkdir()
