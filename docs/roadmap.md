@@ -331,7 +331,7 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - Required Core and separately authorised independent Bench gates pass, including canonical capped-source parity on PostgreSQL. Tags/publication remain separate.
 - [Design](design-source-aware-metamemory-0.18.3.md) and [usage](source-metamemory.md).
 
-## 0.18.4 — Source provenance architecture freeze (verified candidate; unreleased)
+## 0.18.4 — Source provenance architecture freeze (2026-11-15)
 
 - Consolidated contract audit and cross-feature in-memory/PostgreSQL regression suite.
 - Separately approved read-side correction for stale prose from deferred readmissions.

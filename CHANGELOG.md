@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.4] - Unreleased
+## [0.18.4] - 2026-11-15
+
+This release also ships the previously validated, unreleased 0.18.3 capabilities
+listed below. There is no separate 0.18.3 package or tag.
 
 ### Added
 
@@ -18,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Validation
 
-- Core Python 3.11–3.13 required gates pass with PostgreSQL: 923 tests per runtime, zero skips. Independent Bench CI also passes (317 tests per runtime) with all CLI steps. Strict acceptance passes with 392 unchanged signatures plus the separately approved exact stale-readmission correction; original gold and the raw mismatch remain intact. Architecture freeze verified; publication remains separate.
+- Core Python 3.11–3.13 required gates pass with PostgreSQL: 923 tests per runtime, zero skips. Independent Bench CI also passes (317 tests per runtime) with all CLI steps. Strict acceptance passes with 392 unchanged signatures plus the separately approved exact stale-readmission correction; original gold and the raw mismatch remain intact. Architecture freeze verified.
 - No schema, mandatory protocol, dependency, authority rule, ranking formula or retrieval default change. The documented stale-prose correction is an intentional eligibility/rendering change, not a claim of complete cognitive output non-interference.
 
 ## [0.18.3] - Validated candidate, unreleased
