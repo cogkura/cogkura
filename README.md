@@ -80,7 +80,7 @@ Lower-level APIs (`encode_episodes()`, `consolidate_semantics()`, `recall()`, `i
 
 See [`docs/architecture.md`](docs/architecture.md) for storage protocols, deployment models, and package layout.
 
-For local persistence of observations, checkpoints, episodes and semantic memories, see [SQLite storage](docs/sqlite-storage.md). Cognitive state still requires its own persistent stores.
+For local persistence of observations, checkpoints, derived memories and cognitive state, see [SQLite storage](docs/sqlite-storage.md).
 
 ## Installation
 

@@ -208,7 +208,7 @@ async def test_failed_migration_rolls_back(tmp_path: Path, monkeypatch: pytest.M
     path = tmp_path / "db"
     storage = await SQLiteStorage.open(path)
     await storage.close()
-    failing = tmp_path / "004_fail.sql"
+    failing = tmp_path / "005_fail.sql"
     failing.write_text("CREATE TABLE temporary_test (id INTEGER);\nINVALID SQL;\n")
     paths = sqlite_module._migrations()
     monkeypatch.setattr(sqlite_module, "_migrations", lambda: [*paths, failing])
@@ -217,7 +217,12 @@ async def test_failed_migration_rolls_back(tmp_path: Path, monkeypatch: pytest.M
     with sqlite3.connect(path) as conn:
         assert conn.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [("001_initial",), ("002_episodes",), ("003_semantic",)]
+        ).fetchall() == [
+            ("001_initial",),
+            ("002_episodes",),
+            ("003_semantic",),
+            ("004_cognitive_state",),
+        ]
         assert not conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name='temporary_test'"
         ).fetchall()

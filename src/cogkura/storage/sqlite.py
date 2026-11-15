@@ -91,6 +91,19 @@ def _initialize(conn: sqlite3.Connection) -> None:
                     "semantic_relations",
                 }
             )
+        if "004_cognitive_state" in expected:
+            required.update(
+                {
+                    "activation_references",
+                    "memory_dynamics",
+                    "learning_events",
+                    "learning_feedback",
+                    "learning_state",
+                    "learned_associations",
+                    "inhibition_traces",
+                    "entity_relationships",
+                }
+            )
         actual = {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
