@@ -82,6 +82,7 @@ def main() -> None:
         report = {
             "platform": platform.platform(),
             "python": platform.python_version(),
+            "python_implementation": platform.python_implementation(),
             "sqlite": sqlite3.sqlite_version,
             "sqlite_source_id": source_id,
             "filesystem": filesystem,

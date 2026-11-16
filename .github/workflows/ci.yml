@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
     steps:
       - name: Checkout
@@ -42,3 +42,56 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+
+  postgres:
+    name: PostgreSQL / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGPASSWORD: postgres
+      COGKURA_POSTGRES_MEMORY_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_memory
+      COGKURA_POSTGRES_MEMORY_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_memory
+      COGKURA_POSTGRES_SOURCE_URL: postgresql+asyncpg://cogkura_reader:cogkura_reader@localhost:5432/cogkura_source
+      COGKURA_POSTGRES_SOURCE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
+      COGKURA_POSTGRES_SAME_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install dependencies
+        run: uv sync --all-extras --dev --locked --python ${{ matrix.python-version }} --managed-python
+      - name: Prepare source and memory databases
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f examples/postgres_datasource/init/001-databases.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f examples/postgres_datasource/init/002-source-schema.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f examples/postgres_datasource/init/005-seed.sql
+          psql -h localhost -U postgres -d cogkura_source -v ON_ERROR_STOP=1 -c "CREATE ROLE cogkura_reader LOGIN PASSWORD 'cogkura_reader'; GRANT CONNECT ON DATABASE cogkura_source TO cogkura_reader; GRANT USAGE ON SCHEMA public TO cogkura_reader; GRANT SELECT ON public.users, public.conversations, public.messages TO cogkura_reader;"
+      - name: Record platform and SQLite
+        run: uv run python scripts/report_sqlite_platform.py
+      - name: Run PostgreSQL-enabled full suite
+        run: uv run pytest -r s --junitxml=postgres-results.xml
+      - name: Reject skipped tests
+        run: uv run python -c "import xml.etree.ElementTree as E; r=E.parse('postgres-results.xml').getroot(); assert sum(int(s.get('skipped', '0')) for s in r.iter('testsuite')) == 0, 'PostgreSQL-enabled gate has skipped tests'"
+      - name: Preserve test counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-results-python-${{ matrix.python-version }}
+          path: postgres-results.xml
+          if-no-files-found: warn

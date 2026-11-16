@@ -496,6 +496,8 @@ uv run pytest -m postgres
 
 Cogkura is in development. Release `0.19.5` freezes the embedded memory architecture, adding a durable SQLite backend and embedded lifecycle alongside the existing in-memory and PostgreSQL implementations. See the [0.19.5 findings](docs/findings/0.19.5-embedded-architecture-freeze.md) for validation, approved comparison differences and limitations.
 
+The 0.19.6 stabilisation work is in progress; its [findings](docs/findings/0.19.6-embedded-stabilisation.md) distinguish completed local checks from pending cross-platform and independent benchmark gates.
+
 The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
 
 `0.18.2` adds opt-in authoritative replacement and withdrawal of one named semantic revision. Historical evidence stays on a revision snapshot, and a correction is not visible to retrieval before its asserting observation. Recurrence and `0.18.1` single-fact admission stay the default when correction is off. `0.17.7` remains the frozen interference and inhibition retrieval contract.

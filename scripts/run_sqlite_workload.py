@@ -68,6 +68,8 @@ async def _run(
     revisions: int,
     repetitions: int,
     storage: SQLiteStorage | None = None,
+    *,
+    trace_sql: bool = True,
 ) -> dict[str, Any]:
     ingest = []
     for version in range(1, revisions + 1):
@@ -97,7 +99,7 @@ async def _run(
     latencies = []
     outputs = []
     statements: list[str] = []
-    if storage is not None:
+    if storage is not None and trace_sql:
         await storage._run(lambda: storage._conn().set_trace_callback(statements.append))
     for n in range(repetitions):
         query = f"service-{n % count:04d} deployment environment env-{n % count:04d}"
@@ -112,10 +114,12 @@ async def _run(
                 for item in results
             ]
         )
-    if storage is not None:
+    if storage is not None and trace_sql:
         await storage._run(lambda: storage._conn().set_trace_callback(None))
     return {
-        "recall_sql_statements_total": len(statements) if storage is not None else None,
+        "recall_sql_statements_total": len(statements)
+        if storage is not None and trace_sql
+        else None,
         "ingest_seconds_per_pass": ingest,
         "process_seconds": process_seconds,
         "recall_median_ms": statistics.median(latencies) * 1000,
@@ -143,6 +147,9 @@ async def main() -> None:
     parser.add_argument("--revisions", type=int, default=4)
     parser.add_argument("--recalls", type=int, default=10)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--uninstrumented", action="store_true", help="disable tracemalloc and SQL tracing"
+    )
     args = parser.parse_args()
     if min(args.observations, args.revisions, args.recalls) < 1:
         parser.error("workload arguments must be positive")
@@ -154,12 +161,18 @@ async def main() -> None:
     }
     with tempfile.TemporaryDirectory(prefix="cogkura-workload-") as directory:
         path = Path(directory) / "memory.db"
-        tracemalloc.start()
+        if not args.uninstrumented:
+            tracemalloc.start()
         owner = await EmbeddedMemory.open(path, **options)
         sqlite_result = await _run(
-            owner.memory, args.observations, args.revisions, args.recalls, owner._storage
+            owner.memory,
+            args.observations,
+            args.revisions,
+            args.recalls,
+            owner._storage,
+            trace_sql=not args.uninstrumented,
         )
-        _, sqlite_peak = tracemalloc.get_traced_memory()
+        sqlite_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
         sizes = {
             suffix: (
                 Path(str(path) + suffix).stat().st_size if Path(str(path) + suffix).exists() else 0
@@ -168,13 +181,15 @@ async def main() -> None:
         }
         await owner.close()
         post_close_bytes = path.stat().st_size
-        tracemalloc.stop()
-        tracemalloc.start()
+        if not args.uninstrumented:
+            tracemalloc.stop()
+            tracemalloc.start()
         memory_result = await _run(
             Memory(**options), args.observations, args.revisions, args.recalls
         )
-        _, memory_peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+        memory_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
+        if not args.uninstrumented:
+            tracemalloc.stop()
     parity = {
         "counts": sqlite_result["counts"] == memory_result["counts"],
         "semantic_values": sqlite_result["semantic_values"] == memory_result["semantic_values"],
@@ -202,6 +217,7 @@ async def main() -> None:
             "observations": args.observations,
             "revisions_per_observation": args.revisions,
             "recall_queries": args.recalls,
+            "instrumented": not args.uninstrumented,
         },
         "environment": {
             "python": platform.python_version(),

@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Begin embedded-runtime stabilisation, independent Bench validation, and Python 3.14/3.15 compatibility gates. Full release acceptance is pending.
+
 ## [0.19.5] - 2026-11-15 — Embedded memory architecture freeze
 
 ### Added

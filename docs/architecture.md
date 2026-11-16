@@ -283,3 +283,7 @@ optional built-in hooks; it is not another reconciler. Existing store/monitor
 protocols and cognitive behavior remain unchanged. There is no durable unresolved
 ledger, source-trust ranking, or inferred independence. See
 [source-aware metamemory](source-metamemory.md).
+
+## Embedded stabilisation (0.19.6 in progress)
+
+The [stabilisation design](design-embedded-stabilisation-0.19.6.md) retains the 0.19.5 storage and cognitive contracts while extending compatibility and validation. The associated [findings](findings/0.19.6-embedded-stabilisation.md) track incomplete gates; no new transaction boundary or persistence of working-memory snapshots is implied.

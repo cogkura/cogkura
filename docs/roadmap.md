@@ -345,3 +345,9 @@ See [`docs/configuration.md`](configuration.md) and [`docs/architecture.md`](arc
 - Core Python 3.11–3.13 and hosted cross-platform CI passed. Bench's strict frozen comparison passed on Python 3.12–3.13, with the separately approved frozen correction. On Python 3.11 it reports pre-existing additional differences from the original gold; all 22 run signatures match the earlier Core on the same runtime. Three-backend comparisons pass with the separately approved support-order differences. Raw comparisons and limits remain documented.
 - Bench three-backend checks cover four representative workloads; Core contract and restart tests provide additional coverage. The documented validation applies to the identified source candidate; the release commit adds documentation and version metadata.
 - [Freeze design](design-embedded-architecture-freeze-0.19.5.md), [candidate review](review-0.19.5-f289-candidate.md), and [findings](findings/0.19.5-embedded-architecture-freeze.md).
+
+
+## 0.19.6 — Embedded runtime stabilisation (in progress)
+
+- Reproduce independent Bench validation against the public 0.19.5 release, investigate frozen differences, and test the planned Python 3.11–3.15 and cross-platform matrices.
+- Measure uninstrumented embedded operation and preserve runtime, durability, provenance and cognitive contracts. Full acceptance and release remain pending; see the [design](design-embedded-stabilisation-0.19.6.md) and [findings](findings/0.19.6-embedded-stabilisation.md).
