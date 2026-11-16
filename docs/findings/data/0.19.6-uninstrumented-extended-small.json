@@ -1,0 +1,1224 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.10",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 100,
+      "observation_revisions": 500,
+      "observations": 100,
+      "semantic_memories": 100,
+      "semantic_revisions": 100
+    },
+    "ingest_seconds_per_pass": [
+      0.005010532971937209,
+      0.0036996559938415885,
+      0.0034261230030097067,
+      0.003909111022949219,
+      0.00407139299204573
+    ],
+    "operation_latencies": {
+      "assess_source_memory": {
+        "count": 20,
+        "median_ms": 0.7407389930449426,
+        "p95_ms": 1.0312359663657844
+      },
+      "inspect_semantic_slot": {
+        "count": 20,
+        "median_ms": 0.4639115068130195,
+        "p95_ms": 0.7533770403824747
+      },
+      "observe": {
+        "count": 500,
+        "median_ms": 0.03434449899941683,
+        "p95_ms": 0.05627097561955452
+      },
+      "prepare_context": {
+        "count": 20,
+        "median_ms": 941.7867874726653,
+        "p95_ms": 1073.1615229742602
+      },
+      "record_context_use": {
+        "count": 20,
+        "median_ms": 0.08643598994240165,
+        "p95_ms": 0.10742997983470559
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 100,
+    "process_seconds": 0.05227388098137453,
+    "recall_median_ms": 930.3346369997598,
+    "recall_p95_ms": 1304.9205499701202,
+    "recall_sql_statements_total": null
+  },
+  "logical_comparisons": {
+    "in_memory": {
+      "historical_values_sha256": "b2425483a77397d48613134e37ff32370d8de2276d077b7daa1638e6eee9073b",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment env-0000",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0000 deploys to environment env-0000, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0001 deploys to environment env-0001, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment env-0002",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0002 deploys to environment env-0002, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0003 deployment environment env-0003",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0003 deploys to environment env-0003, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0004 deployment environment env-0004",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0004 deploys to environment env-0004, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0005 deployment environment env-0005",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0005 deploys to environment env-0005, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0006 deployment environment env-0006",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0006 deploys to environment env-0006, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0007 deployment environment env-0007",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0007 deploys to environment env-0007, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0008 deploys to environment env-0008, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0009 deployment environment env-0009",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0009 deploys to environment env-0009, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0010 deployment environment env-0010",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0010 deploys to environment env-0010, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0011 deployment environment env-0011",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0011 deploys to environment env-0011, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0012 deployment environment env-0012",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0012 deploys to environment env-0012, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0013 deployment environment env-0013",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0013 deploys to environment env-0013, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0014 deployment environment env-0014",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0014 deploys to environment env-0014, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0015 deployment environment env-0015",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0015 deploys to environment env-0015, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0016 deployment environment env-0016",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0016 deploys to environment env-0016, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0017 deployment environment env-0017",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0017 deploys to environment env-0017, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0018 deployment environment env-0018",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0018 deploys to environment env-0018, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0019 deployment environment env-0019",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0019 deploys to environment env-0019, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "f46f6cfa9bafff8ed6c55012fc3f2dfe01c9a23ae488aa7dc691f6a2d120641b"
+    },
+    "sqlite": {
+      "historical_values_sha256": "b2425483a77397d48613134e37ff32370d8de2276d077b7daa1638e6eee9073b",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment env-0000",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0000 deploys to environment env-0000, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0001 deploys to environment env-0001, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment env-0002",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0002 deploys to environment env-0002, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0003 deployment environment env-0003",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0003 deploys to environment env-0003, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0004 deployment environment env-0004",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0004 deploys to environment env-0004, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0005 deployment environment env-0005",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0005 deploys to environment env-0005, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0006 deployment environment env-0006",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0006 deploys to environment env-0006, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0007 deployment environment env-0007",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0007 deploys to environment env-0007, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0008 deploys to environment env-0008, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0001 deployment environment env-0001",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0009 deployment environment env-0009",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0009 deploys to environment env-0009, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0010 deployment environment env-0010",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0010 deploys to environment env-0010, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0011 deployment environment env-0011",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0011 deploys to environment env-0011, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0012 deployment environment env-0012",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0012 deploys to environment env-0012, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0013 deployment environment env-0013",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0013 deploys to environment env-0013, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0014 deployment environment env-0014",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0014 deploys to environment env-0014, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0015 deployment environment env-0015",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0015 deploys to environment env-0015, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0016 deployment environment env-0016",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0016 deploys to environment env-0016, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0017 deployment environment env-0017",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0017 deploys to environment env-0017, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0018 deployment environment env-0018",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0018 deploys to environment env-0018, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0019 deployment environment env-0019",
+            0.99951946
+          ],
+          [
+            "episode",
+            "Service 0019 deploys to environment env-0019, revision 5.",
+            0.99947027
+          ],
+          [
+            "semantic",
+            "service-0099 deployment environment env-0099",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0008 deployment environment env-0008",
+            0.99935104
+          ],
+          [
+            "semantic",
+            "service-0059 deployment environment env-0059",
+            0.99935104
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "f46f6cfa9bafff8ed6c55012fc3f2dfe01c9a23ae488aa7dc691f6a2d120641b"
+    }
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "process_resources": {
+    "cpu_seconds_total": 81.156387,
+    "peak_rss_bytes": 43630592
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 100,
+      "observation_revisions": 500,
+      "observations": 100,
+      "semantic_memories": 100,
+      "semantic_revisions": 100
+    },
+    "database_bytes_after_close": 1556480,
+    "file_bytes": {
+      "": 897024,
+      "-shm": 32768,
+      "-wal": 4144752
+    },
+    "ingest_seconds_per_pass": [
+      2.26540950499475,
+      2.4189412490231916,
+      2.296408809022978,
+      2.2824491829960607,
+      2.2576618419843726
+    ],
+    "open_ms": 70.81616797950119,
+    "operation_latencies": {
+      "assess_source_memory": {
+        "count": 20,
+        "median_ms": 2.8100150229875,
+        "p95_ms": 4.174883011728525
+      },
+      "inspect_semantic_slot": {
+        "count": 20,
+        "median_ms": 2.1106805361341685,
+        "p95_ms": 3.0545549816451967
+      },
+      "observe": {
+        "count": 500,
+        "median_ms": 22.210038994671777,
+        "p95_ms": 24.890402040909976
+      },
+      "prepare_context": {
+        "count": 20,
+        "median_ms": 1014.1576864989474,
+        "p95_ms": 1120.0522129656747
+      },
+      "record_context_use": {
+        "count": 20,
+        "median_ms": 25.907472998369485,
+        "p95_ms": 32.359000004362315
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 100,
+    "process_seconds": 2.4676470209960826,
+    "recall_median_ms": 1035.3845995268784,
+    "recall_p95_ms": 1129.648293950595,
+    "recall_sql_statements_total": null,
+    "reopen_ms": 3.578167990781367
+  },
+  "workload": {
+    "extended": true,
+    "instrumented": false,
+    "observations": 100,
+    "recall_queries": 20,
+    "revisions_per_observation": 5
+  }
+}

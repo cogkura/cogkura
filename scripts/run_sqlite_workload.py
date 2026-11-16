@@ -14,6 +14,7 @@ import math
 import platform
 import sqlite3
 import statistics
+import sys
 import tempfile
 import time
 import tracemalloc
@@ -28,6 +29,7 @@ from cogkura import (
     Memory,
     ObservationInput,
     ObservationRevisionIdentity,
+    SemanticSlotQuery,
 )
 from cogkura.storage.sqlite import SQLiteStorage
 
@@ -70,12 +72,16 @@ async def _run(
     storage: SQLiteStorage | None = None,
     *,
     trace_sql: bool = True,
+    extended: bool = False,
 ) -> dict[str, Any]:
     ingest = []
+    observe_latencies = []
     for version in range(1, revisions + 1):
         start = time.perf_counter()
         for index in range(count):
+            start_observation = time.perf_counter()
             await memory.observe(_observation(index, version))
+            observe_latencies.append(time.perf_counter() - start_observation)
         ingest.append(time.perf_counter() - start)
     start = time.perf_counter()
     processed = await memory.process(tenant_id="benchmark", as_of=_T + timedelta(days=1))
@@ -116,14 +122,52 @@ async def _run(
         )
     if storage is not None and trace_sql:
         await storage._run(lambda: storage._conn().set_trace_callback(None))
+    extended_latencies: dict[str, list[float]] = {
+        "prepare_context": [],
+        "assess_source_memory": [],
+        "inspect_semantic_slot": [],
+        "record_context_use": [],
+    }
+    if extended:
+        for n in range(repetitions):
+            index = n % count
+            now = _T + timedelta(days=2)
+            query = f"service-{index:04d} deployment environment env-{index:04d}"
+            start = time.perf_counter()
+            context = await memory.prepare_context(query, tenant_id="benchmark", as_of=now)
+            extended_latencies["prepare_context"].append(time.perf_counter() - start)
+            start = time.perf_counter()
+            await memory.assess_source_memory(context)
+            extended_latencies["assess_source_memory"].append(time.perf_counter() - start)
+            start = time.perf_counter()
+            await memory.inspect_semantic_slot(
+                SemanticSlotQuery(f"service-{index:04d}", "deployment_environment"),
+                tenant_id="benchmark",
+                as_of=now,
+            )
+            extended_latencies["inspect_semantic_slot"].append(time.perf_counter() - start)
+            start = time.perf_counter()
+            await memory.record_context_use(context, referenced_at=now, request_id=f"workload-{n}")
+            extended_latencies["record_context_use"].append(time.perf_counter() - start)
+    latency_metrics = {"observe": observe_latencies, **extended_latencies}
+    operation_latencies = {
+        name: {
+            "count": len(samples),
+            "median_ms": statistics.median(samples) * 1000,
+            "p95_ms": _percentile(samples, 0.95) * 1000 if len(samples) >= 20 else None,
+        }
+        for name, samples in latency_metrics.items()
+        if samples
+    }
     return {
+        "operation_latencies": operation_latencies,
         "recall_sql_statements_total": len(statements)
         if storage is not None and trace_sql
         else None,
         "ingest_seconds_per_pass": ingest,
         "process_seconds": process_seconds,
         "recall_median_ms": statistics.median(latencies) * 1000,
-        "recall_p95_ms": _percentile(latencies, 0.95) * 1000,
+        "recall_p95_ms": _percentile(latencies, 0.95) * 1000 if len(latencies) >= 20 else None,
         "counts": {
             "observations": len(observations),
             "observation_revisions": len(historical),
@@ -148,6 +192,9 @@ async def main() -> None:
     parser.add_argument("--recalls", type=int, default=10)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
+        "--extended", action="store_true", help="time context, source, slot and use operations"
+    )
+    parser.add_argument(
         "--uninstrumented", action="store_true", help="disable tracemalloc and SQL tracing"
     )
     args = parser.parse_args()
@@ -159,11 +206,14 @@ async def main() -> None:
             allow_authoritative_single_episode=True
         ),
     }
+    cpu_start = time.process_time()
     with tempfile.TemporaryDirectory(prefix="cogkura-workload-") as directory:
         path = Path(directory) / "memory.db"
         if not args.uninstrumented:
             tracemalloc.start()
+        opening = time.perf_counter()
         owner = await EmbeddedMemory.open(path, **options)
+        open_ms = (time.perf_counter() - opening) * 1000
         sqlite_result = await _run(
             owner.memory,
             args.observations,
@@ -171,6 +221,7 @@ async def main() -> None:
             args.recalls,
             owner._storage,
             trace_sql=not args.uninstrumented,
+            extended=args.extended,
         )
         sqlite_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
         sizes = {
@@ -181,11 +232,19 @@ async def main() -> None:
         }
         await owner.close()
         post_close_bytes = path.stat().st_size
+        opening = time.perf_counter()
+        reopened = await EmbeddedMemory.open(path, **options)
+        reopen_ms = (time.perf_counter() - opening) * 1000
+        await reopened.close()
         if not args.uninstrumented:
             tracemalloc.stop()
             tracemalloc.start()
         memory_result = await _run(
-            Memory(**options), args.observations, args.revisions, args.recalls
+            Memory(**options),
+            args.observations,
+            args.revisions,
+            args.recalls,
+            extended=args.extended,
         )
         memory_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
         if not args.uninstrumented:
@@ -212,20 +271,34 @@ async def main() -> None:
                 ).encode()
             ).hexdigest(),
         }
+    try:
+        import resource
+
+        peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        peak_rss_bytes = peak_rss if sys.platform == "darwin" else peak_rss * 1024
+    except ImportError:
+        peak_rss_bytes = None
     report = {
         "workload": {
             "observations": args.observations,
             "revisions_per_observation": args.revisions,
             "recall_queries": args.recalls,
             "instrumented": not args.uninstrumented,
+            "extended": args.extended,
         },
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),
             "sqlite": sqlite3.sqlite_version,
         },
+        "process_resources": {
+            "cpu_seconds_total": time.process_time() - cpu_start,
+            "peak_rss_bytes": peak_rss_bytes,
+        },
         "sqlite": {
             **sqlite_result,
+            "open_ms": open_ms,
+            "reopen_ms": reopen_ms,
             "peak_python_traced_bytes": sqlite_peak,
             "file_bytes": sizes,
             "database_bytes_after_close": post_close_bytes,
