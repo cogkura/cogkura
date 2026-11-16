@@ -95,3 +95,26 @@ jobs:
           name: postgres-results-python-${{ matrix.python-version }}
           path: postgres-results.xml
           if-no-files-found: warn
+
+  wheel:
+    name: Wheel restart / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build wheel and source distribution
+        run: uv build
+      - name: Record artifact digests
+        run: sha256sum dist/*
+      - name: Install wheel without optional dependencies
+        run: |
+          uv venv --python ${{ matrix.python-version }} --managed-python .wheel-venv
+          uv pip install --python .wheel-venv/bin/python --no-deps dist/*.whl
+      - name: Verify isolated import, migrations, persistence and restart
+        run: |
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          .wheel-venv/bin/python -I scripts/verify_wheel_runtime.py --expected-version "$version"
