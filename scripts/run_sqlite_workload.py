@@ -29,6 +29,7 @@ from cogkura import (
     Memory,
     ObservationInput,
     ObservationRevisionIdentity,
+    SemanticCorrectionConfig,
     SemanticSlotQuery,
 )
 from cogkura.storage.sqlite import SQLiteStorage
@@ -73,6 +74,7 @@ async def _run(
     *,
     trace_sql: bool = True,
     extended: bool = False,
+    mixed: bool = False,
 ) -> dict[str, Any]:
     ingest = []
     observe_latencies = []
@@ -86,6 +88,67 @@ async def _run(
     start = time.perf_counter()
     processed = await memory.process(tenant_id="benchmark", as_of=_T + timedelta(days=1))
     process_seconds = time.perf_counter() - start
+    process_latencies = [process_seconds]
+    mixed_counts: dict[str, int] = {}
+    if mixed:
+        initial = sorted(
+            await memory.list_semantic_memories(tenant_id="benchmark"),
+            key=lambda item: item.subject_id or "",
+        )[: min(6, count)]
+        at = _T + timedelta(days=1, hours=1)
+        for index, item in enumerate(initial):
+            metadata: dict[str, Any] = {"conversation_id": f"correction-{index}"}
+            if index % 2:
+                metadata["semantic_withdrawals"] = [
+                    {
+                        "target_revision_key": item.revision_key,
+                        "effective_at": at.isoformat(),
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ]
+                content = f"Service {item.subject_id} deployment target was withdrawn."
+            else:
+                metadata["semantic_facts"] = [
+                    {
+                        "predicate": "deployment_environment",
+                        "object_value": f"revised-{index}",
+                        "cardinality": "one",
+                        "authority": {"basis": "application_asserted"},
+                        "correction": {
+                            "replaces_revision_key": item.revision_key,
+                            "effective_at": at.isoformat(),
+                        },
+                    }
+                ]
+                content = f"Service {item.subject_id} deployment target was corrected."
+            start_observation = time.perf_counter()
+            await memory.observe(
+                ObservationInput(
+                    tenant_id="benchmark",
+                    subject_id=item.subject_id,
+                    source_namespace="workload-correction",
+                    source_record_id=f"correction-{index}",
+                    source_version="1",
+                    content=content,
+                    observed_at=at,
+                    metadata=metadata,
+                )
+            )
+            observe_latencies.append(time.perf_counter() - start_observation)
+        started = time.perf_counter()
+        correction_result = await memory.process(tenant_id="benchmark", as_of=at)
+        correction_process_seconds = time.perf_counter() - started
+        process_latencies.append(correction_process_seconds)
+        process_seconds += correction_process_seconds
+        mixed_counts = {
+            "corrections": correction_result.semantics.authoritative_corrections_applied,
+            "withdrawals": correction_result.semantics.authoritative_withdrawals_applied,
+        }
+        if mixed_counts != {
+            "corrections": (len(initial) + 1) // 2,
+            "withdrawals": len(initial) // 2,
+        }:
+            raise RuntimeError(f"Mixed workload failed to apply its corrections: {mixed_counts}")
     episodes = await memory.list_episodes(tenant_id="benchmark")
     semantics = await memory.list_semantic_memories(tenant_id="benchmark")
     history = await memory.list_semantic_revisions(tenant_id="benchmark")
@@ -149,7 +212,11 @@ async def _run(
             start = time.perf_counter()
             await memory.record_context_use(context, referenced_at=now, request_id=f"workload-{n}")
             extended_latencies["record_context_use"].append(time.perf_counter() - start)
-    latency_metrics = {"observe": observe_latencies, **extended_latencies}
+    latency_metrics = {
+        "observe": observe_latencies,
+        "process": process_latencies,
+        **extended_latencies,
+    }
     operation_latencies = {
         name: {
             "count": len(samples),
@@ -161,6 +228,7 @@ async def _run(
     }
     return {
         "operation_latencies": operation_latencies,
+        "mixed_operations": mixed_counts,
         "recall_sql_statements_total": len(statements)
         if storage is not None and trace_sql
         else None,
@@ -192,6 +260,9 @@ async def main() -> None:
     parser.add_argument("--recalls", type=int, default=10)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
+        "--mixed", action="store_true", help="include authoritative corrections and withdrawals"
+    )
+    parser.add_argument(
         "--extended", action="store_true", help="time context, source, slot and use operations"
     )
     parser.add_argument(
@@ -206,6 +277,8 @@ async def main() -> None:
             allow_authoritative_single_episode=True
         ),
     }
+    if args.mixed:
+        options["semantic_correction_config"] = SemanticCorrectionConfig(enabled=True)
     cpu_start = time.process_time()
     with tempfile.TemporaryDirectory(prefix="cogkura-workload-") as directory:
         path = Path(directory) / "memory.db"
@@ -222,6 +295,7 @@ async def main() -> None:
             owner._storage,
             trace_sql=not args.uninstrumented,
             extended=args.extended,
+            mixed=args.mixed,
         )
         sqlite_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
         sizes = {
@@ -245,12 +319,14 @@ async def main() -> None:
             args.revisions,
             args.recalls,
             extended=args.extended,
+            mixed=args.mixed,
         )
         memory_peak = tracemalloc.get_traced_memory()[1] if not args.uninstrumented else None
         if not args.uninstrumented:
             tracemalloc.stop()
     parity = {
         "counts": sqlite_result["counts"] == memory_result["counts"],
+        "mixed_operations": sqlite_result["mixed_operations"] == memory_result["mixed_operations"],
         "semantic_values": sqlite_result["semantic_values"] == memory_result["semantic_values"],
         "historical_values": sqlite_result["historical_values"]
         == memory_result["historical_values"],
@@ -285,6 +361,7 @@ async def main() -> None:
             "recall_queries": args.recalls,
             "instrumented": not args.uninstrumented,
             "extended": args.extended,
+            "mixed": args.mixed,
         },
         "environment": {
             "python": platform.python_version(),

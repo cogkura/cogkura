@@ -108,6 +108,10 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Build wheel and source distribution
         run: uv build
+      - name: Verify source distribution includes workload tooling
+        run: |
+          tar -tzf dist/*.tar.gz | grep -E "/scripts/run_sqlite_workload.py$"
+          tar -tzf dist/*.tar.gz | grep -E "/tests/test_sqlite_workload_script.py$"
       - name: Record artifact digests
         run: sha256sum dist/*
       - name: Install wheel without optional dependencies

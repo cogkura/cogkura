@@ -40,6 +40,7 @@ def test_extended_uninstrumented_workload_reports_each_operation(tmp_path: Path)
         ops = report[backend]["operation_latencies"]
         assert set(ops) == {
             "observe",
+            "process",
             "prepare_context",
             "assess_source_memory",
             "inspect_semantic_slot",
@@ -47,3 +48,34 @@ def test_extended_uninstrumented_workload_reports_each_operation(tmp_path: Path)
         }
         assert ops["observe"]["count"] == 4
         assert all(v["p95_ms"] is None for v in ops.values())
+
+
+def test_mixed_workload_applies_corrections_and_withdrawals(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "run_sqlite_workload.py"
+    output = tmp_path / "mixed.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--observations",
+            "2",
+            "--revisions",
+            "2",
+            "--recalls",
+            "1",
+            "--mixed",
+            "--uninstrumented",
+            "--output",
+            str(output),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    report = json.loads(output.read_text())
+    assert report["workload"]["mixed"] is True
+    assert all(report["logical_parity"].values())
+    for backend in ("sqlite", "in_memory"):
+        assert report[backend]["mixed_operations"] == {"corrections": 1, "withdrawals": 1}
+        assert report[backend]["operation_latencies"]["observe"]["count"] == 6
+        assert report[backend]["operation_latencies"]["process"]["count"] == 2
