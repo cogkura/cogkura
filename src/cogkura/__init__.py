@@ -400,4 +400,4 @@ __all__ = [
     "generate_revision_key",
     "semantic_promotion_from_metadata",
 ]
-__version__ = "0.19.5"
+__version__ = "0.19.6"
