@@ -1,0 +1,26 @@
+{
+  "scope": "fresh process; operating-system page cache not cleared",
+  "workload": {
+    "observations": 100,
+    "revisions_per_observation": 5,
+    "corrections": 3,
+    "withdrawals": 3,
+    "query_repeats": 6
+  },
+  "environment": {
+    "python": "3.14.10",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+    "sqlite": "3.53.1"
+  },
+  "child_total_ms": 6351.299162022769,
+  "open_ms": 5.554676987230778,
+  "first_recall_ms": 1148.303771042265,
+  "subsequent_recalls_ms": [
+    953.757623967249,
+    918.052280030679,
+    910.3247249731794,
+    988.672306004446,
+    925.159475998953
+  ],
+  "results_identical": true
+}
