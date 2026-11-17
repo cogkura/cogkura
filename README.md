@@ -531,7 +531,7 @@ uv run pytest -m postgres
 
 Cogkura is in development. Release `0.19.5` freezes the embedded memory architecture, adding a durable SQLite backend and embedded lifecycle alongside the existing in-memory and PostgreSQL implementations. See the [0.19.5 findings](docs/findings/0.19.5-embedded-architecture-freeze.md) for validation, approved comparison differences and limitations.
 
-The 0.19.6 candidate passed the Python 3.11–3.15 cross-platform Core matrix and independent Bench reviews with narrowly scoped approvals. It is not yet a published release. The [findings](docs/findings/0.19.6-embedded-stabilisation.md) record the exact candidate, remaining release checks and a significant measured retrieval-scaling limitation.
+The 0.19.6 stabilisation work covers Python 3.11–3.15, cross-platform Core validation and independent Bench reviews with narrowly scoped approvals. The [findings](docs/findings/0.19.6-embedded-stabilisation.md) record candidate identities, release checks and a significant measured retrieval-scaling limitation.
 
 The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
 
@@ -842,7 +842,7 @@ flowchart TD
 - `0.17`: interference and inhibition architecture (done).
 - `0.18`: source provenance, authority and corrections (done).
 - `0.19.5`: embedded SQLite memory architecture freeze (released).
-- `0.19.6`: embedded runtime stabilisation and Python compatibility (candidate).
+- `0.19.6`: embedded runtime stabilisation and Python compatibility.
 - `0.20`: planned agent integration contract.
 - Later: additional connectors and integrations.
 

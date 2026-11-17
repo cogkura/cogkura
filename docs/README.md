@@ -1,6 +1,6 @@
 # Documentation
 
-This index separates guides for using Core from design history and validation evidence. The latest published Core release is 0.19.5; 0.19.6 is an unreleased stabilisation candidate. Historical design notes describe decisions at the time and do not by themselves establish the current release status.
+This index separates guides for using Core from design history and validation evidence. Core 0.19.5 froze the embedded architecture; 0.19.6 focuses on stabilisation and compatibility. Historical design notes describe decisions at the time and do not by themselves establish the current release status.
 
 ## Start here
 

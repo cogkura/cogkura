@@ -346,10 +346,10 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
 - Bench three-backend checks cover four representative workloads; Core contract and restart tests provide additional coverage. The documented validation applies to the identified source candidate; the release commit adds documentation and version metadata.
 - [Freeze design](design-embedded-architecture-freeze-0.19.5.md), [candidate review](review-0.19.5-f289-candidate.md), and [findings](findings/0.19.5-embedded-architecture-freeze.md).
 
-## 0.19.6 — Embedded runtime stabilisation (in progress)
+## 0.19.6 — Embedded runtime stabilisation (2026-11-17)
 
 - Candidate `788444d` passed the Core Python 3.11–3.15 Linux/macOS/Windows matrix, PostgreSQL gates and independent Bench reviews with candidate-specific approvals. Raw benchmark comparisons remain available.
-- Uninstrumented workloads document a substantial retrieval-scaling limitation. Final release and publication remain pending; see the [design](design-embedded-stabilisation-0.19.6.md) and [findings](findings/0.19.6-embedded-stabilisation.md).
+- Uninstrumented workloads document a substantial retrieval-scaling limitation. See the [design](design-embedded-stabilisation-0.19.6.md) and [findings](findings/0.19.6-embedded-stabilisation.md).
 
 ## Later
 

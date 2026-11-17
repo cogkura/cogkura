@@ -286,6 +286,6 @@ protocols and cognitive behavior remain unchanged. There is no durable unresolve
 ledger, source-trust ranking, or inferred independence. See
 [source-aware metamemory](source-metamemory.md).
 
-## Embedded stabilisation (0.19.6 in progress)
+## Embedded stabilisation (0.19.6)
 
 The [stabilisation design](design-embedded-stabilisation-0.19.6.md) retains the 0.19.5 storage and cognitive contracts while extending compatibility and validation. The [findings](findings/0.19.6-embedded-stabilisation.md) record candidate-specific Core and Bench results, remaining release checks and observed retrieval scaling limits. No new transaction boundary or persistence of working-memory snapshots is implied.

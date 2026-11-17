@@ -10,7 +10,7 @@ It sits between application data and LLM reasoning.
 Cogkura owns observations, revisions, checkpoints, and (later) derived memories.
 It does **not** own or modify customer application schemas.
 
-- Current release: `0.19.5` embedded memory architecture freeze. See the freeze findings for candidate-specific approvals and validation limits. Core 0.19.6 stabilisation is in progress before the 0.20 integration contract. Further contract changes require explicit design, regression assessment and independent validation.
+- Core 0.19.6 stabilises the embedded memory architecture before the 0.20 integration contract. See the findings for exact candidate-specific approvals, validation and performance limits. Further contract changes require explicit design, regression assessment and independent validation.
 - Next: see [`docs/roadmap.md`](docs/roadmap.md) (Later milestones)
 
 ## Read first

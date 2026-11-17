@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Prepare the 0.19.6 embedded-runtime stabilisation candidate, independent Bench validation, and Python 3.14/3.15 compatibility gates. Full release acceptance is pending.
+## [0.19.6] - 2026-11-17 — Embedded runtime stabilisation and Python compatibility
+
+### Changed
+
+- Extend the tested Core matrix to CPython 3.11–3.15 across Linux, macOS and Windows, with separate PostgreSQL integration and isolated wheel restart checks.
+- Preserve the 0.19.5 cognitive and storage contracts while strengthening independent Bench reproducibility, exact-candidate comparisons and fresh-process persistence validation.
+- Document SQLite operational boundaries, measured retrieval scaling and current limitations; organise the documentation and include findings in the source distribution.
+
+### Validation and limits
+
+- Frozen comparison differences and support-order differences require explicit, candidate-specific approvals; original gold and raw reports remain available in CogKuraBench.
+- A mixed 1,000-observation workload on the test machine took approximately 83 seconds for one recall on both SQLite and in-memory storage. This is a single exploratory sample, not a latency or capacity guarantee. See the [stabilisation findings](docs/findings/0.19.6-embedded-stabilisation.md).
+- Working-memory snapshots remain transient; SQLite files are unencrypted by default, network filesystems are unsupported for WAL, and process recovery tests do not establish physical power-loss guarantees.
 
 ## [0.19.5] - 2026-11-15 — Embedded memory architecture freeze
 
