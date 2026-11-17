@@ -88,13 +88,15 @@ Use `EmbeddedMemory.open(path)` to run Cogkura with local persistent storage and
 pip install cogkura
 ```
 
-PostgreSQL support:
+Core has no runtime dependencies. PostgreSQL support is optional:
 
 ```bash
 pip install "cogkura[postgres]"
 ```
 
 ## Quick start
+
+This example uses in-memory storage; data is lost when the process ends. For persistent local memory, see [Embedded SQLite](#embedded-sqlite) below.
 
 ```python
 import asyncio
@@ -134,6 +136,39 @@ async def main() -> None:
 
 asyncio.run(main())
 ```
+
+## Embedded SQLite
+
+For durable local memory, open a database path and close the runtime when the application exits:
+
+```python
+import asyncio
+from datetime import UTC, datetime
+
+from cogkura import EmbeddedMemory, ObservationInput
+
+
+async def main() -> None:
+    async with await EmbeddedMemory.open("cogkura.db") as memory:
+        await memory.observe(
+            ObservationInput(
+                tenant_id="local",
+                subject_id="project",
+                source_namespace="direct",
+                source_record_id="note-1",
+                content="The team discussed cognitive memory algorithms.",
+                observed_at=datetime.now(UTC),
+            )
+        )
+        await memory.process(tenant_id="local")
+        context = await memory.prepare_context("What did the team discuss?", tenant_id="local")
+        print(context.render())
+
+
+asyncio.run(main())
+```
+
+Reopen the same file in a later session to recover observations, derived memories and persistent cognitive state. Working-memory snapshots remain transient. SQLite requires a supported linked SQLite version and a local filesystem; see [SQLite storage](docs/sqlite-storage.md) for compatibility, lifecycle, security and operational limits.
 
 ## Application integration
 
@@ -496,7 +531,7 @@ uv run pytest -m postgres
 
 Cogkura is in development. Release `0.19.5` freezes the embedded memory architecture, adding a durable SQLite backend and embedded lifecycle alongside the existing in-memory and PostgreSQL implementations. See the [0.19.5 findings](docs/findings/0.19.5-embedded-architecture-freeze.md) for validation, approved comparison differences and limitations.
 
-The 0.19.6 stabilisation work is in progress; its [findings](docs/findings/0.19.6-embedded-stabilisation.md) distinguish completed local checks from pending cross-platform and independent benchmark gates.
+The 0.19.6 candidate passed the Python 3.11–3.15 cross-platform Core matrix and independent Bench reviews with narrowly scoped approvals. It is not yet a published release. The [findings](docs/findings/0.19.6-embedded-stabilisation.md) record the exact candidate, remaining release checks and a significant measured retrieval-scaling limitation.
 
 The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
 
@@ -798,26 +833,32 @@ flowchart TD
 - `0.15.3`: semantic state reconciliation, evidence-linked associative recall, and authoritative current admission (done).
 - `0.15.4`: temporal snapshot semantics, evidence aggregation, and entity associative reach (done).
 - `0.15.5`: canonical semantic relevance and bounded evidence-to-evidence association (done).
-- `0.15.7`: contextual association with entity recovery and entity-indexed episode hops (done).
-- `0.15.10`: working-memory chunk primary correctness for `SEMANTIC_WITH_SUPPORT` (done).
-- `0.15.9`: working-memory chunking and coverage-aware selection (done).
-- `0.15.8`: structured entity relationships via observation metadata and graph traversal at recall (done).
 - `0.15.6`: semantic competition and recall specificity (done).
-- later: additional connectors, and integrations.
+- `0.15.7`: contextual association with entity recovery and entity-indexed episode hops (done).
+- `0.15.8`: structured entity relationships via observation metadata and graph traversal at recall (done).
+- `0.15.9`: working-memory chunking and coverage-aware selection (done).
+- `0.15.10–0.15.12`: working-memory correctness and dependable-recall freeze (done).
+- `0.16`: contextual memory and reinstatement (done).
+- `0.17`: interference and inhibition architecture (done).
+- `0.18`: source provenance, authority and corrections (done).
+- `0.19.5`: embedded SQLite memory architecture freeze (released).
+- `0.19.6`: embedded runtime stabilisation and Python compatibility (candidate).
+- `0.20`: planned agent integration contract.
+- Later: additional connectors and integrations.
 
-See [`docs/roadmap.md`](docs/roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for details.
+See the [documentation index](docs/README.md), [roadmap](docs/roadmap.md) and [architecture](docs/architecture.md) for details.
 
 ## Development setup with uv
 
 ```bash
-uv sync --all-extras --dev
+uv sync --all-extras --dev --locked
 ```
 
 ## Validation commands
 
 ```bash
 uv run ruff check .
-uv run ruff format .
+uv run ruff format --check .
 uv run mypy src
 uv run pytest
 ```

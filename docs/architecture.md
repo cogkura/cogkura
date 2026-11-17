@@ -169,10 +169,12 @@ Prefer coarse contextual identifiers for `location` when possible; the core libr
 
 ## Deployment models
 
-1. Same database, separate `cogkura` schema
-2. Separate source and memory databases (canonical Docker example)
-3. Custom storage via store protocols
-4. In-memory backends (default `Memory()` for local use and tests)
+1. Embedded SQLite through `EmbeddedMemory.open(path)` for a local durable runtime.
+2. PostgreSQL with a separate `cogkura` schema in the source database, or separate source and memory databases.
+3. Custom storage through the storage protocols.
+4. In-memory stores (the default `Memory()` configuration) for ephemeral use and tests.
+
+See [SQLite storage](sqlite-storage.md) for lifecycle, concurrency, durability and operational limits.
 
 ## Package layout
 
@@ -218,7 +220,7 @@ Source identity is `(tenant_id, source_namespace, source_record_id)`. Revision e
 
 Semantic consolidation still requires repeated episodes unless the application opts in with `allow_authoritative_single_episode=True` and one `semantic_facts` entry declares `authority.basis=application_asserted`. The declaration is checked against the episode's current, non-deleted observation revision. It admits that fact only. It does not raise confidence, activation, or retrieval priority, and it does not supersede a competing current claim unless `SemanticCorrectionConfig(enabled=True)` names that revision. See [`design-source-authority-0.18.1.md`](design-source-authority-0.18.1.md) and [`design-authoritative-corrections-0.18.2.md`](design-authoritative-corrections-0.18.2.md).
 
-## Source provenance freeze candidate (0.18.4)
+## Source provenance freeze (0.18.4)
 
 The [freeze audit](design-source-provenance-architecture-freeze-0.18.4.md) maps the
 0.18 provenance, authority, correction and metamemory contracts to existing and
@@ -239,10 +241,10 @@ fetch locators, infer source trust or parse arbitrary prose into facts. Missing
 exact metadata or unsupported custom/legacy claim representations do not gain a
 fabricated identity. This is not a guarantee that all inconsistent natural-language
 content can be discovered. Full cross-store atomicity and bitemporal history remain
-outside the contract. Freeze acceptance depends on the recorded Core/Bench gates
-and any separately approved intentional frozen-output deviation.
+outside the contract. The freeze record describes the Core/Bench gates and the separately approved
+frozen-output deviation for that release.
 
-## Current implementation boundary (0.18.4 candidate)
+## Implementation boundary at the 0.18.4 freeze
 
 Implemented:
 
@@ -286,4 +288,4 @@ ledger, source-trust ranking, or inferred independence. See
 
 ## Embedded stabilisation (0.19.6 in progress)
 
-The [stabilisation design](design-embedded-stabilisation-0.19.6.md) retains the 0.19.5 storage and cognitive contracts while extending compatibility and validation. The associated [findings](findings/0.19.6-embedded-stabilisation.md) track incomplete gates; no new transaction boundary or persistence of working-memory snapshots is implied.
+The [stabilisation design](design-embedded-stabilisation-0.19.6.md) retains the 0.19.5 storage and cognitive contracts while extending compatibility and validation. The [findings](findings/0.19.6-embedded-stabilisation.md) record candidate-specific Core and Bench results, remaining release checks and observed retrieval scaling limits. No new transaction boundary or persistence of working-memory snapshots is implied.

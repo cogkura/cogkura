@@ -62,13 +62,16 @@ packages = ["src/cogkura"]
 [tool.hatch.build.targets.sdist]
 include = [
   ".github/workflows/*.yml",
+  "AGENTS.md",
   "CHANGELOG.md",
+  "CLAUDE.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
   "LICENSE",
   "README.md",
   "SECURITY.md",
   "docs/*.md",
+  "docs/findings/**",
   "examples/**/*.py",
   "examples/**/*.md",
   "examples/**/*.sql",

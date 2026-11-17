@@ -94,4 +94,4 @@ Semantic mixed-support partial conflict surfaces as `PARTIAL_CONTEXT_CONFLICT` w
 
 Contextual assessment is knowledge about retrieval evidence, not memory content. It must not be confused with slot/entity `_metamemory_match_context` or fed into `MemoryContext.render()`.
 
-See [`examples/metamemory.py`](../../examples/metamemory.py).
+See [`examples/metamemory.py`](../examples/metamemory.py).

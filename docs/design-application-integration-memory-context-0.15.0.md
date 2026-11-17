@@ -11,7 +11,7 @@ CogKura `0.15.0` adds application-facing orchestration APIs that sit above the e
 - `MemoryContext` — immutable provider-neutral boundary with structured fields and deterministic `render()`.
 - `Memory.record_context_use()` — records use of selected context memories via existing access semantics.
 - Shared declarative retrieval inside `prepare_context()` (one rank pass per call).
-- [`docs/application-integration.md`](application-integration.md) and [`examples/application_context.py`](../../examples/application_context.py).
+- [`docs/application-integration.md`](application-integration.md) and [`examples/application_context.py`](../examples/application_context.py).
 
 ## Behavioral constraints
 
