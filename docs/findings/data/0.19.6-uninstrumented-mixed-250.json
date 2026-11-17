@@ -1,0 +1,434 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.10",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 256,
+      "observation_revisions": 1256,
+      "observations": 256,
+      "semantic_memories": 247,
+      "semantic_revisions": 256
+    },
+    "ingest_seconds_per_pass": [
+      0.012488737003877759,
+      0.011700035014655441,
+      0.008090382965747267,
+      0.010294408013578504,
+      0.00847326300572604
+    ],
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "operation_latencies": {
+      "assess_source_memory": {
+        "count": 5,
+        "median_ms": 0.7399119785986841,
+        "p95_ms": null
+      },
+      "inspect_semantic_slot": {
+        "count": 5,
+        "median_ms": 0.663270999211818,
+        "p95_ms": null
+      },
+      "observe": {
+        "count": 1256,
+        "median_ms": 0.03201898653060198,
+        "p95_ms": 0.07652700878679752
+      },
+      "prepare_context": {
+        "count": 5,
+        "median_ms": 5287.615169014316,
+        "p95_ms": null
+      },
+      "process": {
+        "count": 2,
+        "median_ms": 135.36272550118156,
+        "p95_ms": null
+      },
+      "record_context_use": {
+        "count": 5,
+        "median_ms": 0.06067898357287049,
+        "p95_ms": null
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 250,
+    "process_seconds": 0.2707254510023631,
+    "recall_median_ms": 5102.995531982742,
+    "recall_p95_ms": null,
+    "recall_sql_statements_total": null
+  },
+  "logical_comparisons": {
+    "in_memory": {
+      "historical_values_sha256": "d6dcfa5d91955a2982156cc9ee25ec3b0fb059bf1a69f7186fe3a747f2d94a44",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0000 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ],
+        [
+          [
+            "episode",
+            "Service service-0001 deployment target was withdrawn.",
+            0.99963013
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995105
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.99948463
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ],
+        [
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99963013
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995105
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.99948463
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0004 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "bee529c93e37414c775a8e3ff88c40fa59de89a3cd46646347d52aa6a6587e6d"
+    },
+    "sqlite": {
+      "historical_values_sha256": "d6dcfa5d91955a2982156cc9ee25ec3b0fb059bf1a69f7186fe3a747f2d94a44",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0000 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ],
+        [
+          [
+            "episode",
+            "Service service-0001 deployment target was withdrawn.",
+            0.99963013
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995105
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.99948463
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ],
+        [
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99963013
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.9995105
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995105
+          ],
+          [
+            "episode",
+            "Service service-0002 deployment target was corrected.",
+            0.99948463
+          ]
+        ],
+        [
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.99964803
+          ],
+          [
+            "episode",
+            "Service service-0004 deployment target was corrected.",
+            0.9996287
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.99951393
+          ],
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99951393
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99948725
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "bee529c93e37414c775a8e3ff88c40fa59de89a3cd46646347d52aa6a6587e6d"
+    }
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "mixed_operations": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "process_resources": {
+    "cpu_seconds_total": 109.335662,
+    "peak_rss_bytes": 58400768
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 256,
+      "observation_revisions": 1256,
+      "observations": 256,
+      "semantic_memories": 247,
+      "semantic_revisions": 256
+    },
+    "database_bytes_after_close": 3387392,
+    "file_bytes": {
+      "": 3268608,
+      "-shm": 32768,
+      "-wal": 5014072
+    },
+    "ingest_seconds_per_pass": [
+      5.986324049998075,
+      5.769847521965858,
+      5.754821253998671,
+      5.843821355025284,
+      5.8013955889618956
+    ],
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "open_ms": 82.54402002785355,
+    "operation_latencies": {
+      "assess_source_memory": {
+        "count": 5,
+        "median_ms": 2.779938979074359,
+        "p95_ms": null
+      },
+      "inspect_semantic_slot": {
+        "count": 5,
+        "median_ms": 3.0425169970840216,
+        "p95_ms": null
+      },
+      "observe": {
+        "count": 1256,
+        "median_ms": 22.949413512833416,
+        "p95_ms": 24.951432016678154
+      },
+      "prepare_context": {
+        "count": 5,
+        "median_ms": 5332.732083974406,
+        "p95_ms": null
+      },
+      "process": {
+        "count": 2,
+        "median_ms": 3442.1300620015245,
+        "p95_ms": null
+      },
+      "record_context_use": {
+        "count": 5,
+        "median_ms": 24.937531969044358,
+        "p95_ms": null
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 250,
+    "process_seconds": 6.884260124003049,
+    "recall_median_ms": 5320.0701419846155,
+    "recall_p95_ms": null,
+    "recall_sql_statements_total": null,
+    "reopen_ms": 4.322204971686006
+  },
+  "workload": {
+    "extended": true,
+    "instrumented": false,
+    "mixed": true,
+    "observations": 250,
+    "recall_queries": 5,
+    "revisions_per_observation": 5
+  }
+}
