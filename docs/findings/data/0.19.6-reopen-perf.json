@@ -1,0 +1,25 @@
+{
+  "scope": "first recall after close and reopen in same process; operating-system page cache not cleared",
+  "workload": {
+    "observations": 100,
+    "revisions_per_observation": 5,
+    "corrections": 3,
+    "withdrawals": 3,
+    "query_repeats": 6
+  },
+  "environment": {
+    "python": "3.14.10",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+    "sqlite": "3.53.1"
+  },
+  "reopen_ms": 5.70194300962612,
+  "first_recall_ms": 935.7275879592635,
+  "subsequent_recalls_ms": [
+    906.557270034682,
+    1045.1602520188317,
+    1026.6207690001465,
+    947.3020539735444,
+    912.5272929668427
+  ],
+  "results_identical": true
+}
