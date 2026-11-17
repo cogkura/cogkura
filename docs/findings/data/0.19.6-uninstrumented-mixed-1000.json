@@ -1,0 +1,178 @@
+{
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.10",
+    "sqlite": "3.53.1"
+  },
+  "in_memory": {
+    "counts": {
+      "episodes": 1006,
+      "observation_revisions": 5006,
+      "observations": 1006,
+      "semantic_memories": 997,
+      "semantic_revisions": 1006
+    },
+    "ingest_seconds_per_pass": [
+      0.0464952850015834,
+      0.03662028204416856,
+      0.03616238903487101,
+      0.038178501999937,
+      0.0345909699681215
+    ],
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "operation_latencies": {
+      "observe": {
+        "count": 5006,
+        "median_ms": 0.031579023925587535,
+        "p95_ms": 0.0531140249222517
+      },
+      "process": {
+        "count": 2,
+        "median_ms": 715.2250114595518,
+        "p95_ms": null
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 1000,
+    "process_seconds": 1.4304500229191035,
+    "recall_median_ms": 82208.51455698721,
+    "recall_p95_ms": null,
+    "recall_sql_statements_total": null
+  },
+  "logical_comparisons": {
+    "in_memory": {
+      "historical_values_sha256": "ea6aeeda409cb17a22207f4255664088b504eb11d7dbd7fc8f8ada91d7030ce3",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99964994
+          ],
+          [
+            "episode",
+            "Service service-0000 deployment target was corrected.",
+            0.9996331
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995026
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995026
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99947868
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "5d0327efc3c43a011b16ddc6f20bdf5f633ebf553902a1255d8c8a6a6b6978cb"
+    },
+    "sqlite": {
+      "historical_values_sha256": "ea6aeeda409cb17a22207f4255664088b504eb11d7dbd7fc8f8ada91d7030ce3",
+      "ranked_recall_outputs": [
+        [
+          [
+            "semantic",
+            "service-0000 deployment environment revised-0",
+            0.99964994
+          ],
+          [
+            "episode",
+            "Service service-0000 deployment target was corrected.",
+            0.9996331
+          ],
+          [
+            "semantic",
+            "service-0002 deployment environment revised-2",
+            0.9995026
+          ],
+          [
+            "semantic",
+            "service-0004 deployment environment revised-4",
+            0.9995026
+          ],
+          [
+            "episode",
+            "Service service-0003 deployment target was withdrawn.",
+            0.99947868
+          ]
+        ]
+      ],
+      "semantic_values_sha256": "5d0327efc3c43a011b16ddc6f20bdf5f633ebf553902a1255d8c8a6a6b6978cb"
+    }
+  },
+  "logical_parity": {
+    "counts": true,
+    "historical_values": true,
+    "mixed_operations": true,
+    "recall_outputs": true,
+    "semantic_values": true
+  },
+  "process_resources": {
+    "cpu_seconds_total": 181.27928,
+    "peak_rss_bytes": 101457920
+  },
+  "sqlite": {
+    "counts": {
+      "episodes": 1006,
+      "observation_revisions": 5006,
+      "observations": 1006,
+      "semantic_memories": 997,
+      "semantic_revisions": 1006
+    },
+    "database_bytes_after_close": 12488704,
+    "file_bytes": {
+      "": 12488704,
+      "-shm": 32768,
+      "-wal": 7683832
+    },
+    "ingest_seconds_per_pass": [
+      23.01038110704394,
+      23.06836418597959,
+      23.206612282956485,
+      23.357159979001153,
+      23.24269861500943
+    ],
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "open_ms": 78.77610001014546,
+    "operation_latencies": {
+      "observe": {
+        "count": 5006,
+        "median_ms": 22.71294849924743,
+        "p95_ms": 24.307514948304743
+      },
+      "process": {
+        "count": 2,
+        "median_ms": 13777.654913486913,
+        "p95_ms": null
+      }
+    },
+    "peak_python_traced_bytes": null,
+    "process_created_episodes": 1000,
+    "process_seconds": 27.555309826973826,
+    "recall_median_ms": 82730.22475896869,
+    "recall_p95_ms": null,
+    "recall_sql_statements_total": null,
+    "reopen_ms": 5.77308505307883
+  },
+  "workload": {
+    "extended": false,
+    "instrumented": false,
+    "mixed": true,
+    "observations": 1000,
+    "recall_queries": 1,
+    "revisions_per_observation": 5
+  }
+}
