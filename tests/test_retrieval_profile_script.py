@@ -94,6 +94,8 @@ def test_opt_in_diagnostics_keep_recall_results_and_report_measurements(tmp_path
     assert observed["episode_loading"]["returned_items"] > 0
     assert observed["candidate_construction"]["returned_items"] > 0
     assert observed["scoring_and_ranking"]["calls"] == 1
+    assert observed["scoring_and_ranking"]["input_candidates"] > 0
+    assert observed["historical_projection"]["input_revisions"] > 0
     assert stages["context_profiles"][0]["stages"]["scoring_and_ranking"]["calls"] == 1
     assert allocations["profiles"][0]["allocation"]["peak_traced_bytes"] > 0
     assert sql["profiles"][0]["sql_select_count"] > 0

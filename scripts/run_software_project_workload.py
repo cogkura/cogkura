@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import platform
 import sqlite3
@@ -18,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import cogkura
 from cogkura import (
     ActivationConfig,
     ComplementaryLearningSemanticConsolidator,
@@ -271,6 +273,9 @@ async def run(
             "activation_source_sha256": hashlib.sha256(
                 (root / "src/cogkura/algorithms/activation.py").read_bytes()
             ).hexdigest(),
+            "workload_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "core_runtime_version": cogkura.__version__,
+            "core_distribution_version": importlib.metadata.version("cogkura"),
             "python": platform.python_version(),
             "platform": platform.platform(),
             "sqlite": sqlite3.sqlite_version,
