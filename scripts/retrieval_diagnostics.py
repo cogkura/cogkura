@@ -16,6 +16,7 @@ from unittest.mock import patch
 import cogkura.memory as memory_module
 from cogkura import Memory
 from cogkura.algorithms import activation
+from cogkura.algorithms.spreading import DeterministicSpreadingActivator
 
 
 @contextmanager
@@ -87,9 +88,14 @@ def stage_diagnostics(memory: Memory) -> Iterator[dict[str, dict[str, Any]]]:
         ):
             install(stack, memory_module, name, label)
         install(stack, activation.ACTRDeclarativeActivator, "rank_evaluated", "scoring_and_ranking")
+        install(stack, DeterministicSpreadingActivator, "calculate", "spreading_activation")
         for name, label in (
+            ("_score_candidate", "candidate_scoring"),
+            ("_build_semantic_relevance_context", "semantic_relevance"),
+            ("_semantic_slot_admission_identities", "slot_admission"),
             ("_authoritative_semantic_current_admission_identities", "semantic_admission"),
             ("apply_competition_pipeline", "competition_and_inhibition"),
+            ("_collapse_results", "duplicate_collapse"),
         ):
             install(stack, activation, name, label)
         yield stages
