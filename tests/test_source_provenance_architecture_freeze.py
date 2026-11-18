@@ -23,6 +23,7 @@ from cogkura import (
     SemanticDiagnosticsConfig,
     SemanticKnowledgeState,
     SemanticRevisionViewState,
+    SemanticUpdateRelation,
     SourceAssessmentReason,
     SourceIndependenceState,
     SourceInspectionLimits,
@@ -439,3 +440,99 @@ async def test_diagnostics_and_interleaved_source_reads_preserve_cognitive_outpu
                 )
             )
     assert outputs[0] == outputs[1]
+
+
+async def test_closed_correction_knowledge_survives_withdrawal_across_backends(
+    source_memory: Memory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cogkura import MemoryKind
+
+    m = source_memory
+    original_key = await adopt(m)
+    correction_at = T0 + timedelta(days=2)
+    withdrawal_at = T0 + timedelta(days=4)
+    await m.observe(
+        observation("update", value="pipeline", at=correction_at, correction=original_key)
+    )
+    await m.process(tenant_id=TENANT, as_of=correction_at)
+    successor = next(
+        item
+        for item in await m.list_semantic_memories(tenant_id=TENANT)
+        if item.object_value == "pipeline"
+    )
+    await withdraw(m, successor.revision_key, withdrawal_at)
+    slot = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=withdrawal_at)
+    transitions = {t for revision in slot.revisions for t in revision.transitions}
+    assert {t.relation for t in transitions} == {
+        SemanticUpdateRelation.SUPERSEDES,
+        SemanticUpdateRelation.RETRACTS,
+    }
+    correction = next(t for t in transitions if t.relation is SemanticUpdateRelation.SUPERSEDES)
+    withdrawal = next(t for t in transitions if t.relation is SemanticUpdateRelation.RETRACTS)
+    assert (correction.predecessor_revision_key, correction.successor_revision_key) == (
+        original_key,
+        successor.revision_key,
+    )
+    assert withdrawal.predecessor_revision_key == successor.revision_key
+    assert (correction.effective_at, correction.knowledge_at) == (correction_at, correction_at)
+    assert (withdrawal.effective_at, withdrawal.knowledge_at) == (withdrawal_at, withdrawal_at)
+    assert correction.asserting_evidence is not None
+    assert withdrawal.asserting_evidence is not None
+    assert correction.asserting_evidence != withdrawal.asserting_evidence
+    at_correction = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=correction_at)
+    assert {t.relation for r in at_correction.revisions for t in r.transitions} == {
+        SemanticUpdateRelation.SUPERSEDES
+    }
+    revisions = await m.list_semantic_revisions(tenant_id=TENANT)
+    closed = next(item for item in revisions if item.revision_key == successor.revision_key)
+    assert closed.snapshot["correction"]["replaces_revision_key"] == original_key
+    assert closed.snapshot["knowledge_at"] == correction_at.isoformat()
+    query = "service deployment policy"
+    before = correction_at - timedelta(microseconds=1)
+
+    async def assert_early_recall() -> None:
+        for valid_at in (None, withdrawal_at):
+            results = await m.recall(query, tenant_id=TENANT, as_of=before, valid_at=valid_at)
+            semantic = [r for r in results if r.memory_kind is MemoryKind.SEMANTIC]
+            assert [r.memory.object_value for r in semantic] == ["startup"]
+            assert semantic[0].memory.observation_evidence
+            assert all("pipeline" not in r.memory.statement for r in results)
+        context = await m.prepare_context(query, tenant_id=TENANT, as_of=before)
+        assert "pipeline" not in context.render()
+        slot = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=before)
+        assert not any(r.transitions for r in slot.revisions)
+        assert [
+            r.revision_key
+            for r in slot.revisions
+            if r.view_state is SemanticRevisionViewState.VISIBLE_CURRENT
+        ] == [original_key]
+
+    await assert_early_recall()
+    snapshot = dict(closed.snapshot)
+    snapshot.pop("correction")
+    snapshot.pop("knowledge_at")
+    legacy = replace(closed, snapshot=snapshot)
+    original_list = m._semantic_store.list_revisions
+
+    async def legacy_list(*args: Any, **kwargs: Any) -> Any:
+        items = await original_list(*args, **kwargs)
+        return [legacy if item.revision_key == successor.revision_key else item for item in items]
+
+    assert m._semantic_inspection_store is not None
+    original_inspect = m._semantic_inspection_store.inspect_slot
+
+    async def legacy_inspect(*args: Any, **kwargs: Any) -> Any:
+        records = await original_inspect(*args, **kwargs)
+        return replace(
+            records,
+            revisions=tuple(
+                legacy if item.revision_key == successor.revision_key else item
+                for item in records.revisions
+            ),
+        )
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(m._semantic_store, "list_revisions", legacy_list)
+        patcher.setattr(m._semantic_inspection_store, "inspect_slot", legacy_inspect)
+        await assert_early_recall()
+    assert "correction" not in legacy.snapshot

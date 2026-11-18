@@ -2998,6 +2998,18 @@ def _episode_association_features(episode: ActivationCandidate) -> set[str]:
     return features
 
 
+def _cached_episode_association_features(
+    episode: ActivationCandidate,
+    cache: dict[int, frozenset[str]],
+) -> frozenset[str]:
+    # Candidates stay alive for the duration of the retrieval, so object identity
+    # distinguishes even unusual inventories with duplicate memory identities.
+    key = id(episode)
+    if key not in cache:
+        cache[key] = frozenset(_episode_association_features(episode))
+    return cache[key]
+
+
 def _entity_label_tokens(
     entity_ids: Sequence[str],
     *,
@@ -3551,6 +3563,52 @@ def _structured_entity_association_fit(
     return best_fit, best_path
 
 
+def _build_related_association_candidates(
+    seed: _SeedEpisodeMatch,
+    episode_by_id: Mapping[str, ActivationCandidate],
+    query_features: frozenset[str],
+    episode_features: dict[int, frozenset[str]],
+    max_neighbours: int,
+) -> tuple[tuple[ActivationCandidate, frozenset[str]], ...]:
+    seed_features = _cached_episode_association_features(seed.episode, episode_features)
+    if not seed_features:
+        return ()
+    related_candidates: list[tuple[ActivationCandidate, frozenset[str]]] = []
+    for episode in episode_by_id.values():
+        if episode.memory_key == seed.episode.memory_key:
+            continue
+        related_features = _cached_episode_association_features(episode, episode_features)
+        bridge_overlap = _qualifying_bridge_features(
+            seed_features,
+            related_features,
+            query_features,
+            episode.entity_ids,
+            subject_id=episode.subject_id,
+        )
+        if bridge_overlap:
+            related_candidates.append((episode, bridge_overlap))
+    related_candidates.sort(key=lambda item: (-len(item[1]), item[0].memory_key))
+    return tuple(related_candidates[:max_neighbours])
+
+
+def _cached_related_association_candidates(
+    seed: _SeedEpisodeMatch,
+    episode_by_id: Mapping[str, ActivationCandidate],
+    query_features: frozenset[str],
+    episode_features: dict[int, frozenset[str]],
+    max_neighbours: int,
+    cache: dict[int, tuple[tuple[ActivationCandidate, frozenset[str]], ...]],
+) -> tuple[tuple[ActivationCandidate, frozenset[str]], ...]:
+    # Seeds and the query, candidate inventory and configuration remain fixed
+    # for this context; seed instances remain alive throughout the retrieval.
+    key = id(seed)
+    if key not in cache:
+        cache[key] = _build_related_association_candidates(
+            seed, episode_by_id, query_features, episode_features, max_neighbours
+        )
+    return cache[key]
+
+
 def _associative_entity_fit(
     *,
     seed_episodes: Sequence[_SeedEpisodeMatch],
@@ -3560,6 +3618,8 @@ def _associative_entity_fit(
     query_features: frozenset[str],
     indexes: _AssociationIndexes,
     config: ActivationConfig,
+    episode_features: dict[int, frozenset[str]],
+    related_candidates_cache: dict[int, tuple[tuple[ActivationCandidate, frozenset[str]], ...]],
 ) -> tuple[float, AssociationPath | None]:
     if not seed_episodes or not semantic_entity_ids:
         return 0.0, None
@@ -3635,33 +3695,15 @@ def _associative_entity_fit(
         return best_fit, best_path
 
     for seed in seed_episodes:
-        seed_features = frozenset(_episode_association_features(seed.episode))
-        if not seed_features:
-            continue
-        related_candidates: list[tuple[ActivationCandidate, frozenset[str]]] = []
-        for episode in episode_by_id.values():
-            if episode.memory_key == seed.episode.memory_key:
-                continue
-            related_features = frozenset(_episode_association_features(episode))
-            bridge_overlap = _qualifying_bridge_features(
-                seed_features,
-                related_features,
-                query_features,
-                episode.entity_ids,
-                subject_id=episode.subject_id,
-            )
-            if not bridge_overlap:
-                continue
-            related_candidates.append((episode, bridge_overlap))
-        related_candidates.sort(
-            key=lambda item: (
-                -len(item[1]),
-                item[0].memory_key,
-            )
+        related_candidates = _cached_related_association_candidates(
+            seed,
+            episode_by_id,
+            query_features,
+            episode_features,
+            config.max_association_neighbours,
+            related_candidates_cache,
         )
-        for related_episode, bridge_overlap in related_candidates[
-            : config.max_association_neighbours
-        ]:
+        for related_episode, bridge_overlap in related_candidates:
             related_entities = {
                 entity_id
                 for entity_id in related_episode.entity_ids
@@ -3747,6 +3789,8 @@ def _semantic_cue_relevance_fits(
     semantic_identity: MemoryIdentity,
     indexes: _AssociationIndexes,
     config: ActivationConfig,
+    episode_features: dict[int, frozenset[str]],
+    related_candidates_cache: dict[int, tuple[tuple[ActivationCandidate, frozenset[str]], ...]],
     relationship_seeds: Sequence[_RelationshipSeed] = (),
     relationship_forward: Mapping[str, tuple[StoredEntityRelationship, ...]] | None = None,
     relationship_reverse: Mapping[str, tuple[StoredEntityRelationship, ...]] | None = None,
@@ -3789,6 +3833,8 @@ def _semantic_cue_relevance_fits(
             query_features=query_features,
             indexes=indexes,
             config=config,
+            episode_features=episode_features,
+            related_candidates_cache=related_candidates_cache,
         )
     structured_fit = 0.0
     structured_path: AssociationPath | None = None
@@ -3926,6 +3972,8 @@ def _build_semantic_relevance_context(
     association_paths_used = 0
     relationship_paths_used = 0
     relevance: dict[MemoryIdentity, _SemanticRelevanceDetail] = {}
+    episode_features: dict[int, frozenset[str]] = {}
+    related_candidates_cache: dict[int, tuple[tuple[ActivationCandidate, frozenset[str]], ...]] = {}
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
@@ -3945,6 +3993,8 @@ def _build_semantic_relevance_context(
             semantic_identity=candidate.identity,
             indexes=indexes,
             config=config,
+            episode_features=episode_features,
+            related_candidates_cache=related_candidates_cache,
             relationship_seeds=relationship_seeds,
             relationship_forward=relationship_forward,
             relationship_reverse=relationship_reverse,
@@ -3975,6 +4025,14 @@ def _build_semantic_relevance_context(
         relationship_seed_count=len(relationship_seeds),
         relationship_paths_used=relationship_paths_used,
     )
+
+
+def _first_scored_activations(scored: Sequence[RecallResult]) -> dict[MemoryIdentity, float]:
+    """Index the first result for each identity, matching the previous linear search."""
+    activations: dict[MemoryIdentity, float] = {}
+    for result in scored:
+        activations.setdefault(_result_identity(result), result.activation)
+    return activations
 
 
 def _authoritative_semantic_current_admission_identities(
@@ -4013,6 +4071,7 @@ def _authoritative_semantic_current_admission_identities(
     relevance_map = context.by_identity
     bridge_entities = set(context.bridge_entities)
     matched: list[tuple[MemoryIdentity, float]] = []
+    activation_by_identity: dict[MemoryIdentity, float] | None = None
     for candidate in candidates:
         if candidate.memory_kind is not MemoryKind.SEMANTIC:
             continue
@@ -4040,14 +4099,9 @@ def _authoritative_semantic_current_admission_identities(
             config=config,
         ):
             continue
-        activation = next(
-            (
-                result.activation
-                for result in scored
-                if _result_identity(result) == candidate.identity
-            ),
-            None,
-        )
+        if activation_by_identity is None:
+            activation_by_identity = _first_scored_activations(scored)
+        activation = activation_by_identity.get(candidate.identity)
         if activation is None or activation >= config.retrieval_threshold:
             continue
         matched.append((candidate.identity, rank_by_identity.get(candidate.identity, activation)))

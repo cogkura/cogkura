@@ -1,0 +1,22 @@
+{
+  "baseline_postgres_repeat_matches": true,
+  "candidate_dirty": true,
+  "candidate_four_backend_raw_passed": false,
+  "candidate_patch_sha256": "f90fa4d9f1602be50fd0d8dd2fd511d67b3e641e80480dc7c6b0a87ca7ad4337",
+  "candidate_postgres_repeat_matches": true,
+  "diagnostics_mismatches": [],
+  "first_fix_full_details_equal": true,
+  "first_fix_non_latency_source_metrics_equal": true,
+  "first_fix_run_signatures_equal": true,
+  "gold_sha256": "927c69031e7d41019ee27a7a7529c2e9fbaa4d91d1f8a44ace0b902755827a1c",
+  "parent_commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+  "postgres_source_parity": "PASS",
+  "python": "3.12.13 (main, Jul 23 2026, 14:48:32) [Clang 22.1.3 ]",
+  "query_count": 393,
+  "raw_gold_mismatches": [
+    "authoritative_corrections_v1/cogkura-correction"
+  ],
+  "released_baseline_four_backend_details_equal": true,
+  "released_baseline_local_backend_details_equal": true,
+  "runs": 22
+}

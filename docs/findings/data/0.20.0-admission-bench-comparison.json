@@ -1,0 +1,19 @@
+{
+  "candidate_source_patch_sha256": "31d6f90fdc7a661b44c0e5fca4f1936ed098d852c7bef62093332d2b58179257",
+  "diagnostic_mismatches": [],
+  "four_backend_details_equal": true,
+  "four_backend_raw_passed": false,
+  "frozen_full_details_equal": true,
+  "frozen_run_signatures_equal": true,
+  "non_latency_source_metrics_equal": true,
+  "postgres_repeat_matches": true,
+  "postgres_source_assessment_accuracy": 0.9947643979057592,
+  "postgres_source_parity": "PASS",
+  "prior_correctness_source_patch_sha256": "3dc049e01af301786d7c830fd0537829672ce573eddcbe04b05643672acec27a",
+  "query_count": 393,
+  "raw_gold_mismatches": [
+    "authoritative_corrections_v1/cogkura-correction"
+  ],
+  "release_gate_passed": false,
+  "runs": 22
+}

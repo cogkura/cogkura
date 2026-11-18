@@ -1,0 +1,313 @@
+{
+  "corrections_applied": 10,
+  "environment": {
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "episodes": 90,
+  "queries": [
+    {
+      "name": "current_architecture",
+      "process_cpu_seconds": 0.086374,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99962325
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.08795871998881921
+    },
+    {
+      "name": "historical_architecture",
+      "process_cpu_seconds": 0.06597499999999995,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99933452
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ]
+      ],
+      "valid_at": "2026-02-06T00:00:00+00:00",
+      "wall_seconds": 0.06721996900159866
+    },
+    {
+      "name": "incident",
+      "process_cpu_seconds": 0.07687300000000002,
+      "query": "project-000 recall deployment incident database connection failures",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99948472
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99948271
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99943681
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.07746450597187504
+    },
+    {
+      "name": "migration",
+      "process_cpu_seconds": 0.07492900000000002,
+      "query": "project-000 migration rollout deployment pipeline",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99951233
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99951042
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99944408
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.0754039540188387
+    },
+    {
+      "name": "broad",
+      "process_cpu_seconds": 0.08430699999999991,
+      "query": "agent local memory architecture database integration",
+      "ranked_outputs": [
+        [
+          "episode",
+          "project-002: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99959894
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99943674
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.08556886995211244
+    }
+  ],
+  "semantic_revisions": 60,
+  "workload": {
+    "backend": "memory",
+    "projects": 10
+  }
+}

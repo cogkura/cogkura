@@ -11,6 +11,7 @@ from cogkura.algorithms.corrections import (
     _knowledge_at,
     _predecessor_key,
     memory_from_revision_snapshot,
+    recover_closed_correction_links,
 )
 from cogkura.algorithms.reconsolidation import revision_valid_at
 from cogkura.models import (
@@ -183,11 +184,16 @@ def _project_revisions(
     boundary = valid_at or as_of
     reasons: set[SourceAssessmentReason] = set()
     bases = {m.memory_key: m for m in records.memories}
-    by_key = {r.revision_key: r for r in records.revisions}
+    revisions = (
+        recover_closed_correction_links(records.revisions)
+        if records.is_complete
+        else records.revisions
+    )
+    by_key = {r.revision_key: r for r in revisions}
     unknown_successors: set[str] = set()
     reopened: set[str] = set()
     transitions: dict[str, list[SemanticTransitionAssessment]] = {}
-    for revision in records.revisions:
+    for revision in revisions:
         predecessor = _predecessor_key(revision.snapshot)
         if predecessor is None:
             continue
@@ -238,7 +244,7 @@ def _project_revisions(
         transitions.setdefault(revision.revision_key, []).append(transition)
         transitions.setdefault(predecessor, []).append(transition)
     output: list[_ProjectedRevision] = []
-    for revision in records.revisions:
+    for revision in revisions:
         if revision.revision_key in unknown_successors:
             continue
         explicit = _predecessor_key(revision.snapshot) is not None

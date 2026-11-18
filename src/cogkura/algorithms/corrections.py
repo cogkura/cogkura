@@ -392,6 +392,63 @@ def memory_from_revision_snapshot(
     )
 
 
+def recover_closed_correction_links(
+    revisions: Sequence[StoredSemanticRevision],
+) -> list[StoredSemanticRevision]:
+    """Restore unambiguous links lost by older closed-snapshot writes, in memory only."""
+    links: dict[tuple[str, str], list[tuple[StoredSemanticRevision, Mapping[str, Any]]]] = {}
+    for predecessor in revisions:
+        closed = predecessor.snapshot.get("closed_by")
+        if not isinstance(closed, Mapping) or closed.get("kind") != "correction":
+            continue
+        successor_key = closed.get("successor_revision_key")
+        if isinstance(successor_key, str) and successor_key:
+            links.setdefault((predecessor.tenant_id, successor_key), []).append(
+                (predecessor, closed)
+            )
+
+    recovered: list[StoredSemanticRevision] = []
+    for revision in revisions:
+        snapshot = revision.snapshot
+        candidates = links.get((revision.tenant_id, revision.revision_key), ())
+        closure = snapshot.get("closed_by")
+        if (
+            len(candidates) != 1
+            or not snapshot_is_present(snapshot)
+            or "correction" in snapshot
+            or "withdrawal" in snapshot
+            or "knowledge_at" in snapshot
+            or not isinstance(closure, Mapping)
+            or closure.get("kind") not in ("correction", "withdrawal")
+        ):
+            recovered.append(revision)
+            continue
+        predecessor, closed = candidates[0]
+        effective = _parse_snapshot_datetime(closed.get("effective_at"))
+        knowledge = _parse_snapshot_datetime(closed.get("knowledge_at"))
+        slot_key = snapshot.get("slot_key")
+        if (
+            effective is None
+            or knowledge is None
+            or not snapshot_is_present(predecessor.snapshot)
+            or predecessor.valid_until != effective
+            or revision.valid_from != effective
+            or not isinstance(slot_key, str)
+            or not slot_key
+            or predecessor.snapshot.get("slot_key") != slot_key
+        ):
+            recovered.append(revision)
+            continue
+        restored = dict(snapshot)
+        restored["knowledge_at"] = knowledge.isoformat()
+        restored["correction"] = {
+            "replaces_revision_key": predecessor.revision_key,
+            "effective_at": effective.isoformat(),
+        }
+        recovered.append(replace(revision, snapshot=restored))
+    return recovered
+
+
 def project_known_semantics(
     current: Sequence[StoredSemanticMemory],
     superseded: Sequence[StoredSemanticMemory],
@@ -1442,6 +1499,17 @@ def _closed_snapshot(
         entities=source.entities if source is not None else (),
         metadata=source.metadata if source is not None else revision.metadata,
         derivations=revision.derivations,
+        knowledge_at=_knowledge_at(revision.snapshot),
+        correction=(
+            revision.snapshot.get("correction")
+            if isinstance(revision.snapshot.get("correction"), Mapping)
+            else None
+        ),
+        withdrawal=(
+            revision.snapshot.get("withdrawal")
+            if isinstance(revision.snapshot.get("withdrawal"), Mapping)
+            else None
+        ),
         closed_by=closed_by,
     )
 

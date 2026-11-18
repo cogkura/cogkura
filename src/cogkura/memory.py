@@ -31,6 +31,7 @@ from cogkura.algorithms.corrections import (
     hidden_current_episode_ids,
     project_known_semantics,
     qualify_explicit_corrections,
+    recover_closed_correction_links,
     selectively_filter_stale_episode_content,
     unknown_correction_episode_ids,
 )
@@ -602,9 +603,11 @@ class Memory:
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
-        revisions = await self._semantic_store.list_revisions(
-            tenant_id=tenant_id,
-            subject_id=subject_id,
+        revisions = recover_closed_correction_links(
+            await self._semantic_store.list_revisions(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+            )
         )
         semantic_memories = project_known_semantics(
             semantic_memories,
@@ -819,9 +822,11 @@ class Memory:
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
-        revisions = await self._semantic_store.list_revisions(
-            tenant_id=tenant_id,
-            subject_id=subject_id,
+        revisions = recover_closed_correction_links(
+            await self._semantic_store.list_revisions(
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+            )
         )
         semantic_memories = project_known_semantics(
             semantic_memories,

@@ -1,0 +1,3075 @@
+{
+  "counts": {
+    "episodes": 256,
+    "observation_revisions": 1256,
+    "observations": 256,
+    "semantic_memories": 247,
+    "semantic_revisions": 256
+  },
+  "environment": {
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "method": "cProfile around each recall; timings include profiling overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "profiles": [
+    {
+      "functions": [
+        {
+          "calls": 94863,
+          "exclusive_seconds": 0.088816667,
+          "function": "activation.py:1668:_result_identity",
+          "inclusive_seconds": 0.25165222400000004,
+          "primitive_calls": 94863
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.074125565,
+          "function": "activation.py:4094:<genexpr>",
+          "inclusive_seconds": 0.52762029,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 194939,
+          "exclusive_seconds": 0.068874007,
+          "function": "models.py:1206:__post_init__",
+          "inclusive_seconds": 0.09344846100000001,
+          "primitive_calls": 194939
+        },
+        {
+          "calls": 99579,
+          "exclusive_seconds": 0.06689754,
+          "function": "models.py:2774:identity",
+          "inclusive_seconds": 0.180500881,
+          "primitive_calls": 99579
+        },
+        {
+          "calls": 95362,
+          "exclusive_seconds": 0.042225568000000005,
+          "function": "activation.py:1672:_memory_key",
+          "inclusive_seconds": 0.053061276000000004,
+          "primitive_calls": 95362
+        },
+        {
+          "calls": 2006,
+          "exclusive_seconds": 0.040380486,
+          "function": "dataclasses.py:1455:replace",
+          "inclusive_seconds": 0.071696179,
+          "primitive_calls": 2006
+        },
+        {
+          "calls": 7997,
+          "exclusive_seconds": 0.036208189,
+          "function": "retrieval_features.py:197:_expand_contractions",
+          "inclusive_seconds": 0.05791099500000001,
+          "primitive_calls": 7997
+        },
+        {
+          "calls": 263146,
+          "exclusive_seconds": 0.034489717,
+          "function": "~:0:<method 'strip' of 'str' objects>",
+          "inclusive_seconds": 0.034489717,
+          "primitive_calls": 263146
+        },
+        {
+          "calls": 17231,
+          "exclusive_seconds": 0.033664923,
+          "function": "~:0:<method 'sub' of 're.Pattern' objects>",
+          "inclusive_seconds": 0.033664923,
+          "primitive_calls": 17231
+        },
+        {
+          "calls": 7972,
+          "exclusive_seconds": 0.031766673,
+          "function": "retrieval_features.py:139:canonical_content_features",
+          "inclusive_seconds": 0.200862789,
+          "primitive_calls": 7972
+        },
+        {
+          "calls": 7997,
+          "exclusive_seconds": 0.028930477000000003,
+          "function": "retrieval_features.py:127:normalize_and_tokenize",
+          "inclusive_seconds": 0.14342068900000002,
+          "primitive_calls": 7997
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.018055278,
+          "function": "activation.py:1427:_score_candidate",
+          "inclusive_seconds": 0.16767757700000002,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 108530,
+          "exclusive_seconds": 0.017739938,
+          "function": "~:0:<method 'get' of 'dict' objects>",
+          "inclusive_seconds": 0.021255186000000002,
+          "primitive_calls": 108530
+        },
+        {
+          "calls": 38792,
+          "exclusive_seconds": 0.015979407,
+          "function": "retrieval_features.py:210:_canonicalise_token",
+          "inclusive_seconds": 0.020547321,
+          "primitive_calls": 38792
+        },
+        {
+          "calls": 109846,
+          "exclusive_seconds": 0.013762596,
+          "function": "~:0:<built-in method builtins.isinstance>",
+          "inclusive_seconds": 0.015250228000000001,
+          "primitive_calls": 109846
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.01293097,
+          "function": "activation.py:3612:_associative_entity_fit",
+          "inclusive_seconds": 0.102925049,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1504,
+          "exclusive_seconds": 0.012771105000000001,
+          "function": "models.py:2661:__post_init__",
+          "inclusive_seconds": 0.014586462000000001,
+          "primitive_calls": 1504
+        },
+        {
+          "calls": 7997,
+          "exclusive_seconds": 0.010713994000000001,
+          "function": "~:0:<method 'findall' of 're.Pattern' objects>",
+          "inclusive_seconds": 0.010713994000000001,
+          "primitive_calls": 7997
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.009199867,
+          "function": "activation.py:4178:_jaccard_similarity",
+          "inclusive_seconds": 0.012057630000000001,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.008185533,
+          "function": "activation.py:2429:_calculate_partial_match",
+          "inclusive_seconds": 0.023862078000000002,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 62110,
+          "exclusive_seconds": 0.0078837,
+          "function": "~:0:<built-in method builtins.getattr>",
+          "inclusive_seconds": 0.0078837,
+          "primitive_calls": 62110
+        },
+        {
+          "calls": 7997,
+          "exclusive_seconds": 0.007858267,
+          "function": "retrieval_features.py:135:<setcomp>",
+          "inclusive_seconds": 0.007858267,
+          "primitive_calls": 7997
+        },
+        {
+          "calls": 49847,
+          "exclusive_seconds": 0.006262353,
+          "function": "~:0:<method 'append' of 'list' objects>",
+          "inclusive_seconds": 0.006262353,
+          "primitive_calls": 49847
+        },
+        {
+          "calls": 40812,
+          "exclusive_seconds": 0.0059945120000000005,
+          "function": "~:0:<method 'add' of 'set' objects>",
+          "inclusive_seconds": 0.006242712,
+          "primitive_calls": 40812
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.005366145,
+          "function": "competition.py:259:_profile_from_result",
+          "inclusive_seconds": 0.027917515,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.005139141000000001,
+          "function": "activation.py:513:rank_evaluated",
+          "inclusive_seconds": 1.065304912,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 8455,
+          "exclusive_seconds": 0.005046392,
+          "function": "~:0:<built-in method builtins.sorted>",
+          "inclusive_seconds": 0.011477594,
+          "primitive_calls": 8455
+        },
+        {
+          "calls": 513,
+          "exclusive_seconds": 0.0036959960000000004,
+          "function": "activation.py:1683:_build_reason",
+          "inclusive_seconds": 0.004332281,
+          "primitive_calls": 513
+        },
+        {
+          "calls": 1737,
+          "exclusive_seconds": 0.003580924,
+          "function": "activation.py:2985:_episode_content_features",
+          "inclusive_seconds": 0.084272943,
+          "primitive_calls": 1737
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.0035267040000000003,
+          "function": "models.py:2751:__post_init__",
+          "inclusive_seconds": 0.004283561,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 7997,
+          "exclusive_seconds": 0.0034380110000000004,
+          "function": "~:0:<method 'split' of 'str' objects>",
+          "inclusive_seconds": 0.0034380110000000004,
+          "primitive_calls": 7997
+        },
+        {
+          "calls": 2485,
+          "exclusive_seconds": 0.003433171,
+          "function": "~:0:<built-in method math.fsum>",
+          "inclusive_seconds": 0.010291907000000001,
+          "primitive_calls": 2485
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.003360791,
+          "function": "models.py:624:__post_init__",
+          "inclusive_seconds": 0.004275005,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 6746,
+          "exclusive_seconds": 0.0032897330000000004,
+          "function": "enum.py:193:__get__",
+          "inclusive_seconds": 0.004697565,
+          "primitive_calls": 6746
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.0031941400000000003,
+          "function": "semantic.py:941:_candidate_from_revision_fact",
+          "inclusive_seconds": 0.009906166000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.003136827,
+          "function": "activation.py:1637:_multi_entity_conjunction_bonus",
+          "inclusive_seconds": 0.0035011570000000004,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.003046553,
+          "function": "competition.py:709:evaluate_competition",
+          "inclusive_seconds": 0.052140179,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 11151,
+          "exclusive_seconds": 0.0029757290000000003,
+          "function": "~:0:<method 'intersection' of 'set' objects>",
+          "inclusive_seconds": 0.0029757290000000003,
+          "primitive_calls": 11151
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.002935263,
+          "function": "activation.py:3779:_semantic_cue_relevance_fits",
+          "inclusive_seconds": 0.13372471500000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 4970,
+          "exclusive_seconds": 0.0028718150000000002,
+          "function": "~:0:<built-in method builtins.sum>",
+          "inclusive_seconds": 0.0050136320000000005,
+          "primitive_calls": 4970
+        },
+        {
+          "calls": 3237,
+          "exclusive_seconds": 0.0028474850000000003,
+          "function": "activation.py:2961:_tokenize",
+          "inclusive_seconds": 0.091892334,
+          "primitive_calls": 3237
+        },
+        {
+          "calls": 26749,
+          "exclusive_seconds": 0.002837198,
+          "function": "~:0:<built-in method math.isfinite>",
+          "inclusive_seconds": 0.002837198,
+          "primitive_calls": 26749
+        },
+        {
+          "calls": 1245,
+          "exclusive_seconds": 0.002726032,
+          "function": "activation.py:3756:_qualifying_bridge_features",
+          "inclusive_seconds": 0.00552347,
+          "primitive_calls": 1245
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.002609114,
+          "function": "corrections.py:512:selectively_filter_stale_episode_content",
+          "inclusive_seconds": 0.040058411,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 16944,
+          "exclusive_seconds": 0.0024331500000000002,
+          "function": "~:0:<built-in method builtins.hash>",
+          "inclusive_seconds": 0.0024331500000000002,
+          "primitive_calls": 16944
+        },
+        {
+          "calls": 19677,
+          "exclusive_seconds": 0.002419969,
+          "function": "~:0:<built-in method builtins.len>",
+          "inclusive_seconds": 0.002419969,
+          "primitive_calls": 19677
+        },
+        {
+          "calls": 8985,
+          "exclusive_seconds": 0.002380433,
+          "function": "~:0:<method 'join' of 'str' objects>",
+          "inclusive_seconds": 0.002380433,
+          "primitive_calls": 8985
+        },
+        {
+          "calls": 1499,
+          "exclusive_seconds": 0.002378458,
+          "function": "~:0:<method 'union' of 'set' objects>",
+          "inclusive_seconds": 0.002378458,
+          "primitive_calls": 1499
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.002309087,
+          "function": "activation.py:2208:_semantic_fields_match_cue",
+          "inclusive_seconds": 0.002596922,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 991,
+          "exclusive_seconds": 0.0023029170000000002,
+          "function": "retrieval_features.py:169:feature_overlap",
+          "inclusive_seconds": 0.003474187,
+          "primitive_calls": 991
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0022996740000000002,
+          "function": "activation.py:4030:_authoritative_semantic_current_admission_identities",
+          "inclusive_seconds": 0.533739688,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.002248032,
+          "function": "activation.py:1761:_text_match_metrics",
+          "inclusive_seconds": 0.07836667500000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0021640410000000002,
+          "function": "activation.py:3913:_build_semantic_relevance_context",
+          "inclusive_seconds": 0.154719569,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1240,
+          "exclusive_seconds": 0.0020141950000000003,
+          "function": "activation.py:3241:_bridge_entities_for_seed",
+          "inclusive_seconds": 0.062684185,
+          "primitive_calls": 1240
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001988493,
+          "function": "activation.py:2499:_text_cue_fit",
+          "inclusive_seconds": 0.037536671,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 5,
+          "exclusive_seconds": 0.001954626,
+          "function": "activation.py:3566:_build_related_association_candidates",
+          "inclusive_seconds": 0.01839578,
+          "primitive_calls": 5
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001917082,
+          "function": "activation.py:2296:_candidate_slot_fit",
+          "inclusive_seconds": 0.005061737,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 6175,
+          "exclusive_seconds": 0.001902905,
+          "function": "activation.py:3707:<setcomp>",
+          "inclusive_seconds": 0.001902905,
+          "primitive_calls": 6175
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001889676,
+          "function": "competition.py:592:_summarize_competition",
+          "inclusive_seconds": 0.005547694000000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 9234,
+          "exclusive_seconds": 0.0018768760000000002,
+          "function": "~:0:<built-in method unicodedata.normalize>",
+          "inclusive_seconds": 0.0018768760000000002,
+          "primitive_calls": 9234
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0018733390000000001,
+          "function": "models.py:2198:__post_init__",
+          "inclusive_seconds": 0.002354783,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0018620510000000002,
+          "function": "activation.py:281:calculate_base_level",
+          "inclusive_seconds": 0.005672805,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 9234,
+          "exclusive_seconds": 0.0018098110000000001,
+          "function": "~:0:<method 'casefold' of 'str' objects>",
+          "inclusive_seconds": 0.0018098110000000001,
+          "primitive_calls": 9234
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.001726455,
+          "function": "semantic.py:664:_canonicalize_candidate",
+          "inclusive_seconds": 0.014682687000000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 4471,
+          "exclusive_seconds": 0.0017182970000000001,
+          "function": "~:0:<method 'update' of 'set' objects>",
+          "inclusive_seconds": 0.0027536600000000002,
+          "primitive_calls": 4471
+        },
+        {
+          "calls": 3726,
+          "exclusive_seconds": 0.00170457,
+          "function": "~:0:<built-in method builtins.max>",
+          "inclusive_seconds": 0.001790668,
+          "primitive_calls": 3726
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001676238,
+          "function": "activation.py:2481:_text_query_coverage",
+          "inclusive_seconds": 0.038091977,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.0016626500000000001,
+          "function": "activation.py:3141:_aggregated_evidence_fit",
+          "inclusive_seconds": 0.016543754,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001595868,
+          "function": "cognitive_traces.py:140:activation_reference_traces_for_candidate",
+          "inclusive_seconds": 0.004803423,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1235,
+          "exclusive_seconds": 0.001573692,
+          "function": "semantic.py:700:_canonical_text",
+          "inclusive_seconds": 0.003274659,
+          "primitive_calls": 1235
+        },
+        {
+          "calls": 1249,
+          "exclusive_seconds": 0.0015421500000000002,
+          "function": "models.py:2792:__post_init__",
+          "inclusive_seconds": 0.0019376450000000002,
+          "primitive_calls": 1249
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001540495,
+          "function": "activation.py:1342:_apply_context_reinstatement",
+          "inclusive_seconds": 0.008745025,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.001460191,
+          "function": "cognitive_traces.py:31:derive_semantic_cognitive_traces",
+          "inclusive_seconds": 0.0035036510000000004,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.001434858,
+          "function": "activation.py:2011:_semantic_slot_admission_identities",
+          "inclusive_seconds": 0.009786843,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.001407868,
+          "function": "activation.py:2554:_candidate_idf_weights",
+          "inclusive_seconds": 0.016006344000000002,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 6746,
+          "exclusive_seconds": 0.0014078320000000001,
+          "function": "enum.py:1257:value",
+          "inclusive_seconds": 0.0014078320000000001,
+          "primitive_calls": 6746
+        },
+        {
+          "calls": 262,
+          "exclusive_seconds": 0.001352672,
+          "function": "~:0:<method 'sort' of 'list' objects>",
+          "inclusive_seconds": 0.0026398430000000002,
+          "primitive_calls": 262
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0013307870000000002,
+          "function": "competition.py:523:possible_competitors",
+          "inclusive_seconds": 0.0047682290000000006,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.0012592990000000002,
+          "function": "activation.py:2541:_token_overlap",
+          "inclusive_seconds": 0.061103458000000006,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 1240,
+          "exclusive_seconds": 0.001255335,
+          "function": "activation.py:3226:_recover_entities_from_episode",
+          "inclusive_seconds": 0.060489921,
+          "primitive_calls": 1240
+        },
+        {
+          "calls": 3473,
+          "exclusive_seconds": 0.0011758880000000002,
+          "function": "activation.py:2514:<genexpr>",
+          "inclusive_seconds": 0.0017406020000000002,
+          "primitive_calls": 3473
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.001163004,
+          "function": "models.py:1184:__post_init__",
+          "inclusive_seconds": 0.0015046430000000002,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 741,
+          "exclusive_seconds": 0.001160376,
+          "function": "activation.py:3128:_semantic_association_entity_ids",
+          "inclusive_seconds": 0.001265433,
+          "primitive_calls": 741
+        },
+        {
+          "calls": 2982,
+          "exclusive_seconds": 0.001158139,
+          "function": "activation.py:2477:<genexpr>",
+          "inclusive_seconds": 0.001158139,
+          "primitive_calls": 2982
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.001136167,
+          "function": "encoder.py:205:iterencode",
+          "inclusive_seconds": 0.001136167,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 2982,
+          "exclusive_seconds": 0.0010996270000000002,
+          "function": "activation.py:2513:<genexpr>",
+          "inclusive_seconds": 0.0014932130000000002,
+          "primitive_calls": 2982
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001084883,
+          "function": "activation.py:1827:_annotate_candidate_eligibility",
+          "inclusive_seconds": 0.037237187000000005,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.001081403,
+          "function": "activation.py:325:activation_candidate_from_semantic",
+          "inclusive_seconds": 0.004945685,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.001073956,
+          "function": "in_memory_observation.py:207:get_revisions_many",
+          "inclusive_seconds": 0.0033826850000000003,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001070215,
+          "function": "activation.py:270:logsumexp",
+          "inclusive_seconds": 0.002613026,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.001065978,
+          "function": "__init__.py:183:dumps",
+          "inclusive_seconds": 0.003692546,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001059072,
+          "function": "activation.py:1791:_observation_evidence_ids",
+          "inclusive_seconds": 0.001923488,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.0010527540000000001,
+          "function": "activation.py:1876:_apply_semantic_relevance_diagnostics",
+          "inclusive_seconds": 0.030058924,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 2982,
+          "exclusive_seconds": 0.001041065,
+          "function": "activation.py:2493:<genexpr>",
+          "inclusive_seconds": 0.001399609,
+          "primitive_calls": 2982
+        },
+        {
+          "calls": 3771,
+          "exclusive_seconds": 0.001026676,
+          "function": "~:0:<method 'astimezone' of 'datetime.datetime' objects>",
+          "inclusive_seconds": 0.001026676,
+          "primitive_calls": 3771
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.001014974,
+          "function": "cognitive_traces.py:114:_with_cognitive_traces",
+          "inclusive_seconds": 0.004812014,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.001006684,
+          "function": "activation.py:2257:_semantic_slot_fit_indexes",
+          "inclusive_seconds": 0.002799541,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0009710090000000001,
+          "function": "activation.py:2752:_eligible_sort_key",
+          "inclusive_seconds": 0.003243334,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000959009,
+          "function": "semantic.py:769:_parse_authority",
+          "inclusive_seconds": 0.0016248410000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 2228,
+          "exclusive_seconds": 0.000958989,
+          "function": "activation.py:2492:<genexpr>",
+          "inclusive_seconds": 0.0012561340000000001,
+          "primitive_calls": 2228
+        },
+        {
+          "calls": 2236,
+          "exclusive_seconds": 0.00093358,
+          "function": "~:0:<method 'intersection' of 'frozenset' objects>",
+          "inclusive_seconds": 0.00093358,
+          "primitive_calls": 2236
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0009311170000000001,
+          "function": "models.py:1463:__post_init__",
+          "inclusive_seconds": 0.001004529,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000882163,
+          "function": "activation.py:1316:_context_reinstatement_from_support_evidence",
+          "inclusive_seconds": 0.0016953930000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1235,
+          "exclusive_seconds": 0.000881068,
+          "function": "activation.py:3594:_cached_related_association_candidates",
+          "inclusive_seconds": 0.019466585,
+          "primitive_calls": 1235
+        },
+        {
+          "calls": 2006,
+          "exclusive_seconds": 0.000859658,
+          "function": "dataclasses.py:1253:_is_dataclass_instance",
+          "inclusive_seconds": 0.00118479,
+          "primitive_calls": 2006
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.0008579560000000001,
+          "function": "encoder.py:183:encode",
+          "inclusive_seconds": 0.002256129,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 1245,
+          "exclusive_seconds": 0.0008487610000000001,
+          "function": "activation.py:3771:<setcomp>",
+          "inclusive_seconds": 0.0008487610000000001,
+          "primitive_calls": 1245
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.0008469090000000001,
+          "function": "competition.py:205:_active_support_slot",
+          "inclusive_seconds": 0.0016206550000000001,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1250,
+          "exclusive_seconds": 0.000836081,
+          "function": "activation.py:3001:_cached_episode_association_features",
+          "inclusive_seconds": 0.009618677,
+          "primitive_calls": 1250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0008254270000000001,
+          "function": "competition.py:541:_build_index",
+          "inclusive_seconds": 0.003314767,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000824872,
+          "function": "activation.py:301:activation_candidate_from_episode",
+          "inclusive_seconds": 0.003418482,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 2536,
+          "exclusive_seconds": 0.0008190570000000001,
+          "function": "<frozen abc>:117:__instancecheck__",
+          "inclusive_seconds": 0.001487632,
+          "primitive_calls": 2536
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0008083280000000001,
+          "function": "activation.py:1938:_seed_entity_ids_from_text",
+          "inclusive_seconds": 0.019413155,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00080219,
+          "function": "models.py:1800:__post_init__",
+          "inclusive_seconds": 0.0009461620000000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0007885860000000001,
+          "function": "activation.py:3257:_cue_matched_seed_episodes",
+          "inclusive_seconds": 0.014512510000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.0007822380000000001,
+          "function": "semantic_support_context.py:29:unique_support_episode_ids",
+          "inclusive_seconds": 0.000961149,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00077426,
+          "function": "activation.py:3184:_build_association_indexes",
+          "inclusive_seconds": 0.0017048590000000002,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.0007706410000000001,
+          "function": "models.py:146:__post_init__",
+          "inclusive_seconds": 0.000920371,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.0007611330000000001,
+          "function": "semantic.py:713:_hash_parts",
+          "inclusive_seconds": 0.002076498,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000759736,
+          "function": "competition.py:917:_freeze_pre_interference",
+          "inclusive_seconds": 0.037078967000000004,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0007588180000000001,
+          "function": "activation.py:1990:_candidate_tag_tokens",
+          "inclusive_seconds": 0.0014002630000000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 2228,
+          "exclusive_seconds": 0.000751922,
+          "function": "activation.py:2515:<genexpr>",
+          "inclusive_seconds": 0.000969178,
+          "primitive_calls": 2228
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 0.000742818,
+          "function": "memory.py:758:_rank_declarative_results",
+          "inclusive_seconds": 1.133287355,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0007280020000000001,
+          "function": "models.py:2933:__post_init__",
+          "inclusive_seconds": 0.000969894,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0007148500000000001,
+          "function": "competition.py:222:_lift_episode_cue_fit",
+          "inclusive_seconds": 0.003997902,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000691902,
+          "function": "competition.py:77:effective_memory_time",
+          "inclusive_seconds": 0.0013256300000000002,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000689645,
+          "function": "semantic_support_context.py:231:_empty_evidence",
+          "inclusive_seconds": 0.0020632800000000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0006865990000000001,
+          "function": "models.py:2259:__post_init__",
+          "inclusive_seconds": 0.000951442,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1245,
+          "exclusive_seconds": 0.00068062,
+          "function": "activation.py:3768:<setcomp>",
+          "inclusive_seconds": 0.00068062,
+          "primitive_calls": 1245
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.0006699960000000001,
+          "function": "semantic.py:706:_canonical_qualifiers",
+          "inclusive_seconds": 0.0046116180000000005,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.0006637360000000001,
+          "function": "activation.py:2315:_support_slot_fit",
+          "inclusive_seconds": 0.00138439,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 2536,
+          "exclusive_seconds": 0.000659597,
+          "function": "~:0:<built-in method _abc._abc_instancecheck>",
+          "inclusive_seconds": 0.000668575,
+          "primitive_calls": 2536
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00062942,
+          "function": "context_reinstatement.py:37:evaluate",
+          "inclusive_seconds": 0.001679352,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000623107,
+          "function": "activation.py:2124:_matching_semantic_slot_identities",
+          "inclusive_seconds": 0.0029784710000000003,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000619114,
+          "function": "models.py:1195:to_activation_trace",
+          "inclusive_seconds": 0.0023212930000000003,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000618466,
+          "function": "activation.py:2048:<dictcomp>",
+          "inclusive_seconds": 0.002686056,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.0006170930000000001,
+          "function": "spreading.py:66:_spreading_entity_ids",
+          "inclusive_seconds": 0.001104292,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.0005949120000000001,
+          "function": "cognitive_traces.py:81:activation_candidate_from_semantic_with_traces",
+          "inclusive_seconds": 0.01003235,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0005869240000000001,
+          "function": "activation.py:671:<listcomp>",
+          "inclusive_seconds": 0.040128483,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000578843,
+          "function": "decoder.py:332:decode",
+          "inclusive_seconds": 0.00125259,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.0005685520000000001,
+          "function": "activation.py:2526:_bounded_unit_interval",
+          "inclusive_seconds": 0.0005685520000000001,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000555087,
+          "function": "models.py:1529:__post_init__",
+          "inclusive_seconds": 0.0005951460000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 2109,
+          "exclusive_seconds": 0.00055007,
+          "function": "~:0:<method 'get' of 'mappingproxy' objects>",
+          "inclusive_seconds": 0.00055007,
+          "primitive_calls": 2109
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0005473920000000001,
+          "function": "activation.py:381:build_episode_support_provenance_index",
+          "inclusive_seconds": 0.0018160960000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1755,
+          "exclusive_seconds": 0.0005430550000000001,
+          "function": "~:0:<built-in method math.log>",
+          "inclusive_seconds": 0.0005430550000000001,
+          "primitive_calls": 1755
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.000539668,
+          "function": "~:0:<method 'hexdigest' of '_hashlib.HASH' objects>",
+          "inclusive_seconds": 0.000539668,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 0.000539354,
+          "function": "activation.py:3116:_episode_by_id",
+          "inclusive_seconds": 0.000601797,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.0005374640000000001,
+          "function": "cognitive_traces.py:66:activation_candidate_from_episode_with_traces",
+          "inclusive_seconds": 0.006845768,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.0005258130000000001,
+          "function": "activation.py:2159:_semantic_slot_matches_cue",
+          "inclusive_seconds": 0.003122735,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 518,
+          "exclusive_seconds": 0.000516476,
+          "function": "corrections.py:1784:_predecessor_key",
+          "inclusive_seconds": 0.0016255680000000002,
+          "primitive_calls": 518
+        },
+        {
+          "calls": 500,
+          "exclusive_seconds": 0.000501661,
+          "function": "cognitive_traces.py:20:derive_episode_cognitive_traces",
+          "inclusive_seconds": 0.001738682,
+          "primitive_calls": 500
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.000487712,
+          "function": "~:0:<built-in method _hashlib.openssl_sha256>",
+          "inclusive_seconds": 0.000487712,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00048324,
+          "function": "corrections.py:1709:_sequence_of_facts",
+          "inclusive_seconds": 0.001192324,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000481774,
+          "function": "activation.py:2992:_episode_association_features",
+          "inclusive_seconds": 0.008622128,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.00048028100000000005,
+          "function": "activation.py:277:<genexpr>",
+          "inclusive_seconds": 0.0006145160000000001,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 1270,
+          "exclusive_seconds": 0.00047908600000000004,
+          "function": "activation.py:3013:_entity_label_tokens",
+          "inclusive_seconds": 0.00047908600000000004,
+          "primitive_calls": 1270
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00047062700000000005,
+          "function": "competition.py:185:_lineage_group",
+          "inclusive_seconds": 0.000529791,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1215,
+          "exclusive_seconds": 0.00046225700000000004,
+          "function": "activation.py:3590:<lambda>",
+          "inclusive_seconds": 0.000565676,
+          "primitive_calls": 1215
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00045287,
+          "function": "~:0:<method 'total_seconds' of 'datetime.timedelta' objects>",
+          "inclusive_seconds": 0.00045287,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00045243000000000003,
+          "function": "activation.py:3050:_semantic_eligible_for_soft_admission",
+          "inclusive_seconds": 0.000511298,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00044871300000000005,
+          "function": "semantic.py:645:semantic_slot_key",
+          "inclusive_seconds": 0.004897838000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00044816900000000005,
+          "function": "competition.py:427:compare",
+          "inclusive_seconds": 0.0009020180000000001,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 244,
+          "exclusive_seconds": 0.00044458000000000003,
+          "function": "competition.py:99:<listcomp>",
+          "inclusive_seconds": 0.00044458000000000003,
+          "primitive_calls": 244
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000435032,
+          "function": "__init__.py:299:loads",
+          "inclusive_seconds": 0.001810203,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 994,
+          "exclusive_seconds": 0.00043089200000000005,
+          "function": "cognitive_traces.py:145:<genexpr>",
+          "inclusive_seconds": 0.0027521850000000003,
+          "primitive_calls": 994
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00039966100000000005,
+          "function": "competition.py:122:_base_cue_fit",
+          "inclusive_seconds": 0.000624672,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 253,
+          "exclusive_seconds": 0.000396337,
+          "function": "retrieval_features.py:161:predicate_content_features",
+          "inclusive_seconds": 0.004485338,
+          "primitive_calls": 253
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000392614,
+          "function": "activation.py:1679:_presentation_score",
+          "inclusive_seconds": 0.000469323,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00038425700000000004,
+          "function": "semantic_support_context.py:88:evaluate",
+          "inclusive_seconds": 0.003408686,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 510,
+          "exclusive_seconds": 0.000378828,
+          "function": "enum.py:688:__call__",
+          "inclusive_seconds": 0.0006565200000000001,
+          "primitive_calls": 510
+        },
+        {
+          "calls": 498,
+          "exclusive_seconds": 0.000375218,
+          "function": "spreading.py:51:_unique_sorted_entity_ids",
+          "inclusive_seconds": 0.000524905,
+          "primitive_calls": 498
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.000370439,
+          "function": "encoder.py:105:__init__",
+          "inclusive_seconds": 0.000370439,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 1491,
+          "exclusive_seconds": 0.00035584,
+          "function": "~:0:<built-in method math.exp>",
+          "inclusive_seconds": 0.00035584,
+          "primitive_calls": 1491
+        },
+        {
+          "calls": 2485,
+          "exclusive_seconds": 0.000350205,
+          "function": "~:0:<built-in method builtins.id>",
+          "inclusive_seconds": 0.000350205,
+          "primitive_calls": 2485
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.000348852,
+          "function": "competition.py:557:<lambda>",
+          "inclusive_seconds": 0.0006041670000000001,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 2012,
+          "exclusive_seconds": 0.000332687,
+          "function": "~:0:<built-in method builtins.hasattr>",
+          "inclusive_seconds": 0.000332687,
+          "primitive_calls": 2012
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 0.00033081500000000004,
+          "function": "memory.py:486:recall",
+          "inclusive_seconds": 1.13366059,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 0.000324585,
+          "function": "in_memory_semantic.py:67:list",
+          "inclusive_seconds": 0.0005591680000000001,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000322216,
+          "function": "context_observability.py:183:with_threshold_crossing",
+          "inclusive_seconds": 0.000322216,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00031619300000000004,
+          "function": "competition.py:536:<lambda>",
+          "inclusive_seconds": 0.000665829,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 2277,
+          "exclusive_seconds": 0.00031467,
+          "function": "~:0:<method 'values' of 'dict' objects>",
+          "inclusive_seconds": 0.00031467,
+          "primitive_calls": 2277
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000314635,
+          "function": "competition.py:576:_bounded_competitors",
+          "inclusive_seconds": 0.000444544,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000314415,
+          "function": "spreading.py:74:_build_entity_to_memories",
+          "inclusive_seconds": 0.002405823,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00031418,
+          "function": "~:0:<method 'match' of 're.Pattern' objects>",
+          "inclusive_seconds": 0.00031418,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00029857,
+          "function": "competition.py:218:<setcomp>",
+          "inclusive_seconds": 0.00029857,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00028969900000000003,
+          "function": "corrections.py:1692:_raw_facts_from_revision",
+          "inclusive_seconds": 0.0015997980000000001,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 744,
+          "exclusive_seconds": 0.000288251,
+          "function": "~:0:<built-in method builtins.next>",
+          "inclusive_seconds": 0.528083629,
+          "primitive_calls": 744
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00028715500000000004,
+          "function": "memory.py:2135:<listcomp>",
+          "inclusive_seconds": 0.0016191360000000002,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00028138800000000004,
+          "function": "in_memory_dynamics.py:25:get_many",
+          "inclusive_seconds": 0.000571152,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1235,
+          "exclusive_seconds": 0.000281005,
+          "function": "activation.py:3636:<setcomp>",
+          "inclusive_seconds": 0.000281005,
+          "primitive_calls": 1235
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00027879900000000004,
+          "function": "activation.py:3155:<lambda>",
+          "inclusive_seconds": 0.00027879900000000004,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 510,
+          "exclusive_seconds": 0.000277692,
+          "function": "enum.py:1095:__new__",
+          "inclusive_seconds": 0.000277692,
+          "primitive_calls": 510
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000277278,
+          "function": "activation.py:356:build_episode_support_index",
+          "inclusive_seconds": 0.000363157,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 500,
+          "exclusive_seconds": 0.000273313,
+          "function": "in_memory_observation.py:230:<genexpr>",
+          "inclusive_seconds": 0.000273313,
+          "primitive_calls": 500
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00027245300000000003,
+          "function": "activation.py:3149:<listcomp>",
+          "inclusive_seconds": 0.00027245300000000003,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 0.000270447,
+          "function": "~:0:<method 'control' of 'select.kqueue' objects>",
+          "inclusive_seconds": 0.000270447,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 500,
+          "exclusive_seconds": 0.000264819,
+          "function": "models.py:119:__post_init__",
+          "inclusive_seconds": 0.00035286700000000004,
+          "primitive_calls": 500
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000251759,
+          "function": "corrections.py:545:<setcomp>",
+          "inclusive_seconds": 0.000673946,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00024300700000000003,
+          "function": "spreading.py:95:<dictcomp>",
+          "inclusive_seconds": 0.001487887,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000235593,
+          "function": "activation.py:737:<lambda>",
+          "inclusive_seconds": 0.003478927,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00023386200000000002,
+          "function": "competition.py:569:<lambda>",
+          "inclusive_seconds": 0.000469527,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000231236,
+          "function": "decoder.py:343:raw_decode",
+          "inclusive_seconds": 0.000231236,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000225237,
+          "function": "cognitive_traces.py:102:<listcomp>",
+          "inclusive_seconds": 0.007135672,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00021910700000000001,
+          "function": "interference_observability.py:33:summarize_retrieval_interference",
+          "inclusive_seconds": 0.0011214670000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00021527900000000002,
+          "function": "competition.py:994:<listcomp>",
+          "inclusive_seconds": 0.037294246,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000212386,
+          "function": "activation.py:1794:<setcomp>",
+          "inclusive_seconds": 0.000212386,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1497,
+          "exclusive_seconds": 0.00021066500000000002,
+          "function": "~:0:<method 'setdefault' of 'dict' objects>",
+          "inclusive_seconds": 0.00021066500000000002,
+          "primitive_calls": 1497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00020653400000000003,
+          "function": "activation.py:4145:<setcomp>",
+          "inclusive_seconds": 0.000469283,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00020464700000000002,
+          "function": "interference_observability.py:230:_identity_key",
+          "inclusive_seconds": 0.00043465100000000004,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00020092500000000002,
+          "function": "competition.py:401:_same_lineage",
+          "inclusive_seconds": 0.00020092500000000002,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00019165800000000001,
+          "function": "<string>:2:__eq__",
+          "inclusive_seconds": 0.00019165800000000001,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 501,
+          "exclusive_seconds": 0.000190421,
+          "function": "~:0:<method 'discard' of 'set' objects>",
+          "inclusive_seconds": 0.00044257700000000004,
+          "primitive_calls": 501
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00018981500000000002,
+          "function": "activation.py:1796:<setcomp>",
+          "inclusive_seconds": 0.00018981500000000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000183668,
+          "function": "models.py:581:_validate_temporal_validity",
+          "inclusive_seconds": 0.000183668,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000182835,
+          "function": "competition.py:561:<dictcomp>",
+          "inclusive_seconds": 0.000507546,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00017995,
+          "function": "activation.py:2305:<dictcomp>",
+          "inclusive_seconds": 0.00017995,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00017825500000000002,
+          "function": "competition.py:971:apply_competition_pipeline",
+          "inclusive_seconds": 0.08962041200000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000172756,
+          "function": "competition.py:209:<listcomp>",
+          "inclusive_seconds": 0.000172756,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00016547,
+          "function": "activation.py:2319:<lambda>",
+          "inclusive_seconds": 0.00016547,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000164981,
+          "function": "in_memory_activation.py:46:list_reference_traces",
+          "inclusive_seconds": 0.000388752,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00016368,
+          "function": "competition.py:755:<dictcomp>",
+          "inclusive_seconds": 0.00043072700000000005,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00016212,
+          "function": "activation.py:1970:_seed_tag_tokens_from_text",
+          "inclusive_seconds": 0.001617432,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00016165300000000002,
+          "function": "cognitive_traces.py:108:<listcomp>",
+          "inclusive_seconds": 0.010194003,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000160964,
+          "function": "activation.py:3280:<lambda>",
+          "inclusive_seconds": 0.00018204,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000160638,
+          "function": "corrections.py:410:<setcomp>",
+          "inclusive_seconds": 0.0013422570000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000159648,
+          "function": "models.py:575:_validate_qualifiers",
+          "inclusive_seconds": 0.000159648,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000159091,
+          "function": "activation.py:2723:_relevance_tier",
+          "inclusive_seconds": 0.000159091,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000157536,
+          "function": "competition.py:284:<setcomp>",
+          "inclusive_seconds": 0.000157536,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00015712400000000002,
+          "function": "activation.py:3878:_semantic_meets_current_relevance",
+          "inclusive_seconds": 0.00015712400000000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00015681400000000002,
+          "function": "activation.py:368:build_episode_slot_index",
+          "inclusive_seconds": 0.000287913,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00014948400000000002,
+          "function": "models.py:619:<lambda>",
+          "inclusive_seconds": 0.00014948400000000002,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000145796,
+          "function": "competition.py:555:<dictcomp>",
+          "inclusive_seconds": 0.0009360560000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 280,
+          "exclusive_seconds": 0.000145004,
+          "function": "corrections.py:1798:_parse_snapshot_datetime",
+          "inclusive_seconds": 0.00030398700000000003,
+          "primitive_calls": 280
+        },
+        {
+          "calls": 524,
+          "exclusive_seconds": 0.000143513,
+          "function": "semantic.py:625:_parse_optional_datetime",
+          "inclusive_seconds": 0.000182036,
+          "primitive_calls": 524
+        },
+        {
+          "calls": 262,
+          "exclusive_seconds": 0.00014255300000000002,
+          "function": "corrections.py:449:_transition_hidden",
+          "inclusive_seconds": 0.001278372,
+          "primitive_calls": 262
+        },
+        {
+          "calls": 270,
+          "exclusive_seconds": 0.00013986600000000002,
+          "function": "activation.py:2704:_semantic_recall_identity",
+          "inclusive_seconds": 0.00013986600000000002,
+          "primitive_calls": 270
+        },
+        {
+          "calls": 498,
+          "exclusive_seconds": 0.000137694,
+          "function": "activation.py:1293:_has_retrieval_context",
+          "inclusive_seconds": 0.000137694,
+          "primitive_calls": 498
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00013739900000000002,
+          "function": "activation.py:2344:_semantic_slot_fit",
+          "inclusive_seconds": 0.000229132,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 268,
+          "exclusive_seconds": 0.00013672400000000001,
+          "function": "corrections.py:1780:_knowledge_at",
+          "inclusive_seconds": 0.00047659300000000004,
+          "primitive_calls": 268
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000133041,
+          "function": "competition.py:226:<dictcomp>",
+          "inclusive_seconds": 0.000133041,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00013220200000000002,
+          "function": "corrections.py:623:_stale_episode_assertions",
+          "inclusive_seconds": 0.001181084,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00013055,
+          "function": "competition.py:567:<dictcomp>",
+          "inclusive_seconds": 0.0007475450000000001,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000129416,
+          "function": "spreading.py:70:<genexpr>",
+          "inclusive_seconds": 0.000129416,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000129199,
+          "function": "competition.py:280:<setcomp>",
+          "inclusive_seconds": 0.000129199,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000124089,
+          "function": "activation.py:401:<dictcomp>",
+          "inclusive_seconds": 0.00030676600000000004,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00012260100000000001,
+          "function": "~:0:<built-in method builtins.min>",
+          "inclusive_seconds": 0.00012260100000000001,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.00012218100000000001,
+          "function": "in_memory_learning.py:175:list_reinforcement_traces",
+          "inclusive_seconds": 0.00036411,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.000121417,
+          "function": "activation.py:331:<setcomp>",
+          "inclusive_seconds": 0.000121417,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000118665,
+          "function": "memory.py:2130:<listcomp>",
+          "inclusive_seconds": 0.001129695,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 0.00011844000000000001,
+          "function": "~:0:<method 'encode' of 'str' objects>",
+          "inclusive_seconds": 0.00011844000000000001,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000113221,
+          "function": "memory.py:878:<listcomp>",
+          "inclusive_seconds": 0.000932339,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.0001123,
+          "function": "corrections.py:395:project_known_semantics",
+          "inclusive_seconds": 0.001769933,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000111842,
+          "function": "activation.py:2564:<dictcomp>",
+          "inclusive_seconds": 0.000151855,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.00011152200000000001,
+          "function": "activation.py:307:<setcomp>",
+          "inclusive_seconds": 0.00011152200000000001,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000110456,
+          "function": "competition.py:214:<setcomp>",
+          "inclusive_seconds": 0.000110456,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000109963,
+          "function": "activation.py:2326:<listcomp>",
+          "inclusive_seconds": 0.000109963,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000106835,
+          "function": "in_memory_learning.py:157:list_associations",
+          "inclusive_seconds": 0.00031840000000000004,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 0.000106667,
+          "function": "models.py:618:<lambda>",
+          "inclusive_seconds": 0.000106667,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 0.00010533600000000001,
+          "function": "base_events.py:1859:_run_once",
+          "inclusive_seconds": 1.136045655,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 0.00010501500000000001,
+          "function": "competition.py:563:<lambda>",
+          "inclusive_seconds": 0.00022982500000000002,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000104692,
+          "function": "activation.py:1477:<lambda>",
+          "inclusive_seconds": 0.000104692,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000104567,
+          "function": "in_memory_episode.py:87:list",
+          "inclusive_seconds": 0.00037899600000000004,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 0.000104115,
+          "function": "~:0:<method 'run' of '_contextvars.Context' objects>",
+          "inclusive_seconds": 1.1355755250000001,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.000103929,
+          "function": "activation.py:2577:_current_state_activation",
+          "inclusive_seconds": 0.000103929,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 0.000103577,
+          "function": "memory.py:848:<listcomp>",
+          "inclusive_seconds": 0.000103577,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00010344500000000001,
+          "function": "activation.py:1489:<lambda>",
+          "inclusive_seconds": 0.00010344500000000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 0.00010267300000000001,
+          "function": "activation.py:1779:_slot_fit_source",
+          "inclusive_seconds": 0.00010267300000000001,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 9.5968e-05,
+          "function": "activation.py:2419:_structured_rank_adjustment",
+          "inclusive_seconds": 9.5968e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 9.3614e-05,
+          "function": "competition.py:605:<genexpr>",
+          "inclusive_seconds": 9.3614e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 256,
+          "exclusive_seconds": 9.2897e-05,
+          "function": "in_memory_episode.py:104:<lambda>",
+          "inclusive_seconds": 9.2897e-05,
+          "primitive_calls": 256
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 9.173300000000001e-05,
+          "function": "activation.py:2369:_slot_fit_applicable",
+          "inclusive_seconds": 9.173300000000001e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 9.1136e-05,
+          "function": "corrections.py:550:<lambda>",
+          "inclusive_seconds": 9.1136e-05,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 8.943e-05,
+          "function": "corrections.py:475:unknown_correction_episode_ids",
+          "inclusive_seconds": 0.000485154,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 8.884600000000001e-05,
+          "function": "competition.py:126:_context_correspondence",
+          "inclusive_seconds": 8.884600000000001e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 8.8578e-05,
+          "function": "~:0:<method 'startswith' of 'str' objects>",
+          "inclusive_seconds": 8.8578e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 253,
+          "exclusive_seconds": 8.7978e-05,
+          "function": "~:0:<method 'replace' of 'str' objects>",
+          "inclusive_seconds": 8.7978e-05,
+          "primitive_calls": 253
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 8.7298e-05,
+          "function": "competition.py:236:<listcomp>",
+          "inclusive_seconds": 8.7298e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 8.6098e-05,
+          "function": "competition.py:604:<genexpr>",
+          "inclusive_seconds": 8.6098e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 8.491000000000001e-05,
+          "function": "cognitive_traces.py:147:<lambda>",
+          "inclusive_seconds": 8.491000000000001e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 8.4881e-05,
+          "function": "~:0:<method 'end' of 're.Match' objects>",
+          "inclusive_seconds": 8.4881e-05,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 8.4499e-05,
+          "function": "models.py:535:semantic_status_answers_currently",
+          "inclusive_seconds": 8.4499e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 8.417e-05,
+          "function": "~:0:<built-in method math.isinf>",
+          "inclusive_seconds": 8.417e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 494,
+          "exclusive_seconds": 8.191100000000001e-05,
+          "function": "cognitive_traces.py:55:<lambda>",
+          "inclusive_seconds": 8.191100000000001e-05,
+          "primitive_calls": 494
+        },
+        {
+          "calls": 16,
+          "exclusive_seconds": 8.1696e-05,
+          "function": "activation.py:1906:_build_reason_from_diagnostics",
+          "inclusive_seconds": 0.000238323,
+          "primitive_calls": 16
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 8.157700000000001e-05,
+          "function": "activation.py:2004:<setcomp>",
+          "inclusive_seconds": 8.157700000000001e-05,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 8.1574e-05,
+          "function": "in_memory_semantic.py:109:list_revisions",
+          "inclusive_seconds": 0.00029577300000000004,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 8.0104e-05,
+          "function": "activation.py:405:<lambda>",
+          "inclusive_seconds": 8.0104e-05,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 7.934500000000001e-05,
+          "function": "semantic_support_context.py:221:_unavailable_support_count_for_reason",
+          "inclusive_seconds": 7.934500000000001e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.784500000000001e-05,
+          "function": "spreading.py:134:<dictcomp>",
+          "inclusive_seconds": 9.9259e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 14,
+          "exclusive_seconds": 7.6901e-05,
+          "function": "activation.py:2827:_results_near_duplicate",
+          "inclusive_seconds": 0.000651896,
+          "primitive_calls": 14
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.6202e-05,
+          "function": "spreading.py:113:calculate_spreading_activation",
+          "inclusive_seconds": 0.004254295,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 256,
+          "exclusive_seconds": 7.3695e-05,
+          "function": "in_memory_semantic.py:131:<lambda>",
+          "inclusive_seconds": 7.3695e-05,
+          "primitive_calls": 256
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 7.289e-05,
+          "function": "competition.py:597:<genexpr>",
+          "inclusive_seconds": 7.289e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.165000000000001e-05,
+          "function": "memory.py:893:<dictcomp>",
+          "inclusive_seconds": 7.165000000000001e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.108300000000001e-05,
+          "function": "corrections.py:415:<listcomp>",
+          "inclusive_seconds": 7.108300000000001e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 6.958700000000001e-05,
+          "function": "corrections.py:417:<listcomp>",
+          "inclusive_seconds": 0.000154086,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 6.8367e-05,
+          "function": "competition.py:598:<genexpr>",
+          "inclusive_seconds": 6.8367e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 6.755900000000001e-05,
+          "function": "competition.py:601:<genexpr>",
+          "inclusive_seconds": 6.755900000000001e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 497,
+          "exclusive_seconds": 6.673200000000001e-05,
+          "function": "competition.py:610:<genexpr>",
+          "inclusive_seconds": 6.673200000000001e-05,
+          "primitive_calls": 497
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 5.9791000000000004e-05,
+          "function": "activation.py:365:<dictcomp>",
+          "inclusive_seconds": 5.9791000000000004e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 5.9603000000000005e-05,
+          "function": "activation.py:727:<listcomp>",
+          "inclusive_seconds": 5.9603000000000005e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 253,
+          "exclusive_seconds": 5.8232e-05,
+          "function": "in_memory_semantic.py:104:<lambda>",
+          "inclusive_seconds": 5.8232e-05,
+          "primitive_calls": 253
+        },
+        {
+          "calls": 248,
+          "exclusive_seconds": 5.126e-05,
+          "function": "activation.py:2076:<genexpr>",
+          "inclusive_seconds": 5.126e-05,
+          "primitive_calls": 248
+        },
+        {
+          "calls": 68,
+          "exclusive_seconds": 5.0325000000000004e-05,
+          "function": "corrections.py:675:<genexpr>",
+          "inclusive_seconds": 0.00010601100000000001,
+          "primitive_calls": 68
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.9419e-05,
+          "function": "activation.py:3216:<dictcomp>",
+          "inclusive_seconds": 4.9419e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 4.8144000000000005e-05,
+          "function": "base_events.py:430:create_task",
+          "inclusive_seconds": 0.00010514600000000001,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.745e-05,
+          "function": "corrections.py:540:<listcomp>",
+          "inclusive_seconds": 4.745e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 250,
+          "exclusive_seconds": 4.4745000000000006e-05,
+          "function": "in_memory_observation.py:224:<lambda>",
+          "inclusive_seconds": 4.4745000000000006e-05,
+          "primitive_calls": 250
+        },
+        {
+          "calls": 22,
+          "exclusive_seconds": 4.4428e-05,
+          "function": "activation.py:2941:<setcomp>",
+          "inclusive_seconds": 6.1071e-05,
+          "primitive_calls": 22
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 4.3423e-05,
+          "function": "tasks.py:764:_done_callback",
+          "inclusive_seconds": 7.123600000000001e-05,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 62,
+          "exclusive_seconds": 4.2028000000000005e-05,
+          "function": "corrections.py:682:_features_share_lexeme",
+          "inclusive_seconds": 5.5686e-05,
+          "primitive_calls": 62
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 4.0692e-05,
+          "function": "tasks.py:728:gather",
+          "inclusive_seconds": 0.00021344200000000002,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.0639e-05,
+          "function": "in_memory_observation.py:216:<dictcomp>",
+          "inclusive_seconds": 4.0639e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.9593000000000005e-05,
+          "function": "activation.py:4138:_merge_semantic_admissions",
+          "inclusive_seconds": 0.00051435,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 3.953e-05,
+          "function": "~:0:<built-in method builtins.iter>",
+          "inclusive_seconds": 3.953e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.8977e-05,
+          "function": "memory.py:838:<listcomp>",
+          "inclusive_seconds": 3.8977e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 22,
+          "exclusive_seconds": 3.8535e-05,
+          "function": "activation.py:2944:_content_fingerprint_from_result",
+          "inclusive_seconds": 5.2618000000000003e-05,
+          "primitive_calls": 22
+        },
+        {
+          "calls": 247,
+          "exclusive_seconds": 3.5832000000000005e-05,
+          "function": "activation.py:2085:<lambda>",
+          "inclusive_seconds": 3.5832000000000005e-05,
+          "primitive_calls": 247
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 3.5297000000000004e-05,
+          "function": "base_events.py:781:_call_soon",
+          "inclusive_seconds": 6.2037e-05,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.4443e-05,
+          "function": "corrections.py:406:<dictcomp>",
+          "inclusive_seconds": 3.4443e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.3896e-05,
+          "function": "spreading.py:249:calculate",
+          "inclusive_seconds": 0.004288191,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 3.3419e-05,
+          "function": "selectors.py:558:select",
+          "inclusive_seconds": 0.00030975,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.8466e-05,
+          "function": "corrections.py:631:<dictcomp>",
+          "inclusive_seconds": 2.8466e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.8097000000000002e-05,
+          "function": "cognitive_traces.py:100:<dictcomp>",
+          "inclusive_seconds": 2.8097000000000002e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 2.7742000000000003e-05,
+          "function": "~:0:<method 'split' of 're.Pattern' objects>",
+          "inclusive_seconds": 2.7742000000000003e-05,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 14,
+          "exclusive_seconds": 2.5857e-05,
+          "function": "activation.py:2783:_collapse_reason",
+          "inclusive_seconds": 0.000733413,
+          "primitive_calls": 14
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 2.5819e-05,
+          "function": "tasks.py:662:_ensure_future",
+          "inclusive_seconds": 0.000154356,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 2.3619000000000002e-05,
+          "function": "events.py:82:_run",
+          "inclusive_seconds": 1.1355991440000002,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.2843e-05,
+          "function": "corrections.py:422:<setcomp>",
+          "inclusive_seconds": 2.2843e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 2.2145000000000002e-05,
+          "function": "corrections.py:465:_boundary_effective_at",
+          "inclusive_seconds": 8.940200000000001e-05,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 2.1988e-05,
+          "function": "base_events.py:752:call_soon",
+          "inclusive_seconds": 8.796300000000001e-05,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 24,
+          "exclusive_seconds": 2.1304e-05,
+          "function": "activation.py:2894:_slot_support_group",
+          "inclusive_seconds": 3.4215000000000004e-05,
+          "primitive_calls": 24
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 2.0991000000000003e-05,
+          "function": "events.py:35:__init__",
+          "inclusive_seconds": 2.364e-05,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.9114e-05,
+          "function": "corrections.py:666:_fragment_carries_assertion",
+          "inclusive_seconds": 0.00014048200000000001,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 13,
+          "exclusive_seconds": 1.826e-05,
+          "function": "~:0:<built-in method builtins.any>",
+          "inclusive_seconds": 0.000385419,
+          "primitive_calls": 7
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 1.7949e-05,
+          "function": "activation.py:2862:_results_same_slot_support",
+          "inclusive_seconds": 5.5660000000000006e-05,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.7798e-05,
+          "function": "models.py:2314:__post_init__",
+          "inclusive_seconds": 2.2192e-05,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 132,
+          "exclusive_seconds": 1.6643e-05,
+          "function": "~:0:<method 'isdigit' of 'str' objects>",
+          "inclusive_seconds": 1.6643e-05,
+          "primitive_calls": 132
+        },
+        {
+          "calls": 22,
+          "exclusive_seconds": 1.6250000000000002e-05,
+          "function": "activation.py:2938:_collapse_jaccard_tokens",
+          "inclusive_seconds": 7.7321e-05,
+          "primitive_calls": 22
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.5671e-05,
+          "function": "activation.py:1800:_admission_eligibility_by_identity",
+          "inclusive_seconds": 2.9087e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 7,
+          "exclusive_seconds": 1.5508e-05,
+          "function": "activation.py:2658:_find_collapse_match",
+          "inclusive_seconds": 0.00075299,
+          "primitive_calls": 7
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 1.3990000000000002e-05,
+          "function": "corrections.py:608:<genexpr>",
+          "inclusive_seconds": 0.0003815,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 112,
+          "exclusive_seconds": 1.3658e-05,
+          "function": "~:0:<method 'rstrip' of 'str' objects>",
+          "inclusive_seconds": 1.3658e-05,
+          "primitive_calls": 112
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.3127000000000002e-05,
+          "function": "<string>:2:__init__",
+          "inclusive_seconds": 1.9745e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.2742000000000001e-05,
+          "function": "cognitive_traces.py:93:build_activation_candidates",
+          "inclusive_seconds": 0.017370514,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.2382000000000001e-05,
+          "function": "memory.py:2170:_load_learned_associations",
+          "inclusive_seconds": 0.000330782,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.1681e-05,
+          "function": "activation.py:2631:_collapse_results",
+          "inclusive_seconds": 0.000766635,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.1044000000000001e-05,
+          "function": "memory.py:2282:_normalise_cue",
+          "inclusive_seconds": 3.4252000000000003e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.0895e-05,
+          "function": "memory.py:2116:_filter_recallable_candidates",
+          "inclusive_seconds": 0.0033308780000000002,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 22,
+          "exclusive_seconds": 1.0812e-05,
+          "function": "activation.py:2954:_result_text",
+          "inclusive_seconds": 1.3562000000000002e-05,
+          "primitive_calls": 22
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.0796000000000001e-05,
+          "function": "retrieval_features.py:185:distinctive_content_features",
+          "inclusive_seconds": 8.731400000000001e-05,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.0673000000000001e-05,
+          "function": "activation.py:3106:_cue_requests_historical_state",
+          "inclusive_seconds": 6.6572e-05,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.0351000000000001e-05,
+          "function": "corrections.py:605:<listcomp>",
+          "inclusive_seconds": 0.00039602400000000003,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 30,
+          "exclusive_seconds": 1.0339e-05,
+          "function": "~:0:<built-in method fromisoformat>",
+          "inclusive_seconds": 1.0339e-05,
+          "primitive_calls": 30
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.0331e-05,
+          "function": "behavioral_competition.py:28:build_behavioral_query_scope",
+          "inclusive_seconds": 7.0425e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.0262000000000001e-05,
+          "function": "memory.py:2142:_list_activation_traces",
+          "inclusive_seconds": 4.8565e-05,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.0076000000000001e-05,
+          "function": "_weakrefset.py:85:add",
+          "inclusive_seconds": 1.1889000000000001e-05,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 1.0076000000000001e-05,
+          "function": "tasks.py:707:__init__",
+          "inclusive_seconds": 1.0693e-05,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 30,
+          "exclusive_seconds": 9.299e-06,
+          "function": "~:0:<method 'endswith' of 'str' objects>",
+          "inclusive_seconds": 9.299e-06,
+          "primitive_calls": 30
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 8.509000000000001e-06,
+          "function": "base_events.py:701:time",
+          "inclusive_seconds": 1.2258e-05,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 8.392e-06,
+          "function": "base_futures.py:14:isfuture",
+          "inclusive_seconds": 1.5947e-05,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 8.373000000000001e-06,
+          "function": "activation.py:1274:_scaled_idf_weights",
+          "inclusive_seconds": 0.016040248,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.732e-06,
+          "function": "competition.py:891:_attach_inhibition_snapshots",
+          "inclusive_seconds": 7.732e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 7.6280000000000005e-06,
+          "function": "profile_retrieval.py:63:measured",
+          "inclusive_seconds": 1.133427992,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.2950000000000005e-06,
+          "function": "models.py:1367:__post_init__",
+          "inclusive_seconds": 8.187e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.282000000000001e-06,
+          "function": "models.py:1846:__post_init__",
+          "inclusive_seconds": 7.745000000000001e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.184e-06,
+          "function": "memory.py:2379:_evaluation_time",
+          "inclusive_seconds": 7.782000000000001e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 7.167e-06,
+          "function": "activation.py:3289:_bridge_entities_from_seed_episodes",
+          "inclusive_seconds": 0.000252599,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 7.14e-06,
+          "function": "corrections.py:598:<listcomp>",
+          "inclusive_seconds": 9.018e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 4,
+          "exclusive_seconds": 6.967e-06,
+          "function": "_weakrefset.py:39:_remove",
+          "inclusive_seconds": 8.17e-06,
+          "primitive_calls": 4
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 6.3760000000000004e-06,
+          "function": "models.py:1936:__post_init__",
+          "inclusive_seconds": 6.618e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 6.065e-06,
+          "function": "activation.py:1235:_temporal_retrieval_mode",
+          "inclusive_seconds": 3.1151e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 21,
+          "exclusive_seconds": 6.0450000000000006e-06,
+          "function": "base_events.py:518:_check_closed",
+          "inclusive_seconds": 6.0450000000000006e-06,
+          "primitive_calls": 21
+        },
+        {
+          "calls": 31,
+          "exclusive_seconds": 6.024e-06,
+          "function": "~:0:<method 'issubset' of 'frozenset' objects>",
+          "inclusive_seconds": 6.024e-06,
+          "primitive_calls": 31
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 5.286000000000001e-06,
+          "function": "<string>:2:__hash__",
+          "inclusive_seconds": 6.8620000000000005e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 5.178e-06,
+          "function": "activation.py:4198:_normalise_text",
+          "inclusive_seconds": 1.3819000000000001e-05,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 24,
+          "exclusive_seconds": 4.9270000000000004e-06,
+          "function": "base_events.py:1954:get_debug",
+          "inclusive_seconds": 4.9270000000000004e-06,
+          "primitive_calls": 24
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.6060000000000005e-06,
+          "function": "in_memory_entity_relationship.py:24:list",
+          "inclusive_seconds": 5.913e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.515e-06,
+          "function": "spreading.py:98:_build_learned_neighbours",
+          "inclusive_seconds": 5.1650000000000005e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.4990000000000005e-06,
+          "function": "activation.py:1211:_slot_admission_active",
+          "inclusive_seconds": 4.724e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 17,
+          "exclusive_seconds": 4.496000000000001e-06,
+          "function": "~:0:<method 'items' of 'dict' objects>",
+          "inclusive_seconds": 4.496000000000001e-06,
+          "primitive_calls": 17
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 4.1780000000000005e-06,
+          "function": "retrieval_features.py:194:<genexpr>",
+          "inclusive_seconds": 4.1780000000000005e-06,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 4.086e-06,
+          "function": "futures.py:299:_get_loop",
+          "inclusive_seconds": 4.966e-06,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 4.035e-06,
+          "function": "selector_events.py:737:_process_events",
+          "inclusive_seconds": 4.035e-06,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 30,
+          "exclusive_seconds": 4.017000000000001e-06,
+          "function": "~:0:<method 'issubset' of 'set' objects>",
+          "inclusive_seconds": 4.017000000000001e-06,
+          "primitive_calls": 30
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 3.98e-06,
+          "function": "coroutines.py:34:iscoroutine",
+          "inclusive_seconds": 3.98e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 3.8400000000000005e-06,
+          "function": "~:0:<built-in method _abc._abc_subclasscheck>",
+          "inclusive_seconds": 5.565e-06,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 9,
+          "exclusive_seconds": 3.7490000000000004e-06,
+          "function": "~:0:<built-in method time.monotonic>",
+          "inclusive_seconds": 3.7490000000000004e-06,
+          "primitive_calls": 9
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 3.536e-06,
+          "function": "~:0:<method 'set_result' of '_asyncio.Future' objects>",
+          "inclusive_seconds": 2.1369e-05,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 3.464e-06,
+          "function": "~:0:<built-in method _asyncio._get_event_loop>",
+          "inclusive_seconds": 3.464e-06,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 3.413e-06,
+          "function": "<frozen abc>:121:__subclasscheck__",
+          "inclusive_seconds": 8.978000000000001e-06,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 3.309e-06,
+          "function": "corrections.py:333:snapshot_is_present",
+          "inclusive_seconds": 4.5840000000000005e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.193e-06,
+          "function": "activation.py:1204:_merge_seed_ids",
+          "inclusive_seconds": 5.2576000000000006e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 3.1110000000000004e-06,
+          "function": "activation.py:2965:_intent_tokens",
+          "inclusive_seconds": 5.6615000000000006e-05,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 3.1000000000000004e-06,
+          "function": "~:0:<method 'append' of 'collections.deque' objects>",
+          "inclusive_seconds": 3.1000000000000004e-06,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.091e-06,
+          "function": "activation.py:3900:_query_content_features",
+          "inclusive_seconds": 3.9336000000000004e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.9700000000000004e-06,
+          "function": "activation.py:2570:_cue_requests_current_state",
+          "inclusive_seconds": 2.0377e-05,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 2.8280000000000003e-06,
+          "function": "corrections.py:1809:_optional_str",
+          "inclusive_seconds": 2.8280000000000003e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 15,
+          "exclusive_seconds": 2.6600000000000004e-06,
+          "function": "~:0:<method 'popleft' of 'collections.deque' objects>",
+          "inclusive_seconds": 2.6600000000000004e-06,
+          "primitive_calls": 15
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.3090000000000003e-06,
+          "function": "spreading.py:92:_build_candidate_index",
+          "inclusive_seconds": 0.001490196,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.295e-06,
+          "function": "activation.py:1299:_build_support_context_cache",
+          "inclusive_seconds": 2.724e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.109e-06,
+          "function": "models.py:1661:__post_init__",
+          "inclusive_seconds": 2.7090000000000002e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 2.032e-06,
+          "function": "profile_retrieval.py:57:run",
+          "inclusive_seconds": 1.1334314840000002,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.951e-06,
+          "function": "activation.py:2710:_recall_identity_from_result",
+          "inclusive_seconds": 2.859e-06,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.821e-06,
+          "function": "activation.py:2918:_is_active_semantic",
+          "inclusive_seconds": 2.0670000000000003e-06,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.774e-06,
+          "function": "memory.py:1258:_inhibition_traces_for_retrieval",
+          "inclusive_seconds": 1.774e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 1.7300000000000002e-06,
+          "function": "~:0:<method 'exception' of '_asyncio.Task' objects>",
+          "inclusive_seconds": 1.7300000000000002e-06,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 1.7250000000000002e-06,
+          "function": "<frozen _collections_abc>:315:__subclasshook__",
+          "inclusive_seconds": 1.7250000000000002e-06,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.686e-06,
+          "function": "activation.py:3302:_consider_association_path",
+          "inclusive_seconds": 1.686e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.6260000000000002e-06,
+          "function": "~:0:<method 'add_done_callback' of '_asyncio.Task' objects>",
+          "inclusive_seconds": 1.6260000000000002e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 12,
+          "exclusive_seconds": 1.6230000000000002e-06,
+          "function": "~:0:<method 'cancelled' of '_asyncio.Task' objects>",
+          "inclusive_seconds": 1.6230000000000002e-06,
+          "primitive_calls": 12
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.46e-06,
+          "function": "run_sqlite_workload.py:68:_run",
+          "inclusive_seconds": 1.1334294520000001,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 1.21e-06,
+          "function": "~:0:<method 'done' of '_asyncio.Future' objects>",
+          "inclusive_seconds": 1.21e-06,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 1.21e-06,
+          "function": "models.py:1364:<lambda>",
+          "inclusive_seconds": 1.21e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 2,
+          "exclusive_seconds": 1.206e-06,
+          "function": "activation.py:2884:_is_slot_support_episode",
+          "inclusive_seconds": 1.429e-06,
+          "primitive_calls": 2
+        },
+        {
+          "calls": 3,
+          "exclusive_seconds": 8.8e-07,
+          "function": "~:0:<method 'get_loop' of '_asyncio.Future' objects>",
+          "inclusive_seconds": 8.8e-07,
+          "primitive_calls": 3
+        },
+        {
+          "calls": 6,
+          "exclusive_seconds": 8.53e-07,
+          "function": "~:0:<method 'result' of '_asyncio.Task' objects>",
+          "inclusive_seconds": 8.53e-07,
+          "primitive_calls": 6
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 8.35e-07,
+          "function": "~:0:<method 'disable' of '_lsprof.Profiler' objects>",
+          "inclusive_seconds": 8.35e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 6.68e-07,
+          "function": "spreading.py:219:_apply_learned_associations",
+          "inclusive_seconds": 1.002e-06,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.79e-07,
+          "function": "interference_observability.py:187:_strongest_pair",
+          "inclusive_seconds": 4.79e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.63e-07,
+          "function": "~:0:<method 'items' of 'mappingproxy' objects>",
+          "inclusive_seconds": 4.63e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.5800000000000005e-07,
+          "function": "corrections.py:498:hidden_current_episode_ids",
+          "inclusive_seconds": 4.5800000000000005e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 4.1200000000000004e-07,
+          "function": "in_memory_activation.py:70:<dictcomp>",
+          "inclusive_seconds": 4.1200000000000004e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.8800000000000003e-07,
+          "function": "in_memory_entity_relationship.py:30:<listcomp>",
+          "inclusive_seconds": 3.8800000000000003e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.65e-07,
+          "function": "spreading.py:82:<dictcomp>",
+          "inclusive_seconds": 3.65e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.6400000000000003e-07,
+          "function": "activation.py:3212:<dictcomp>",
+          "inclusive_seconds": 3.6400000000000003e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 3.29e-07,
+          "function": "spreading.py:107:<dictcomp>",
+          "inclusive_seconds": 3.29e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.8100000000000004e-07,
+          "function": "spreading.py:207:<dictcomp>",
+          "inclusive_seconds": 2.8100000000000004e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.6900000000000004e-07,
+          "function": "memory.py:2165:<dictcomp>",
+          "inclusive_seconds": 2.6900000000000004e-07,
+          "primitive_calls": 1
+        },
+        {
+          "calls": 1,
+          "exclusive_seconds": 2.03e-07,
+          "function": "in_memory_learning.py:204:<dictcomp>",
+          "inclusive_seconds": 2.03e-07,
+          "primitive_calls": 1
+        }
+      ],
+      "process_cpu_seconds": 1.126573,
+      "wall_seconds": 1.1371830980060622
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964803
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.9996287
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951393
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951393
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99948725
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "memory",
+    "observations": 250,
+    "profiled": true,
+    "recalls": 1,
+    "revisions": 5
+  }
+}

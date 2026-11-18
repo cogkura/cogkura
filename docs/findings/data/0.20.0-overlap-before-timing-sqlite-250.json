@@ -1,0 +1,192 @@
+{
+  "counts": {
+    "episodes": 256,
+    "observation_revisions": 1256,
+    "observations": 256,
+    "semantic_memories": 247,
+    "semantic_revisions": 256
+  },
+  "environment": {
+    "activation_source_sha256": "f76cfa6de82bd7a0b533a7b15d6279a4bc11647860d5bb04865854689f8c712e",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "method": "individual recalls without cProfile, tracemalloc or SQL tracing",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "profiles": [
+    {
+      "functions": null,
+      "process_cpu_seconds": 1.1951799999999997,
+      "wall_seconds": 1.2075835760333575
+    },
+    {
+      "functions": null,
+      "process_cpu_seconds": 1.2037210000000007,
+      "wall_seconds": 1.212941374978982
+    },
+    {
+      "functions": null,
+      "process_cpu_seconds": 1.1771920000000007,
+      "wall_seconds": 1.1841629639966413
+    },
+    {
+      "functions": null,
+      "process_cpu_seconds": 1.2210430000000008,
+      "wall_seconds": 1.2294751619920135
+    },
+    {
+      "functions": null,
+      "process_cpu_seconds": 1.276648999999999,
+      "wall_seconds": 1.4869236620143056
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964803
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.9996287
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951393
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951393
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99948725
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0001 deployment target was withdrawn.",
+        0.99963013
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.9995105
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.9995105
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.9995105
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99948463
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99964803
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.9996287
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99951393
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951393
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99948725
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99963013
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.9995105
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.9995105
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.9995105
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99948463
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99964803
+      ],
+      [
+        "episode",
+        "Service service-0004 deployment target was corrected.",
+        0.9996287
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951393
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99951393
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99948725
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "sqlite",
+    "observations": 250,
+    "profiled": false,
+    "recalls": 5,
+    "revisions": 5
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "corrections_applied_per_pass": [
+    0,
+    3,
+    3
+  ],
+  "environment": {
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "observations": [
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "process_cpu_seconds": 0.013761999999999996,
+      "query": "current",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0002",
+          0.99977764
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0002.",
+          0.99975154
+        ]
+      ],
+      "semantic_values": [
+        "environment-0002"
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.014231920999009162
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "process_cpu_seconds": 0.009061999999999959,
+      "query": "historical",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.9997353
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99957522
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "valid_at": "2026-01-01T01:00:00+00:00",
+      "wall_seconds": 0.009490044962149113
+    }
+  ],
+  "semantic_revision_count": 9,
+  "workload": {
+    "backend": "sqlite",
+    "semantic_versions": 3,
+    "subjects": 3
+  }
+}

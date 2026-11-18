@@ -1219,3 +1219,124 @@ async def test_readmission_after_withdrawal_does_not_restore_the_assertion() -> 
     assert not any(
         item.status is SemanticMemoryStatus.ACTIVE and item.valid_until is None for item in after
     )
+
+
+@pytest.mark.asyncio
+async def test_closed_correction_retains_knowledge_and_provenance_after_withdrawal() -> None:
+    from datetime import timedelta
+
+    memory = _memory(retrieval_threshold=-10.0)
+    predecessor = await _adopt(memory)
+    await memory.observe(
+        _observation(
+            record_id="adr-successor",
+            content="Migrations now run during deployment.",
+            observed_at=_CORRECTION,
+            facts=[
+                _fact(
+                    "migration_execution_strategy",
+                    "deployment_pipeline",
+                    correction={
+                        "replaces_revision_key": predecessor,
+                        "effective_at": _CORRECTION.isoformat(),
+                    },
+                )
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+    current = await memory.list_semantic_memories(tenant_id=_TENANT)
+    successor = next(item for item in current if item.object_value == "deployment_pipeline")
+    await memory.observe(
+        _observation(
+            record_id="withdraw-successor",
+            content="The deployment migration strategy is withdrawn.",
+            observed_at=_LATER,
+            withdrawals=[
+                {
+                    "target_revision_key": successor.revision_key,
+                    "effective_at": _LATER.isoformat(),
+                    "authority": {"basis": "application_asserted"},
+                }
+            ],
+        )
+    )
+    await memory.process(tenant_id=_TENANT, as_of=_LATER)
+    revisions = await memory.list_semantic_revisions(tenant_id=_TENANT)
+    closed = next(item for item in revisions if item.revision_key == successor.revision_key)
+    assert closed.snapshot["knowledge_at"] == _CORRECTION.isoformat()
+    assert closed.snapshot["correction"]["replaces_revision_key"] == predecessor
+    assert closed.snapshot["closed_by"]["kind"] == "withdrawal"
+
+    query = "payments-api migration execution strategy"
+    before = _CORRECTION - timedelta(microseconds=1)
+    for valid_at in (None, _LATER):
+        results = await memory.recall(query, tenant_id=_TENANT, as_of=before, valid_at=valid_at)
+        values = [
+            item.memory.object_value for item in results if item.memory_kind is MemoryKind.SEMANTIC
+        ]
+        assert values == ["application_startup"]
+        assert all("deployment_pipeline" not in item.memory.statement for item in results)
+        assert all("withdrawn" not in item.memory.statement for item in results)
+        semantic = next(item for item in results if item.memory_kind is MemoryKind.SEMANTIC)
+        assert semantic.memory.observation_evidence
+    # Older versions rebuilt this closed snapshot without its incoming transition.
+    # Simulate that stored state without modifying the database, and ensure reads
+    # recover only from the predecessor's corroborating closure record.
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from cogkura.algorithms.corrections import recover_closed_correction_links
+
+    legacy_snapshot = dict(closed.snapshot)
+    legacy_snapshot.pop("knowledge_at")
+    legacy_snapshot.pop("correction")
+    legacy_closed = replace(closed, snapshot=legacy_snapshot)
+    predecessor_revision = next(item for item in revisions if item.revision_key == predecessor)
+    ambiguous = replace(predecessor_revision, revision_key="ambiguous-predecessor")
+    uncertain = recover_closed_correction_links([predecessor_revision, ambiguous, legacy_closed])
+    assert "correction" not in uncertain[-1].snapshot
+    different_slot = dict(predecessor_revision.snapshot)
+    different_slot["slot_key"] = "another-slot"
+    without_knowledge = dict(predecessor_revision.snapshot)
+    without_knowledge["closed_by"] = {
+        key: value for key, value in without_knowledge["closed_by"].items() if key != "knowledge_at"
+    }
+    for invalid_predecessor in (
+        replace(predecessor_revision, snapshot=different_slot),
+        replace(predecessor_revision, snapshot=without_knowledge),
+        replace(predecessor_revision, tenant_id="another-tenant"),
+    ):
+        assert (
+            recover_closed_correction_links([invalid_predecessor, legacy_closed])[-1]
+            == legacy_closed
+        )
+    assert "knowledge_at" not in legacy_closed.snapshot
+
+    original_list = memory._semantic_store.list_revisions
+
+    async def legacy_list(*args, **kwargs):
+        items = await original_list(*args, **kwargs)
+        return [
+            legacy_closed if item.revision_key == successor.revision_key else item for item in items
+        ]
+
+    with patch.object(memory._semantic_store, "list_revisions", legacy_list):
+        for valid_at in (None, _LATER):
+            results = await memory.recall(query, tenant_id=_TENANT, as_of=before, valid_at=valid_at)
+            assert [
+                r.memory.object_value for r in results if r.memory_kind is MemoryKind.SEMANTIC
+            ] == ["application_startup"]
+            assert all("deployment_pipeline" not in r.memory.statement for r in results)
+        inspection = await memory.inspect_recall(query, tenant_id=_TENANT, as_of=before)
+        assert all("deployment_pipeline" not in r.memory.statement for r in inspection.returned)
+        context = await memory.prepare_context(query, tenant_id=_TENANT, as_of=before)
+        assert "deployment_pipeline" not in context.render()
+    assert "correction" not in legacy_closed.snapshot
+
+    after_correction = await memory.recall(query, tenant_id=_TENANT, as_of=_CORRECTION)
+    assert [
+        r.memory.object_value for r in after_correction if r.memory_kind is MemoryKind.SEMANTIC
+    ] == ["deployment_pipeline"]
+    after_withdrawal = await memory.recall(query, tenant_id=_TENANT, as_of=_LATER)
+    assert [r for r in after_withdrawal if r.memory_kind is MemoryKind.SEMANTIC] == []

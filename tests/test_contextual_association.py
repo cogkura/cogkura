@@ -750,3 +750,178 @@ async def test_inspect_marks_seed_and_bridge_roles() -> None:
         if item.memory_kind is MemoryKind.EPISODE
     }
     assert "seed" in roles
+
+
+@pytest.mark.asyncio
+async def test_episode_association_features_are_reused_only_within_retrieval(monkeypatch) -> None:
+    from cogkura.algorithms import activation
+
+    memory = _memory()
+    for index in range(6):
+        await memory.observe(
+            _episode_observation(
+                source_record_id=f"reuse-{index}",
+                conversation_id=f"reuse-{index}",
+                observed_at=_T - timedelta(days=1),
+                content=f"Waterproof hiking jacket model {index} has useful details.",
+                semantic_facts=[
+                    {
+                        "predicate": "product_fit_issue",
+                        "object_value": f"jacket-{index}:long-sleeves",
+                        "cardinality": "many",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            )
+        )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T)
+    original = activation._episode_association_features
+    calls: list[int] = []
+
+    def counted(episode):
+        calls.append(id(episode))
+        return original(episode)
+
+    monkeypatch.setattr(activation, "_episode_association_features", counted)
+    kwargs = {"tenant_id": _TENANT, "subject_id": _SUBJECT, "as_of": _T, "limit": 20}
+    cached = await memory.inspect_recall(_JACKET_QUERY, **kwargs)
+    first_count = len(calls)
+    assert first_count > 0
+    assert len(set(calls)) == first_count
+    second = await memory.inspect_recall(_JACKET_QUERY, **kwargs)
+    assert cached == second
+    assert len(calls) == 2 * first_count
+
+    calls.clear()
+
+    def uncached_features(episode, cache):
+        calls.append(id(episode))
+        return frozenset(original(episode))
+
+    monkeypatch.setattr(activation, "_cached_episode_association_features", uncached_features)
+    uncached = await memory.inspect_recall(_JACKET_QUERY, **kwargs)
+    assert uncached == cached
+    assert len(calls) > first_count
+
+
+@pytest.mark.asyncio
+async def test_related_candidates_are_reused_per_seed_and_retrieval(monkeypatch) -> None:
+    from cogkura import ActivationConfig
+    from cogkura.algorithms import activation
+
+    memory = Memory(
+        activation_config=ActivationConfig(max_association_neighbours=2),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            minimum_supporting_episodes=1,
+        ),
+    )
+    for index in range(6):
+        await memory.observe(
+            _episode_observation(
+                source_record_id=f"overlap-{index}",
+                conversation_id=f"overlap-{index}",
+                observed_at=_T - timedelta(days=1),
+                content=f"Waterproof hiking jacket model {index} has useful details.",
+                semantic_facts=[
+                    {
+                        "predicate": "product_fit_issue",
+                        "object_value": f"jacket-{index}:long-sleeves",
+                        "cardinality": "many",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            )
+        )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T)
+    original = activation._build_related_association_candidates
+    calls: list[int] = []
+
+    def counted(seed, episode_by_id, query_features, episode_features, max_neighbours):
+        calls.append(id(seed))
+        return original(seed, episode_by_id, query_features, episode_features, max_neighbours)
+
+    monkeypatch.setattr(activation, "_build_related_association_candidates", counted)
+    kwargs = {"tenant_id": _TENANT, "subject_id": _SUBJECT, "as_of": _T, "limit": 20}
+    cached = await memory.inspect_recall(_JACKET_QUERY, **kwargs)
+    count = len(calls)
+    assert count > 0
+    assert len(set(calls)) == count
+    assert await memory.inspect_recall(_JACKET_QUERY, **kwargs) == cached
+    assert len(calls) == 2 * count
+
+    calls.clear()
+
+    def uncached(seed, episode_by_id, query_features, episode_features, max_neighbours, cache):
+        return counted(seed, episode_by_id, query_features, episode_features, max_neighbours)
+
+    monkeypatch.setattr(activation, "_cached_related_association_candidates", uncached)
+    assert await memory.inspect_recall(_JACKET_QUERY, **kwargs) == cached
+    assert len(calls) > count
+
+
+@pytest.mark.asyncio
+async def test_current_admission_index_preserves_first_match_and_full_inspection(
+    monkeypatch,
+) -> None:
+    from dataclasses import replace
+
+    from cogkura.algorithms import activation
+
+    memory = _memory()
+    for index in range(6):
+        await memory.observe(
+            _episode_observation(
+                source_record_id=f"admission-{index}",
+                conversation_id=f"admission-{index}",
+                observed_at=_T - timedelta(days=1),
+                content=f"Waterproof hiking jacket model {index} has useful details.",
+                semantic_facts=[
+                    {
+                        "predicate": "product_fit_issue",
+                        "object_value": f"jacket-{index}:long-sleeves",
+                        "cardinality": "many",
+                        "polarity": "affirm",
+                        "qualifiers": {},
+                    }
+                ],
+            )
+        )
+    await memory.process(tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T)
+    kwargs = {"tenant_id": _TENANT, "subject_id": _SUBJECT, "as_of": _T, "limit": 20}
+    recalled = await memory.recall(_JACKET_QUERY, **kwargs)
+    assert recalled
+    first = recalled[0]
+    duplicate = replace(first, activation=first.activation + 1.0)
+    assert (
+        activation._first_scored_activations([first, duplicate])[activation._result_identity(first)]
+        == first.activation
+    )
+    assert (
+        activation._first_scored_activations([duplicate, first])[activation._result_identity(first)]
+        == duplicate.activation
+    )
+
+    indexed = await memory.inspect_recall(_JACKET_QUERY, **kwargs)
+    built = 0
+
+    class LinearLookup(dict):
+        def __init__(self, scored):
+            super().__init__()
+            self.scored = scored
+
+        def get(self, identity, default=None):
+            return next(
+                (r.activation for r in self.scored if activation._result_identity(r) == identity),
+                default,
+            )
+
+    def linear(scored):
+        nonlocal built
+        built += 1
+        return LinearLookup(scored)
+
+    monkeypatch.setattr(activation, "_first_scored_activations", linear)
+    assert await memory.inspect_recall(_JACKET_QUERY, **kwargs) == indexed
+    assert built == 1
