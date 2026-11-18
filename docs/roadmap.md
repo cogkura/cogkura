@@ -351,12 +351,24 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
 - Candidate `788444d` passed the Core Python 3.11–3.15 Linux/macOS/Windows matrix, PostgreSQL gates and independent Bench reviews with candidate-specific approvals. Raw benchmark comparisons remain available.
 - Uninstrumented workloads document a substantial retrieval-scaling limitation. See the [design](design-embedded-stabilisation-0.19.6.md) and [findings](findings/0.19.6-embedded-stabilisation.md).
 
+## 0.20.0 — Retrieval profiling (candidate)
+
+- Investigate the 0.19.6 retrieval scaling issue using versioned workloads,
+  optional diagnostics and independent comparisons. No cognitive change is included.
+- The [release preparation findings](findings/0.20.0-release-preparation.md)
+  record evidence and open acceptance decisions.
+
+## 0.20.1 — Retrieval optimization (planned)
+
+- Apply measured retrieval optimizations and the separately reviewed historical
+  correction and withdrawal fix, with candidate-specific frozen validation.
+
 ## Later
 
 - additional source connectors for application data (for example SQLite, APIs and queues);
 - graph-oriented storage options;
 - embedding-provider interfaces;
 - LLM-provider interfaces;
-- Core 0.20.0: agent integration and memory-context contracts;
+- Agent integration and memory-context contracts after retrieval performance acceptance;
 - additional independent benchmark coverage;
 - enterprise-oriented extensions.
