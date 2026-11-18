@@ -1,0 +1,296 @@
+{
+  "context_profiles": [
+    {
+      "process_cpu_seconds": 0.8862199999999998,
+      "stages": {
+        "activation_trace_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0009215199970640242
+        },
+        "candidate_construction": {
+          "calls": 1,
+          "returned_items": 197,
+          "wall_seconds": 0.004019571002572775
+        },
+        "candidate_scoring": {
+          "calls": 197,
+          "returned_items": 394,
+          "wall_seconds": 0.023938065103720874
+        },
+        "competition_and_inhibition": {
+          "accepted_pairs": 0,
+          "calls": 1,
+          "competition_enabled": true,
+          "evaluated_pairs": 194,
+          "potential_pairs": 194,
+          "returned_items": 3,
+          "wall_seconds": 0.0138162020011805
+        },
+        "duplicate_collapse": {
+          "calls": 1,
+          "returned_items": 50,
+          "wall_seconds": 0.0030849609756842256
+        },
+        "episode_loading": {
+          "calls": 1,
+          "returned_items": 106,
+          "wall_seconds": 0.007871603011153638
+        },
+        "forgetting_eligibility": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 197,
+          "wall_seconds": 0.0007859179750084877
+        },
+        "historical_projection": {
+          "calls": 1,
+          "input_revisions": 106,
+          "returned_items": 97,
+          "wall_seconds": 0.000167398015037179
+        },
+        "learned_association_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0004884490044787526
+        },
+        "recall_pipeline": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.8667145870276727
+        },
+        "relationship_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.00022359902504831553
+        },
+        "revision_loading": {
+          "calls": 1,
+          "returned_items": 106,
+          "wall_seconds": 0.009153885010164231
+        },
+        "scoring_and_ranking": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 0,
+          "wall_seconds": 0.8018766840104945
+        },
+        "semantic_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.02346995403058827
+        },
+        "semantic_loading": {
+          "calls": 3,
+          "returned_items": 103,
+          "wall_seconds": 0.038823900977149606
+        },
+        "semantic_relevance": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.7220420860103332
+        },
+        "slot_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0014633950195275247
+        },
+        "spreading_activation": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 0,
+          "wall_seconds": 0.0004904450033791363
+        },
+        "stale_episode_filtering": {
+          "calls": 1,
+          "returned_items": 100,
+          "wall_seconds": 0.009210149990394711
+        }
+      },
+      "wall_seconds": 0.896401978970971
+    }
+  ],
+  "counts": {
+    "episodes": 106,
+    "observation_revisions": 506,
+    "observations": 106,
+    "semantic_memories": 97,
+    "semantic_revisions": 106
+  },
+  "environment": {
+    "activation_source_sha256": "53c901dfa616da7d19cbea6602ff572bce2ec70eb9134977400044d863d90420",
+    "commit": "c20eba63b5bb72d938606971a7937c55a29aa53e",
+    "core_distribution_version": "0.20.0",
+    "core_runtime_version": "0.20.0",
+    "core_source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics_source_sha256": "ec908aa5d25f4ede4ff1f63546e3f4b205e391f6dfb041b2a5a58cf2460b222a",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profiler_source_sha256": "3d9876dd70384d244b38be123cf37fc0bcc5c858adae135b554d59528e0edb25",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "641b007883b6ba1dfd78255a399854d09e35c63da84829be4e6a0ef8d2a32354"
+  },
+  "method": "stages; per-recall timing, diagnostic modes include instrumentation overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "process_peak_rss": {
+    "includes_fixture": true,
+    "unit": "bytes",
+    "value": 45019136
+  },
+  "profiles": [
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.8017650000000001,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": {
+        "activation_trace_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0009566610096953809
+        },
+        "candidate_construction": {
+          "calls": 1,
+          "returned_items": 197,
+          "wall_seconds": 0.0028726629680022597
+        },
+        "candidate_scoring": {
+          "calls": 197,
+          "returned_items": 394,
+          "wall_seconds": 0.02558527863584459
+        },
+        "competition_and_inhibition": {
+          "accepted_pairs": 0,
+          "calls": 1,
+          "competition_enabled": true,
+          "evaluated_pairs": 194,
+          "potential_pairs": 194,
+          "returned_items": 3,
+          "wall_seconds": 0.012257308990228921
+        },
+        "duplicate_collapse": {
+          "calls": 1,
+          "returned_items": 5,
+          "wall_seconds": 0.00026250502560287714
+        },
+        "episode_loading": {
+          "calls": 1,
+          "returned_items": 106,
+          "wall_seconds": 0.007300957047846168
+        },
+        "forgetting_eligibility": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 197,
+          "wall_seconds": 0.00064847496105358
+        },
+        "historical_projection": {
+          "calls": 1,
+          "input_revisions": 106,
+          "returned_items": 97,
+          "wall_seconds": 0.00020248704822733998
+        },
+        "learned_association_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.00045292096910998225
+        },
+        "recall_pipeline": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.8041219909791835
+        },
+        "relationship_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.00016351300291717052
+        },
+        "revision_loading": {
+          "calls": 1,
+          "returned_items": 106,
+          "wall_seconds": 0.010486524028237909
+        },
+        "scoring_and_ranking": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 0,
+          "wall_seconds": 0.7416175999678671
+        },
+        "semantic_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.020111109013669193
+        },
+        "semantic_loading": {
+          "calls": 3,
+          "returned_items": 103,
+          "wall_seconds": 0.03790315199876204
+        },
+        "semantic_relevance": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.6680626479792409
+        },
+        "slot_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0009928969666361809
+        },
+        "spreading_activation": {
+          "calls": 1,
+          "input_candidates": 197,
+          "returned_items": 0,
+          "wall_seconds": 0.000523344031535089
+        },
+        "stale_episode_filtering": {
+          "calls": 1,
+          "returned_items": 100,
+          "wall_seconds": 0.007637507980689406
+        }
+      },
+      "wall_seconds": 0.8044740369659849
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964663
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.999625
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99949426
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "sqlite",
+    "context": true,
+    "diagnostic": "stages",
+    "observations": 100,
+    "profiled": false,
+    "recalls": 1,
+    "revisions": 5
+  }
+}

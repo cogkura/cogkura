@@ -1,0 +1,313 @@
+{
+  "corrections_applied": 1,
+  "environment": {
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "episodes": 9,
+  "queries": [
+    {
+      "name": "current_architecture",
+      "process_cpu_seconds": 0.019794000000000034,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99973871
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99962797
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99929453
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99912609
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99906697
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99900261
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99902304
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99906878
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99888502
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99884426
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.020574454974848777
+    },
+    {
+      "name": "historical_architecture",
+      "process_cpu_seconds": 0.01869000000000004,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99951749
+        ],
+        [
+          "semantic",
+          "project-000 storage engine postgres_primary",
+          0.99940539
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.9993618
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99931777
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.9992373
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99885011
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99877081
+        ],
+        [
+          "episode",
+          "project-000: Architecture decision: use PostgreSQL as the primary project memory store.",
+          0.99877177
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99862592
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99907129
+        ]
+      ],
+      "valid_at": "2026-02-06T00:00:00+00:00",
+      "wall_seconds": 0.021255010040476918
+    },
+    {
+      "name": "incident",
+      "process_cpu_seconds": 0.02507999999999999,
+      "query": "project-000 recall deployment incident database connection failures",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99963227
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99954443
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99926481
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99911731
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99915017
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99902767
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99904996
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99891574
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99909925
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99895938
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.026604953047353774
+    },
+    {
+      "name": "migration",
+      "process_cpu_seconds": 0.01691100000000001,
+      "query": "project-000 migration rollout deployment pipeline",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99964489
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99956007
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99929003
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99919881
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.9993842
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99912052
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99906102
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99899625
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99904113
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99902214
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.01756778103299439
+    },
+    {
+      "name": "broad",
+      "process_cpu_seconds": 0.018982,
+      "query": "agent local memory architecture database integration",
+      "ranked_outputs": [
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99964193
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99943949
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99939547
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99903801
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99902247
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99898006
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99897941
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99878347
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99880304
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99873838
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.019660897960420698
+    }
+  ],
+  "semantic_revisions": 6,
+  "workload": {
+    "backend": "sqlite",
+    "projects": 1
+  }
+}

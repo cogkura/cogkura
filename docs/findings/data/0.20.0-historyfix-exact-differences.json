@@ -1,0 +1,1260 @@
+{
+  "backend_changes": {
+    "authoritative_corrections_v1": {
+      "memory": {
+        "metrics": [],
+        "queries": {
+          "ac-q-c17": {
+            "after_sha256": "5df1146c95fcefaf71d9477ee9bc29fe672673babf612a0c2ef003b5888f5659",
+            "before_sha256": "ef0093352eea7c1e0b4c78890063924541a4a6947f51256f0689928b83a651eb",
+            "fields": [
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.33333333333333337,
+                "before": -0.26240312555312206,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": -0.8465735902799726,
+                "before": -0.7859195644678773,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": 0.9105275236243557,
+                "before": 0.916140217766221,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-at-withdraw": {
+            "after_sha256": "62c484b4b3a5a7b81d3c78e67cc05017e10727e9bac890635c7858957a29efc5",
+            "before_sha256": "3333905210c63e5fe7e77bbecb88b7353d91ebbe7155857041062fee61b22fea",
+            "fields": [
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.11428571428571425,
+                "before": -0.09833684972397513,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": 0.7190600922364386,
+                "before": 0.7222706799682321,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-before-withdraw": {
+            "after_sha256": "bc9e0cf1a25ccdb1681bdb41f29e55fd8a5a7442955717f2d14e76d1546fb432",
+            "before_sha256": "57393aeb252eba91e6f162fd4c5fe48791af0e79e40b041e294cc07a46bd9e36",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -2.3609587886269963,
+                "before": -2.3697156337862673,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_before_context"
+              },
+              {
+                "after": -0.3875829369038186,
+                "before": -0.4099953374469597,
+                "path": "/retrieved_items/1/activation/activation_partial_match"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_total"
+              },
+              {
+                "after": -3.083886558709501,
+                "before": -3.1013729833987074,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              },
+              {
+                "after": 0.3671746256591035,
+                "before": 0.3619826117190307,
+                "path": "/retrieved_items/1/score"
+              }
+            ]
+          }
+        },
+        "source_assessments": [],
+        "uses": []
+      },
+      "postgres": {
+        "metrics": [],
+        "queries": {
+          "ac-q-c17": {
+            "after_sha256": "5df1146c95fcefaf71d9477ee9bc29fe672673babf612a0c2ef003b5888f5659",
+            "before_sha256": "ef0093352eea7c1e0b4c78890063924541a4a6947f51256f0689928b83a651eb",
+            "fields": [
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.33333333333333337,
+                "before": -0.26240312555312206,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": -0.8465735902799726,
+                "before": -0.7859195644678773,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": 0.9105275236243557,
+                "before": 0.916140217766221,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-at-withdraw": {
+            "after_sha256": "62c484b4b3a5a7b81d3c78e67cc05017e10727e9bac890635c7858957a29efc5",
+            "before_sha256": "3333905210c63e5fe7e77bbecb88b7353d91ebbe7155857041062fee61b22fea",
+            "fields": [
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.11428571428571425,
+                "before": -0.09833684972397513,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": 0.7190600922364386,
+                "before": 0.7222706799682321,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-before-withdraw": {
+            "after_sha256": "bc9e0cf1a25ccdb1681bdb41f29e55fd8a5a7442955717f2d14e76d1546fb432",
+            "before_sha256": "57393aeb252eba91e6f162fd4c5fe48791af0e79e40b041e294cc07a46bd9e36",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -2.3609587886269963,
+                "before": -2.3697156337862673,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_before_context"
+              },
+              {
+                "after": -0.3875829369038186,
+                "before": -0.4099953374469597,
+                "path": "/retrieved_items/1/activation/activation_partial_match"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_total"
+              },
+              {
+                "after": -3.083886558709501,
+                "before": -3.1013729833987074,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              },
+              {
+                "after": 0.3671746256591035,
+                "before": 0.3619826117190307,
+                "path": "/retrieved_items/1/score"
+              }
+            ]
+          }
+        },
+        "source_assessments": [],
+        "uses": []
+      },
+      "sqlite": {
+        "metrics": [],
+        "queries": {
+          "ac-q-c17": {
+            "after_sha256": "5df1146c95fcefaf71d9477ee9bc29fe672673babf612a0c2ef003b5888f5659",
+            "before_sha256": "ef0093352eea7c1e0b4c78890063924541a4a6947f51256f0689928b83a651eb",
+            "fields": [
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.33333333333333337,
+                "before": -0.26240312555312206,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": -0.8465735902799726,
+                "before": -0.7859195644678773,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": 0.9105275236243557,
+                "before": 0.916140217766221,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-at-withdraw": {
+            "after_sha256": "62c484b4b3a5a7b81d3c78e67cc05017e10727e9bac890635c7858957a29efc5",
+            "before_sha256": "3333905210c63e5fe7e77bbecb88b7353d91ebbe7155857041062fee61b22fea",
+            "fields": [
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.11428571428571425,
+                "before": -0.09833684972397513,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": 0.7190600922364386,
+                "before": 0.7222706799682321,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-before-withdraw": {
+            "after_sha256": "bc9e0cf1a25ccdb1681bdb41f29e55fd8a5a7442955717f2d14e76d1546fb432",
+            "before_sha256": "57393aeb252eba91e6f162fd4c5fe48791af0e79e40b041e294cc07a46bd9e36",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -2.3609587886269963,
+                "before": -2.3697156337862673,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_before_context"
+              },
+              {
+                "after": -0.3875829369038186,
+                "before": -0.4099953374469597,
+                "path": "/retrieved_items/1/activation/activation_partial_match"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_total"
+              },
+              {
+                "after": -3.083886558709501,
+                "before": -3.1013729833987074,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              },
+              {
+                "after": 0.3671746256591035,
+                "before": 0.3619826117190307,
+                "path": "/retrieved_items/1/score"
+              }
+            ]
+          }
+        },
+        "source_assessments": [],
+        "uses": []
+      },
+      "sqlite_reopen": {
+        "metrics": [],
+        "queries": {
+          "ac-q-c17": {
+            "after_sha256": "5df1146c95fcefaf71d9477ee9bc29fe672673babf612a0c2ef003b5888f5659",
+            "before_sha256": "ef0093352eea7c1e0b4c78890063924541a4a6947f51256f0689928b83a651eb",
+            "fields": [
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.33333333333333337,
+                "before": -0.26240312555312206,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -0.679906923613306,
+                "before": -0.6089767158330948,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": -0.8465735902799726,
+                "before": -0.7859195644678773,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": 0.9105275236243557,
+                "before": 0.916140217766221,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-at-withdraw": {
+            "after_sha256": "62c484b4b3a5a7b81d3c78e67cc05017e10727e9bac890635c7858957a29efc5",
+            "before_sha256": "3333905210c63e5fe7e77bbecb88b7353d91ebbe7155857041062fee61b22fea",
+            "fields": [
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_before_context"
+              },
+              {
+                "after": -0.11428571428571425,
+                "before": -0.09833684972397513,
+                "path": "/retrieved_items/0/activation/activation_partial_match"
+              },
+              {
+                "after": -2.0601958633410273,
+                "before": -2.0442469987792884,
+                "path": "/retrieved_items/0/activation/activation_total"
+              },
+              {
+                "after": 0.7190600922364386,
+                "before": 0.7222706799682321,
+                "path": "/retrieved_items/0/score"
+              }
+            ]
+          },
+          "ac-q-hist-before-withdraw": {
+            "after_sha256": "bc9e0cf1a25ccdb1681bdb41f29e55fd8a5a7442955717f2d14e76d1546fb432",
+            "before_sha256": "57393aeb252eba91e6f162fd4c5fe48791af0e79e40b041e294cc07a46bd9e36",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -2.3609587886269963,
+                "before": -2.3697156337862673,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_before_context"
+              },
+              {
+                "after": -0.3875829369038186,
+                "before": -0.4099953374469597,
+                "path": "/retrieved_items/1/activation/activation_partial_match"
+              },
+              {
+                "after": -3.544356960042366,
+                "before": -3.566769360585507,
+                "path": "/retrieved_items/1/activation/activation_total"
+              },
+              {
+                "after": -3.083886558709501,
+                "before": -3.1013729833987074,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              },
+              {
+                "after": 0.3671746256591035,
+                "before": 0.3619826117190307,
+                "path": "/retrieved_items/1/score"
+              }
+            ]
+          }
+        },
+        "source_assessments": [],
+        "uses": []
+      }
+    },
+    "source_aware_metamemory_v1": {
+      "memory": {
+        "metrics": [
+          {
+            "after": 0.9947643979057592,
+            "before": 1.0,
+            "path": "/source_assessment/source_assessment_accuracy"
+          },
+          {
+            "after": 190.0,
+            "before": 191.0,
+            "path": "/source_assessment/source_assessment_match_count"
+          },
+          {
+            "after": 1.0,
+            "before": 0.0,
+            "path": "/source_assessment/source_assessment_mismatch_count"
+          },
+          {
+            "after": 0.9782608695652174,
+            "before": 1.0,
+            "path": "/source_assessment/source_attribution_accuracy"
+          },
+          {
+            "after": 45.0,
+            "before": 46.0,
+            "path": "/source_assessment/source_attribution_match_count"
+          }
+        ],
+        "queries": {
+          "sm-historical-withdrawal": {
+            "after_sha256": "a66973140289da8e275750357a05dfb002fca77a27e92bc81b017f84ccec40a8",
+            "before_sha256": "d5ed7adb35e47e136cc3bd239523c860fb547f05704ae8f2bcd80ef1bba843d8",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -1.1690505362345402,
+                "before": -1.1863634282081756,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -1.7120185277105917,
+                "before": -1.7103421566731396,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-readoption-deferred": {
+            "after_sha256": "1dba4b9bd2c89701e457d8c1396d52bb5ddaa1578de65148b05c9c91e163d5ab",
+            "before_sha256": "caf1a51e01ba36e48c902ef3cc9ba8ca1169227712523943c9368c15089ab5cb",
+            "fields": [
+              {
+                "after": -1.8175983437454015,
+                "before": -1.8309583047899012,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-withdrawn": {
+            "after_sha256": "aa7434cd1083a557c07829f5f503658431340bc12a9b34d25271a0c031e118ab",
+            "before_sha256": "ef7032afd881aaf594c38e5bd4b735362732e1844b4c534c71b03402311c47ed",
+            "fields": [
+              {
+                "after": 0.8888888888888888,
+                "before": 1.0,
+                "path": "/metrics/source_assessment_accuracy"
+              },
+              {
+                "after": 8.0,
+                "before": 9.0,
+                "path": "/metrics/source_assessment_match_count"
+              },
+              {
+                "after": 1.0,
+                "before": 0.0,
+                "path": "/metrics/source_assessment_mismatch_count"
+              },
+              {
+                "after": 0.6666666666666666,
+                "before": 1.0,
+                "path": "/metrics/source_attribution_accuracy"
+              },
+              {
+                "after": 2.0,
+                "before": 3.0,
+                "path": "/metrics/source_attribution_match_count"
+              },
+              {
+                "after": 3.8657731336506718,
+                "before": 3.852413172606172,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          }
+        },
+        "source_assessments": [
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-historical-withdrawal/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-historical-withdrawal/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-readoption-deferred/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-readoption-deferred/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-withdrawn/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-withdrawn/transition_event_ids"
+          }
+        ],
+        "uses": []
+      },
+      "postgres": {
+        "metrics": [
+          {
+            "after": 0.9947643979057592,
+            "before": 1.0,
+            "path": "/source_assessment/source_assessment_accuracy"
+          },
+          {
+            "after": 190.0,
+            "before": 191.0,
+            "path": "/source_assessment/source_assessment_match_count"
+          },
+          {
+            "after": 1.0,
+            "before": 0.0,
+            "path": "/source_assessment/source_assessment_mismatch_count"
+          },
+          {
+            "after": 0.9782608695652174,
+            "before": 1.0,
+            "path": "/source_assessment/source_attribution_accuracy"
+          },
+          {
+            "after": 45.0,
+            "before": 46.0,
+            "path": "/source_assessment/source_attribution_match_count"
+          }
+        ],
+        "queries": {
+          "sm-historical-withdrawal": {
+            "after_sha256": "a66973140289da8e275750357a05dfb002fca77a27e92bc81b017f84ccec40a8",
+            "before_sha256": "d5ed7adb35e47e136cc3bd239523c860fb547f05704ae8f2bcd80ef1bba843d8",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -1.1690505362345402,
+                "before": -1.1863634282081756,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -1.7120185277105917,
+                "before": -1.7103421566731396,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-readoption-deferred": {
+            "after_sha256": "1dba4b9bd2c89701e457d8c1396d52bb5ddaa1578de65148b05c9c91e163d5ab",
+            "before_sha256": "caf1a51e01ba36e48c902ef3cc9ba8ca1169227712523943c9368c15089ab5cb",
+            "fields": [
+              {
+                "after": -1.8175983437454015,
+                "before": -1.8309583047899012,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-withdrawn": {
+            "after_sha256": "aa7434cd1083a557c07829f5f503658431340bc12a9b34d25271a0c031e118ab",
+            "before_sha256": "ef7032afd881aaf594c38e5bd4b735362732e1844b4c534c71b03402311c47ed",
+            "fields": [
+              {
+                "after": 0.8888888888888888,
+                "before": 1.0,
+                "path": "/metrics/source_assessment_accuracy"
+              },
+              {
+                "after": 8.0,
+                "before": 9.0,
+                "path": "/metrics/source_assessment_match_count"
+              },
+              {
+                "after": 1.0,
+                "before": 0.0,
+                "path": "/metrics/source_assessment_mismatch_count"
+              },
+              {
+                "after": 0.6666666666666666,
+                "before": 1.0,
+                "path": "/metrics/source_attribution_accuracy"
+              },
+              {
+                "after": 2.0,
+                "before": 3.0,
+                "path": "/metrics/source_attribution_match_count"
+              },
+              {
+                "after": 3.8657731336506718,
+                "before": 3.852413172606172,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          }
+        },
+        "source_assessments": [
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-historical-withdrawal/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-historical-withdrawal/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-readoption-deferred/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-readoption-deferred/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-withdrawn/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-withdrawn/transition_event_ids"
+          }
+        ],
+        "uses": []
+      },
+      "sqlite": {
+        "metrics": [
+          {
+            "after": 0.9947643979057592,
+            "before": 1.0,
+            "path": "/source_assessment/source_assessment_accuracy"
+          },
+          {
+            "after": 190.0,
+            "before": 191.0,
+            "path": "/source_assessment/source_assessment_match_count"
+          },
+          {
+            "after": 1.0,
+            "before": 0.0,
+            "path": "/source_assessment/source_assessment_mismatch_count"
+          },
+          {
+            "after": 0.9782608695652174,
+            "before": 1.0,
+            "path": "/source_assessment/source_attribution_accuracy"
+          },
+          {
+            "after": 45.0,
+            "before": 46.0,
+            "path": "/source_assessment/source_attribution_match_count"
+          }
+        ],
+        "queries": {
+          "sm-historical-withdrawal": {
+            "after_sha256": "a66973140289da8e275750357a05dfb002fca77a27e92bc81b017f84ccec40a8",
+            "before_sha256": "d5ed7adb35e47e136cc3bd239523c860fb547f05704ae8f2bcd80ef1bba843d8",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -1.1690505362345402,
+                "before": -1.1863634282081756,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -1.7120185277105917,
+                "before": -1.7103421566731396,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-readoption-deferred": {
+            "after_sha256": "1dba4b9bd2c89701e457d8c1396d52bb5ddaa1578de65148b05c9c91e163d5ab",
+            "before_sha256": "caf1a51e01ba36e48c902ef3cc9ba8ca1169227712523943c9368c15089ab5cb",
+            "fields": [
+              {
+                "after": -1.8175983437454015,
+                "before": -1.8309583047899012,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-withdrawn": {
+            "after_sha256": "aa7434cd1083a557c07829f5f503658431340bc12a9b34d25271a0c031e118ab",
+            "before_sha256": "ef7032afd881aaf594c38e5bd4b735362732e1844b4c534c71b03402311c47ed",
+            "fields": [
+              {
+                "after": 0.8888888888888888,
+                "before": 1.0,
+                "path": "/metrics/source_assessment_accuracy"
+              },
+              {
+                "after": 8.0,
+                "before": 9.0,
+                "path": "/metrics/source_assessment_match_count"
+              },
+              {
+                "after": 1.0,
+                "before": 0.0,
+                "path": "/metrics/source_assessment_mismatch_count"
+              },
+              {
+                "after": 0.6666666666666666,
+                "before": 1.0,
+                "path": "/metrics/source_attribution_accuracy"
+              },
+              {
+                "after": 2.0,
+                "before": 3.0,
+                "path": "/metrics/source_attribution_match_count"
+              },
+              {
+                "after": 3.8657731336506718,
+                "before": 3.852413172606172,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          }
+        },
+        "source_assessments": [
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-historical-withdrawal/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-historical-withdrawal/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-readoption-deferred/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-readoption-deferred/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-withdrawn/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-withdrawn/transition_event_ids"
+          }
+        ],
+        "uses": []
+      },
+      "sqlite_reopen": {
+        "metrics": [
+          {
+            "after": 0.9947643979057592,
+            "before": 1.0,
+            "path": "/source_assessment/source_assessment_accuracy"
+          },
+          {
+            "after": 190.0,
+            "before": 191.0,
+            "path": "/source_assessment/source_assessment_match_count"
+          },
+          {
+            "after": 1.0,
+            "before": 0.0,
+            "path": "/source_assessment/source_assessment_mismatch_count"
+          },
+          {
+            "after": 0.9782608695652174,
+            "before": 1.0,
+            "path": "/source_assessment/source_attribution_accuracy"
+          },
+          {
+            "after": 45.0,
+            "before": 46.0,
+            "path": "/source_assessment/source_attribution_match_count"
+          }
+        ],
+        "queries": {
+          "sm-historical-withdrawal": {
+            "after_sha256": "a66973140289da8e275750357a05dfb002fca77a27e92bc81b017f84ccec40a8",
+            "before_sha256": "d5ed7adb35e47e136cc3bd239523c860fb547f05704ae8f2bcd80ef1bba843d8",
+            "fields": [
+              {
+                "after": "supersedes",
+                "before": null,
+                "path": "/authoritative_correction_observations/0/relation"
+              },
+              {
+                "after": -1.1690505362345402,
+                "before": -1.1863634282081756,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              },
+              {
+                "after": -1.7120185277105917,
+                "before": -1.7103421566731396,
+                "path": "/retrieved_items/1/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-readoption-deferred": {
+            "after_sha256": "1dba4b9bd2c89701e457d8c1396d52bb5ddaa1578de65148b05c9c91e163d5ab",
+            "before_sha256": "caf1a51e01ba36e48c902ef3cc9ba8ca1169227712523943c9368c15089ab5cb",
+            "fields": [
+              {
+                "after": -1.8175983437454015,
+                "before": -1.8309583047899012,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          },
+          "sm-withdrawn": {
+            "after_sha256": "aa7434cd1083a557c07829f5f503658431340bc12a9b34d25271a0c031e118ab",
+            "before_sha256": "ef7032afd881aaf594c38e5bd4b735362732e1844b4c534c71b03402311c47ed",
+            "fields": [
+              {
+                "after": 0.8888888888888888,
+                "before": 1.0,
+                "path": "/metrics/source_assessment_accuracy"
+              },
+              {
+                "after": 8.0,
+                "before": 9.0,
+                "path": "/metrics/source_assessment_match_count"
+              },
+              {
+                "after": 1.0,
+                "before": 0.0,
+                "path": "/metrics/source_assessment_mismatch_count"
+              },
+              {
+                "after": 0.6666666666666666,
+                "before": 1.0,
+                "path": "/metrics/source_attribution_accuracy"
+              },
+              {
+                "after": 2.0,
+                "before": 3.0,
+                "path": "/metrics/source_attribution_match_count"
+              },
+              {
+                "after": 3.8657731336506718,
+                "before": 3.852413172606172,
+                "path": "/retrieved_items/0/activation/rank_activation"
+              }
+            ]
+          }
+        },
+        "source_assessments": [
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-historical-withdrawal/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-historical-withdrawal/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-readoption-deferred/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-readoption-deferred/transition_event_ids"
+          },
+          {
+            "after": [
+              "2026-11-03T10:00:00+00:00",
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "before": [
+              "2026-11-04T10:00:00+00:00"
+            ],
+            "path": "/sm-withdrawn/transition_effective_times"
+          },
+          {
+            "after": [
+              "sm-chain-replace",
+              "sm-chain-withdraw"
+            ],
+            "before": [
+              "sm-chain-withdraw"
+            ],
+            "path": "/sm-withdrawn/transition_event_ids"
+          }
+        ],
+        "uses": []
+      }
+    }
+  },
+  "diagnostic_mismatches": [],
+  "frozen_query_changes": {
+    "authoritative_corrections_v1/cogkura-correction": {
+      "ac-q-c17": {
+        "after_sha256": "5df1146c95fcefaf71d9477ee9bc29fe672673babf612a0c2ef003b5888f5659",
+        "before_sha256": "ef0093352eea7c1e0b4c78890063924541a4a6947f51256f0689928b83a651eb",
+        "fields": [
+          {
+            "after": -0.679906923613306,
+            "before": -0.6089767158330948,
+            "path": "/retrieved_items/0/activation/activation"
+          },
+          {
+            "after": -0.679906923613306,
+            "before": -0.6089767158330948,
+            "path": "/retrieved_items/0/activation/activation_before_context"
+          },
+          {
+            "after": -0.33333333333333337,
+            "before": -0.26240312555312206,
+            "path": "/retrieved_items/0/activation/activation_partial_match"
+          },
+          {
+            "after": -0.679906923613306,
+            "before": -0.6089767158330948,
+            "path": "/retrieved_items/0/activation/activation_total"
+          },
+          {
+            "after": -0.8465735902799726,
+            "before": -0.7859195644678773,
+            "path": "/retrieved_items/0/activation/rank_activation"
+          },
+          {
+            "after": 0.9105275236243557,
+            "before": 0.916140217766221,
+            "path": "/retrieved_items/0/score"
+          }
+        ]
+      },
+      "ac-q-hist-at-withdraw": {
+        "after_sha256": "62c484b4b3a5a7b81d3c78e67cc05017e10727e9bac890635c7858957a29efc5",
+        "before_sha256": "3333905210c63e5fe7e77bbecb88b7353d91ebbe7155857041062fee61b22fea",
+        "fields": [
+          {
+            "after": -2.0601958633410273,
+            "before": -2.0442469987792884,
+            "path": "/retrieved_items/0/activation/activation"
+          },
+          {
+            "after": -2.0601958633410273,
+            "before": -2.0442469987792884,
+            "path": "/retrieved_items/0/activation/activation_before_context"
+          },
+          {
+            "after": -0.11428571428571425,
+            "before": -0.09833684972397513,
+            "path": "/retrieved_items/0/activation/activation_partial_match"
+          },
+          {
+            "after": -2.0601958633410273,
+            "before": -2.0442469987792884,
+            "path": "/retrieved_items/0/activation/activation_total"
+          },
+          {
+            "after": 0.7190600922364386,
+            "before": 0.7222706799682321,
+            "path": "/retrieved_items/0/score"
+          }
+        ]
+      },
+      "ac-q-hist-before-withdraw": {
+        "after_sha256": "bc9e0cf1a25ccdb1681bdb41f29e55fd8a5a7442955717f2d14e76d1546fb432",
+        "before_sha256": "57393aeb252eba91e6f162fd4c5fe48791af0e79e40b041e294cc07a46bd9e36",
+        "fields": [
+          {
+            "after": "supersedes",
+            "before": null,
+            "path": "/authoritative_correction_observations/0/relation"
+          },
+          {
+            "after": -2.3609587886269963,
+            "before": -2.3697156337862673,
+            "path": "/retrieved_items/0/activation/rank_activation"
+          },
+          {
+            "after": -3.544356960042366,
+            "before": -3.566769360585507,
+            "path": "/retrieved_items/1/activation/activation"
+          },
+          {
+            "after": -3.544356960042366,
+            "before": -3.566769360585507,
+            "path": "/retrieved_items/1/activation/activation_before_context"
+          },
+          {
+            "after": -0.3875829369038186,
+            "before": -0.4099953374469597,
+            "path": "/retrieved_items/1/activation/activation_partial_match"
+          },
+          {
+            "after": -3.544356960042366,
+            "before": -3.566769360585507,
+            "path": "/retrieved_items/1/activation/activation_total"
+          },
+          {
+            "after": -3.083886558709501,
+            "before": -3.1013729833987074,
+            "path": "/retrieved_items/1/activation/rank_activation"
+          },
+          {
+            "after": 0.3671746256591035,
+            "before": 0.3619826117190307,
+            "path": "/retrieved_items/1/score"
+          }
+        ]
+      }
+    }
+  },
+  "new_patch_sha256": "3dc049e01af301786d7c830fd0537829672ce573eddcbe04b05643672acec27a",
+  "prior_candidate": "0.20.0-overlap-bench-comparison.json",
+  "raw_backend_passed": false,
+  "raw_gold_mismatches": [
+    "authoritative_corrections_v1/cogkura-correction"
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "corrections_applied_per_pass": [
+    0,
+    10,
+    10,
+    10,
+    10
+  ],
+  "environment": {
+    "activation_module": "/Users/georgepaterson/GitHub/cogkura/cogkura/src/cogkura/algorithms/activation.py",
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "observations": [
+    {
+      "as_of": "2026-01-07T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0004"
+      ],
+      "process_cpu_seconds": 0.0032250000000000334,
+      "query": "current",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0004",
+          0.99968556
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0004.",
+          0.99964312
+        ]
+      ],
+      "semantic_values": [
+        "environment-0004"
+      ],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.0033638139721006155
+    },
+    {
+      "as_of": "2026-01-07T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0000"
+      ],
+      "process_cpu_seconds": 0.0014979999999999993,
+      "query": "historical",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.99962571
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99939937
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-01T01:00:00+00:00",
+      "wall_seconds": 0.0016172569594345987
+    },
+    {
+      "as_of": "2026-01-07T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0003"
+      ],
+      "process_cpu_seconds": 0.0023949999999999805,
+      "query": "before_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0003",
+          0.9997353
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0003.",
+          0.99956295
+        ]
+      ],
+      "semantic_values": [
+        "environment-0003"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-04T23:59:59.999999+00:00",
+      "wall_seconds": 0.0024959559668786824
+    },
+    {
+      "as_of": "2026-01-07T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0004"
+      ],
+      "process_cpu_seconds": 0.003027999999999975,
+      "query": "at_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0004",
+          0.99978387
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0004.",
+          0.99964312
+        ]
+      ],
+      "semantic_values": [
+        "environment-0004"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-05T00:00:00+00:00",
+      "wall_seconds": 0.0032925839768722653
+    },
+    {
+      "as_of": "2026-01-04T23:59:59.999999+00:00",
+      "expected_semantic_values": [
+        "environment-0003"
+      ],
+      "process_cpu_seconds": 0.003188000000000024,
+      "query": "before_correction_known",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0003",
+          0.99977764
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0003.",
+          0.99974762
+        ]
+      ],
+      "semantic_values": [
+        "environment-0003"
+      ],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.0033580929739400744
+    }
+  ],
+  "passed": true,
+  "semantic_revision_count": 50,
+  "workload": {
+    "backend": "memory",
+    "semantic_versions": 5,
+    "subjects": 10,
+    "withdrawal": false
+  }
+}

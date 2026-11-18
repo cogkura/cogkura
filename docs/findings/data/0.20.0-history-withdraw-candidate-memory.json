@@ -1,0 +1,212 @@
+{
+  "corrections_applied_per_pass": [
+    0,
+    3,
+    3
+  ],
+  "environment": {
+    "activation_module": "/Users/georgepaterson/GitHub/cogkura/cogkura/src/cogkura/algorithms/activation.py",
+    "activation_source_sha256": "5d1414dc120713b39192624ac1322591dede3a58645a6f38fc51503f11874f00",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "observations": [
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [],
+      "process_cpu_seconds": 0.002261000000000013,
+      "query": "current",
+      "ranked_outputs": [
+        [
+          "episode",
+          "The deployment environment is withdrawn.",
+          0.99974155
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99957491
+        ]
+      ],
+      "semantic_values": [],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.00240214797668159
+    },
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0000"
+      ],
+      "process_cpu_seconds": 0.001585000000000003,
+      "query": "historical",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.99969437
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99950953
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-01T01:00:00+00:00",
+      "wall_seconds": 0.001688700052909553
+    },
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0001"
+      ],
+      "process_cpu_seconds": 0.0018950000000000355,
+      "query": "before_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0001",
+          0.9997353
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99956973
+        ]
+      ],
+      "semantic_values": [
+        "environment-0001"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-02T23:59:59.999999+00:00",
+      "wall_seconds": 0.00199745298596099
+    },
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0002"
+      ],
+      "process_cpu_seconds": 0.0023139999999999827,
+      "query": "at_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0002",
+          0.99978387
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0002.",
+          0.99964551
+        ]
+      ],
+      "semantic_values": [
+        "environment-0002"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-03T00:00:00+00:00",
+      "wall_seconds": 0.002491700986865908
+    },
+    {
+      "as_of": "2026-01-02T23:59:59.999999+00:00",
+      "error": "Memory reference cannot occur after the activation timestamp.",
+      "error_type": "ValidationError",
+      "expected_semantic_values": [
+        "environment-0001"
+      ],
+      "process_cpu_seconds": 0.0009649999999999936,
+      "query": "before_correction_known",
+      "status": "error",
+      "valid_at": null,
+      "wall_seconds": 0.0010683120344765484
+    },
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0002"
+      ],
+      "process_cpu_seconds": 0.0029799999999999827,
+      "query": "before_withdrawal_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0002",
+          0.99978387
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0002.",
+          0.99964551
+        ]
+      ],
+      "semantic_values": [
+        "environment-0002"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-03T23:59:59.999999+00:00",
+      "wall_seconds": 0.0031803909805603325
+    },
+    {
+      "as_of": "2026-01-05T00:00:00+00:00",
+      "expected_semantic_values": [],
+      "process_cpu_seconds": 0.001564999999999983,
+      "query": "at_withdrawal_effective",
+      "ranked_outputs": [
+        [
+          "episode",
+          "The deployment environment is withdrawn.",
+          0.99974155
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99957491
+        ]
+      ],
+      "semantic_values": [],
+      "status": "pass",
+      "valid_at": "2026-01-04T00:00:00+00:00",
+      "wall_seconds": 0.0016950499848462641
+    },
+    {
+      "as_of": "2026-01-03T23:59:59.999999+00:00",
+      "expected_semantic_values": [
+        "environment-0002"
+      ],
+      "process_cpu_seconds": 0.0019540000000000113,
+      "query": "before_withdrawal_known",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0002",
+          0.99977764
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0002.",
+          0.99974931
+        ]
+      ],
+      "semantic_values": [
+        "environment-0002"
+      ],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.0020553729846142232
+    }
+  ],
+  "passed": false,
+  "semantic_revision_count": 10,
+  "workload": {
+    "backend": "memory",
+    "semantic_versions": 3,
+    "subjects": 3,
+    "withdrawal": true
+  }
+}
