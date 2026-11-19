@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 0.20.1 candidate — retrieval optimization
+
+- Reuse retrieval-local features and lookup results to reduce repeated work without
+  changing the intended ranking or admission rules.
+- Scope SQLite semantic read hydration to the records needed by each query.
+- Preserve correction provenance and knowledge-time history when a later withdrawal
+  closes a revision, including previously persisted snapshots.
+- Retain the source-transition and frozen-output differences for independent review;
+  see the [development findings](docs/findings/0.20.1-scoped-sqlite-read.md).
+
 ### 0.20.0 candidate — retrieval investigation
 
 - Add repeatable retrieval, software-project and semantic-history workloads, plus opt-in

@@ -535,8 +535,9 @@ The 0.19.6 stabilisation work covers Python 3.11–3.15, cross-platform Core val
 
 The 0.20.0 candidate investigates that limitation with reproducible workloads and
 opt-in profiling. It retains the 0.19.6 cognitive implementation; optimizations
-and the historical correction fix are planned for 0.20.1. See the [release
-preparation findings](docs/findings/0.20.0-release-preparation.md) for evidence
+and the historical correction fix are implemented in the 0.20.1 development
+candidate. See the [0.20.0 findings](docs/findings/0.20.0-release-preparation.md)
+and [0.20.1 findings](docs/findings/0.20.1-scoped-sqlite-read.md) for evidence
 and open gates.
 
 The validated `0.18.3` baseline added explicit source assessments, bounded slot inspection, and pass-local diagnostics with canonical capped PostgreSQL attribution. Its [findings](docs/findings/0.18.3-source-aware-metamemory.md) remain unchanged. Tags and publication are separate release actions.
@@ -850,7 +851,7 @@ flowchart TD
 - `0.19.5`: embedded SQLite memory architecture freeze (released).
 - `0.19.6`: embedded runtime stabilisation and Python compatibility.
 - `0.20.0`: retrieval profiling and root-cause investigation (candidate).
-- `0.20.1`: planned retrieval optimizations and historical correction fix.
+- `0.20.1`: retrieval optimizations and historical correction fix (candidate).
 - Later: additional connectors and integrations.
 
 See the [documentation index](docs/README.md), [roadmap](docs/roadmap.md) and [architecture](docs/architecture.md) for details.
