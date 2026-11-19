@@ -1,0 +1,214 @@
+{
+  "corrections_applied_per_pass": [
+    0,
+    1
+  ],
+  "environment": {
+    "activation_module": "/Users/georgepaterson/GitHub/cogkura/cogkura/src/cogkura/algorithms/activation.py",
+    "activation_source_sha256": "a876ba58ee8295ffeb1aedb374400ff68d6cd0b0ecc603f7df0b602b5a17eed7",
+    "commit": "73b4a754ee64d33f8a01f8f7b8dce1c2db93f000",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "observations": [
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [],
+      "process_cpu_seconds": 0.005978999999999957,
+      "query": "current",
+      "ranked_outputs": [
+        [
+          "episode",
+          "The deployment environment is withdrawn.",
+          0.99974066
+        ]
+      ],
+      "semantic_values": [],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.0061405530432239175
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0000"
+      ],
+      "process_cpu_seconds": 0.005593999999999988,
+      "query": "historical",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.9997353
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99957522
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-01T01:00:00+00:00",
+      "wall_seconds": 0.005803109030239284
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0000"
+      ],
+      "process_cpu_seconds": 0.005603000000000025,
+      "query": "before_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.9997353
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99957522
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-01T23:59:59.999999+00:00",
+      "wall_seconds": 0.005803414969705045
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0001"
+      ],
+      "process_cpu_seconds": 0.007411000000000001,
+      "query": "at_correction_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0001",
+          0.99978387
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99965314
+        ]
+      ],
+      "semantic_values": [
+        "environment-0001"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-02T00:00:00+00:00",
+      "wall_seconds": 0.00767515494953841
+    },
+    {
+      "as_of": "2026-01-01T23:59:59.999999+00:00",
+      "expected_semantic_values": [
+        "environment-0000"
+      ],
+      "process_cpu_seconds": 0.005213999999999996,
+      "query": "before_correction_known",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0000",
+          0.99977764
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0000.",
+          0.99975471
+        ]
+      ],
+      "semantic_values": [
+        "environment-0000"
+      ],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.005388580029830337
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [
+        "environment-0001"
+      ],
+      "process_cpu_seconds": 0.006124000000000018,
+      "query": "before_withdrawal_effective",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0001",
+          0.99978387
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99965314
+        ]
+      ],
+      "semantic_values": [
+        "environment-0001"
+      ],
+      "status": "pass",
+      "valid_at": "2026-01-02T23:59:59.999999+00:00",
+      "wall_seconds": 0.006340975989587605
+    },
+    {
+      "as_of": "2026-01-04T00:00:00+00:00",
+      "expected_semantic_values": [],
+      "process_cpu_seconds": 0.004840000000000011,
+      "query": "at_withdrawal_effective",
+      "ranked_outputs": [
+        [
+          "episode",
+          "The deployment environment is withdrawn.",
+          0.99974066
+        ]
+      ],
+      "semantic_values": [],
+      "status": "pass",
+      "valid_at": "2026-01-03T00:00:00+00:00",
+      "wall_seconds": 0.005044830963015556
+    },
+    {
+      "as_of": "2026-01-02T23:59:59.999999+00:00",
+      "expected_semantic_values": [
+        "environment-0001"
+      ],
+      "process_cpu_seconds": 0.006016999999999995,
+      "query": "before_withdrawal_known",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "service-0000 deployment environment environment-0001",
+          0.99977764
+        ],
+        [
+          "episode",
+          "service-0000 deploys to environment-0001.",
+          0.99975471
+        ]
+      ],
+      "semantic_values": [
+        "environment-0001"
+      ],
+      "status": "pass",
+      "valid_at": null,
+      "wall_seconds": 0.006202357937581837
+    }
+  ],
+  "passed": true,
+  "semantic_revision_count": 3,
+  "workload": {
+    "backend": "sqlite",
+    "semantic_versions": 2,
+    "subjects": 1,
+    "withdrawal": true
+  }
+}

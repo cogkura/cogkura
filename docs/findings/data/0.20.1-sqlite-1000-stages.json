@@ -1,0 +1,186 @@
+{
+  "context_profiles": [],
+  "counts": {
+    "episodes": 1006,
+    "observation_revisions": 5006,
+    "observations": 1006,
+    "semantic_memories": 997,
+    "semantic_revisions": 1006
+  },
+  "environment": {
+    "activation_source_sha256": "a876ba58ee8295ffeb1aedb374400ff68d6cd0b0ecc603f7df0b602b5a17eed7",
+    "commit": "dee98dc38abcb6d262b43db608b7ab809d162bfc",
+    "core_distribution_version": "0.19.6",
+    "core_runtime_version": "0.19.6",
+    "core_source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics_source_sha256": "ec908aa5d25f4ede4ff1f63546e3f4b205e391f6dfb041b2a5a58cf2460b222a",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profiler_source_sha256": "3d9876dd70384d244b38be123cf37fc0bcc5c858adae135b554d59528e0edb25",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "641b007883b6ba1dfd78255a399854d09e35c63da84829be4e6a0ef8d2a32354"
+  },
+  "method": "stages; per-recall timing, diagnostic modes include instrumentation overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "process_peak_rss": {
+    "includes_fixture": true,
+    "unit": "bytes",
+    "value": 106991616
+  },
+  "profiles": [
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 2.009315000000001,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": {
+        "activation_trace_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.003694211016409099
+        },
+        "candidate_construction": {
+          "calls": 1,
+          "returned_items": 1997,
+          "wall_seconds": 0.029360784974414855
+        },
+        "candidate_scoring": {
+          "calls": 1997,
+          "returned_items": 3994,
+          "wall_seconds": 0.603404296329245
+        },
+        "competition_and_inhibition": {
+          "accepted_pairs": 0,
+          "calls": 1,
+          "competition_enabled": true,
+          "evaluated_pairs": 1994,
+          "potential_pairs": 1994,
+          "returned_items": 3,
+          "wall_seconds": 0.11425862601026893
+        },
+        "duplicate_collapse": {
+          "calls": 1,
+          "returned_items": 5,
+          "wall_seconds": 0.0003863019519485533
+        },
+        "episode_loading": {
+          "calls": 1,
+          "returned_items": 1006,
+          "wall_seconds": 0.12128005299018696
+        },
+        "forgetting_eligibility": {
+          "calls": 1,
+          "input_candidates": 1997,
+          "returned_items": 1997,
+          "wall_seconds": 0.005992138001602143
+        },
+        "historical_projection": {
+          "calls": 1,
+          "input_revisions": 1006,
+          "returned_items": 997,
+          "wall_seconds": 0.0015144950011745095
+        },
+        "learned_association_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0022423690534196794
+        },
+        "recall_pipeline": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 2.025862830982078
+        },
+        "relationship_loading": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.0004927130066789687
+        },
+        "revision_loading": {
+          "calls": 1,
+          "returned_items": 1006,
+          "wall_seconds": 0.10532766400137916
+        },
+        "scoring_and_ranking": {
+          "calls": 1,
+          "input_candidates": 1997,
+          "returned_items": 0,
+          "wall_seconds": 1.1368089299649
+        },
+        "semantic_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.007379225979093462
+        },
+        "semantic_loading": {
+          "calls": 3,
+          "returned_items": 1003,
+          "wall_seconds": 0.5268483610125259
+        },
+        "semantic_relevance": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.20772726798895746
+        },
+        "slot_admission": {
+          "calls": 1,
+          "returned_items": 0,
+          "wall_seconds": 0.028742879978381097
+        },
+        "spreading_activation": {
+          "calls": 1,
+          "input_candidates": 1997,
+          "returned_items": 0,
+          "wall_seconds": 0.007376328983809799
+        },
+        "stale_episode_filtering": {
+          "calls": 1,
+          "returned_items": 1000,
+          "wall_seconds": 0.19915577198844403
+        }
+      },
+      "wall_seconds": 2.026339416974224
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964994
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.9996331
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.9995026
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.9995026
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99947868
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "sqlite",
+    "context": false,
+    "diagnostic": "stages",
+    "observations": 1000,
+    "profiled": false,
+    "recalls": 1,
+    "revisions": 5
+  }
+}

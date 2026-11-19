@@ -1,0 +1,3682 @@
+{
+  "context_profiles": [],
+  "counts": {
+    "episodes": 106,
+    "observation_revisions": 506,
+    "observations": 106,
+    "semantic_memories": 97,
+    "semantic_revisions": 106
+  },
+  "environment": {
+    "activation_source_sha256": "a876ba58ee8295ffeb1aedb374400ff68d6cd0b0ecc603f7df0b602b5a17eed7",
+    "commit": "dee98dc38abcb6d262b43db608b7ab809d162bfc",
+    "core_distribution_version": "0.19.6",
+    "core_runtime_version": "0.19.6",
+    "core_source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics_source_sha256": "ec908aa5d25f4ede4ff1f63546e3f4b205e391f6dfb041b2a5a58cf2460b222a",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profiler_source_sha256": "3d9876dd70384d244b38be123cf37fc0bcc5c858adae135b554d59528e0edb25",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "641b007883b6ba1dfd78255a399854d09e35c63da84829be4e6a0ef8d2a32354"
+  },
+  "method": "uninstrumented; per-recall timing, diagnostic modes include instrumentation overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "process_peak_rss": {
+    "includes_fixture": true,
+    "unit": "bytes",
+    "value": 46354432
+  },
+  "profiles": [
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14161200000000007,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1429359590401873
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14991500000000002,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15216742997290567
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14699700000000027,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14936581801157445
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1384859999999999,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13953182398108765
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14184099999999988,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14267689699772745
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14327100000000037,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14532134804176167
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14205200000000007,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14372794702649117
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.12969199999999992,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13040435395669192
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13330800000000043,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13429286103928462
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.162134,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.16428380005527288
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13332500000000014,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13437164499191567
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13011600000000012,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13091578398598358
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13747200000000026,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13886790699325502
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14246399999999992,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14453294198028743
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1448290000000001,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14572750899242237
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.131907,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13260678300866857
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14790100000000006,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15054111200151965
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1379109999999999,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13870749803027138
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1407020000000001,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14148610801203176
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1563819999999998,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15799821901600808
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1413220000000006,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1436335879843682
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1335759999999997,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1343381729675457
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13529199999999975,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13601968000875786
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15049899999999994,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15293216495774686
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1643819999999998,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1660190069815144
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1398969999999995,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14128287101630121
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14468100000000028,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14666032802779227
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14201200000000025,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1439740929636173
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1390470000000006,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14047707995632663
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13898100000000024,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14037160098087043
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1647640000000008,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1674245689646341
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14125500000000013,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14247664698632434
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14210999999999974,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14287023997167125
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1463049999999999,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1484316330170259
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1395610000000005,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14098422601819038
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14275199999999977,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14369656302733347
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13868499999999973,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14000975899398327
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14394200000000001,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14643843000521883
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1345900000000002,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13531413802411407
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1299829999999993,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13057704496895894
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1624819999999998,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.16452643502270803
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1379520000000003,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13947162800468504
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.12777299999999947,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.12854369502747431
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13835599999999992,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13958500500302762
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1433800000000005,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14533491304609925
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1433940000000007,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14428906299872324
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13368299999999955,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1344156549894251
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.16691099999999892,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1802896819426678
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13640200000000036,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13783298199996352
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1309699999999996,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13179065100848675
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15737500000000004,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15951235295506194
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15651699999999913,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15939329599495977
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14445500000000067,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1461672920268029
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14711499999999944,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1492434410029091
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14986799999999967,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15220767800929025
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14361700000000077,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14546757895732298
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15199600000000046,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15368863398907706
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14957499999999868,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15232099901186302
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14481699999999975,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14647758996579796
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13358000000000025,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13461876299697906
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13709499999999863,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13845528499223292
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15864000000000011,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.16165209899190813
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.12983400000000067,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13049833796685562
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13287899999999908,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13385072199162096
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15004599999999968,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15282657399075106
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13607799999999948,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13773356302408502
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14426800000000028,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14488581899786368
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1464060000000007,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14811285200994462
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15222900000000017,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15432882402092218
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13693199999999983,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13832942198496312
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14078199999999974,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14252454799134284
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.16916899999999835,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.17214750201674178
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14020799999999944,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14159064105479047
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13981199999999916,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14139090001117438
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1455219999999997,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14757250499678776
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1440480000000015,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14580782095436007
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14428900000000056,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1451811030274257
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13614899999999963,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13738355500390753
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14408599999999971,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14620736200595275
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1303579999999993,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1311461129807867
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1311359999999997,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13195225497474894
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14222499999999982,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14366003195755184
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15593900000000005,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15790915698744357
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13097899999999996,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13179777702316642
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13427399999999956,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13531134702498093
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14214400000000005,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1443072460242547
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13433000000000028,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1355035859742202
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14342100000000002,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1442625310155563
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1422749999999997,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1439849089947529
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14328500000000055,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1454616889823228
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13098899999999958,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.13165743398712948
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13609300000000069,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1371264549670741
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1652350000000009,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1674938889918849
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15290800000000004,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1547239749925211
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.13870900000000042,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14013811200857162
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1437400000000011,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1458318920340389
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14083299999999888,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14253098401241004
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1431280000000008,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14398531499318779
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14549099999999981,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.14696881599957123
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.1535700000000002,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.15589572803582996
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.14265400000000028,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.1448441240354441
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964663
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.999625
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0001 deployment target was withdrawn.",
+        0.99962676
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951944
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949122
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99964663
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.999625
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99962676
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951944
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949122
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99964663
+      ],
+      [
+        "episode",
+        "Service service-0004 deployment target was corrected.",
+        0.999625
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0005 deployment target was withdrawn.",
+        0.99962676
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99951944
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951944
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949122
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0006 deployment environment env-0006",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0007 deployment environment env-0007",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0008 deployment environment env-0008",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0009 deployment environment env-0009",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0010 deployment environment env-0010",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0011 deployment environment env-0011",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0012 deployment environment env-0012",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0013 deployment environment env-0013",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0014 deployment environment env-0014",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0015 deployment environment env-0015",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0016 deployment environment env-0016",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0017 deployment environment env-0017",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0018 deployment environment env-0018",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0019 deployment environment env-0019",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0020 deployment environment env-0020",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0021 deployment environment env-0021",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0022 deployment environment env-0022",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0023 deployment environment env-0023",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0024 deployment environment env-0024",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0025 deployment environment env-0025",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0026 deployment environment env-0026",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0027 deployment environment env-0027",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0028 deployment environment env-0028",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0029 deployment environment env-0029",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0030 deployment environment env-0030",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0031 deployment environment env-0031",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0032 deployment environment env-0032",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0033 deployment environment env-0033",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0034 deployment environment env-0034",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0035 deployment environment env-0035",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0036 deployment environment env-0036",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0037 deployment environment env-0037",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0038 deployment environment env-0038",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0039 deployment environment env-0039",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0040 deployment environment env-0040",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0041 deployment environment env-0041",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0042 deployment environment env-0042",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0043 deployment environment env-0043",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0044 deployment environment env-0044",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0045 deployment environment env-0045",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0046 deployment environment env-0046",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0047 deployment environment env-0047",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0048 deployment environment env-0048",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0049 deployment environment env-0049",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0050 deployment environment env-0050",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0051 deployment environment env-0051",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0052 deployment environment env-0052",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0053 deployment environment env-0053",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0054 deployment environment env-0054",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0055 deployment environment env-0055",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0056 deployment environment env-0056",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0057 deployment environment env-0057",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0058 deployment environment env-0058",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0059 deployment environment env-0059",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0060 deployment environment env-0060",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0061 deployment environment env-0061",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0062 deployment environment env-0062",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0063 deployment environment env-0063",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0064 deployment environment env-0064",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0065 deployment environment env-0065",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0066 deployment environment env-0066",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0067 deployment environment env-0067",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0068 deployment environment env-0068",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0069 deployment environment env-0069",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0070 deployment environment env-0070",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0071 deployment environment env-0071",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0072 deployment environment env-0072",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0073 deployment environment env-0073",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0074 deployment environment env-0074",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0075 deployment environment env-0075",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0076 deployment environment env-0076",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0077 deployment environment env-0077",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0078 deployment environment env-0078",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0079 deployment environment env-0079",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0080 deployment environment env-0080",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0081 deployment environment env-0081",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0082 deployment environment env-0082",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0083 deployment environment env-0083",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0084 deployment environment env-0084",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0085 deployment environment env-0085",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0086 deployment environment env-0086",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0087 deployment environment env-0087",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0088 deployment environment env-0088",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0089 deployment environment env-0089",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0090 deployment environment env-0090",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0091 deployment environment env-0091",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0092 deployment environment env-0092",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0093 deployment environment env-0093",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0094 deployment environment env-0094",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0095 deployment environment env-0095",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0096 deployment environment env-0096",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0097 deployment environment env-0097",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0098 deployment environment env-0098",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0099 deployment environment env-0099",
+        0.99951946
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99949426
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964663
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.999625
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99952342
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99952342
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99949426
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "sqlite",
+    "context": false,
+    "diagnostic": null,
+    "observations": 100,
+    "profiled": false,
+    "recalls": 101,
+    "revisions": 5
+  }
+}
