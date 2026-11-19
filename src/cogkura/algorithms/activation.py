@@ -1767,9 +1767,10 @@ def _text_match_metrics(
 ) -> _TextMatchMetrics:
     if cue_text is None or not cue_text.strip():
         return _TextMatchMetrics(coverage=0.0, cue_fit=0.0)
-    coverage = _text_query_coverage(cue_text, candidate_text, idf_weights=idf_weights)
+    query_tokens, candidate_tokens, matched = _token_overlap(cue_text, candidate_text)
+    coverage = _coverage_from_overlap(query_tokens, candidate_tokens, matched, idf_weights)
     cue_fit = (
-        _text_cue_fit(cue_text, candidate_text, idf_weights=idf_weights)
+        _cue_fit_from_overlap(query_tokens, candidate_tokens, matched, idf_weights)
         if precision_enabled
         else coverage
     )
@@ -2485,6 +2486,15 @@ def _text_query_coverage(
     idf_weights: Mapping[str, float] | None = None,
 ) -> float:
     query_tokens, candidate_tokens, matched = _token_overlap(query, candidate_text)
+    return _coverage_from_overlap(query_tokens, candidate_tokens, matched, idf_weights)
+
+
+def _coverage_from_overlap(
+    query_tokens: set[str],
+    candidate_tokens: set[str],
+    matched: set[str],
+    idf_weights: Mapping[str, float] | None,
+) -> float:
     if not query_tokens or not candidate_tokens or not matched:
         return 0.0
     if idf_weights is None:
@@ -2503,6 +2513,15 @@ def _text_cue_fit(
     idf_weights: Mapping[str, float] | None = None,
 ) -> float:
     query_tokens, candidate_tokens, matched = _token_overlap(query, candidate_text)
+    return _cue_fit_from_overlap(query_tokens, candidate_tokens, matched, idf_weights)
+
+
+def _cue_fit_from_overlap(
+    query_tokens: set[str],
+    candidate_tokens: set[str],
+    matched: set[str],
+    idf_weights: Mapping[str, float] | None,
+) -> float:
     if not query_tokens or not candidate_tokens or not matched:
         return 0.0
     if idf_weights is None:

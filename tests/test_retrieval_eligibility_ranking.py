@@ -973,3 +973,26 @@ def test_current_support_bonus_scoped_to_matched_slot() -> None:
     by_key = {result.memory.memory_key: result for result in results}  # type: ignore[union-attr]
     assert by_key["db-support"].components.current_state > 0.0
     assert by_key["region-support"].components.current_state == 0.0
+
+
+def test_combined_text_match_reuses_overlap_without_changing_scores() -> None:
+    from cogkura.algorithms.activation import _text_match_metrics
+
+    for query, candidate in (
+        ("", "some text"),
+        ("and the", "some text"),
+        ("deployment policy", "deployment policy is startup"),
+        ("café db-123", "Café DB 123 database"),
+        ("unrelated question", "deployment pipeline"),
+    ):
+        for weights in (None, {"deployment": 0.2, "policy": 3.0, "startup": 1.1}):
+            coverage = _text_query_coverage(query, candidate, idf_weights=weights)
+            fit = _text_cue_fit(query, candidate, idf_weights=weights)
+            combined = _text_match_metrics(
+                query, candidate, idf_weights=weights, precision_enabled=True
+            )
+            assert (combined.coverage, combined.cue_fit) == (coverage, fit)
+            no_precision = _text_match_metrics(
+                query, candidate, idf_weights=weights, precision_enabled=False
+            )
+            assert (no_precision.coverage, no_precision.cue_fit) == (coverage, coverage)
