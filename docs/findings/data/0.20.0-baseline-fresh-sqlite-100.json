@@ -1,0 +1,258 @@
+{
+  "counts": {
+    "episodes": 106,
+    "observation_revisions": 506,
+    "observations": 106,
+    "semantic_memories": 97,
+    "semantic_revisions": 106
+  },
+  "environment": {
+    "activation_source_sha256": "53c901dfa616da7d19cbea6602ff572bce2ec70eb9134977400044d863d90420",
+    "commit": "c20eba63b5bb72d938606971a7937c55a29aa53e",
+    "core_distribution_version": "0.20.0",
+    "core_runtime_version": "0.20.0",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profile_source_sha256": "98cd93f11d0cdf59ba09fc0deb8b5522027dea67e718fea914d49591b9e84b01",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "fixture_output": [
+    [
+      "semantic",
+      "service-0000 deployment environment revised-0",
+      0.99964663
+    ],
+    [
+      "episode",
+      "Service service-0000 deployment target was corrected.",
+      0.999625
+    ],
+    [
+      "semantic",
+      "service-0002 deployment environment revised-2",
+      0.99952342
+    ],
+    [
+      "semantic",
+      "service-0004 deployment environment revised-4",
+      0.99952342
+    ],
+    [
+      "episode",
+      "Service service-0003 deployment target was withdrawn.",
+      0.99949426
+    ]
+  ],
+  "method": "fresh Python processes reopen a prebuilt SQLite file; OS cache is uncontrolled",
+  "samples": [
+    {
+      "open_seconds": 0.005878126015886664,
+      "process_wall_seconds": 2.007008054002654,
+      "recalls": [
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.825707,
+          "wall_seconds": 0.8301330030080862
+        },
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.845084,
+          "wall_seconds": 0.8491974010248668
+        }
+      ]
+    },
+    {
+      "open_seconds": 0.0034674819908104837,
+      "process_wall_seconds": 2.039331622014288,
+      "recalls": [
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.837461,
+          "wall_seconds": 0.850546405010391
+        },
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.8453490000000001,
+          "wall_seconds": 0.8538852779893205
+        }
+      ]
+    },
+    {
+      "open_seconds": 0.0040977480239234865,
+      "process_wall_seconds": 1.9619560669525526,
+      "recalls": [
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.81793,
+          "wall_seconds": 0.8225866090506315
+        },
+        {
+          "outputs": [
+            [
+              "semantic",
+              "service-0000 deployment environment revised-0",
+              0.99964663
+            ],
+            [
+              "episode",
+              "Service service-0000 deployment target was corrected.",
+              0.999625
+            ],
+            [
+              "semantic",
+              "service-0002 deployment environment revised-2",
+              0.99952342
+            ],
+            [
+              "semantic",
+              "service-0004 deployment environment revised-4",
+              0.99952342
+            ],
+            [
+              "episode",
+              "Service service-0003 deployment target was withdrawn.",
+              0.99949426
+            ]
+          ],
+          "process_cpu_seconds": 0.8114669999999999,
+          "wall_seconds": 0.8150427080108784
+        }
+      ]
+    }
+  ],
+  "workload": {
+    "observations": 100,
+    "processes": 3,
+    "revisions": 5
+  }
+}

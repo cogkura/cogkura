@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 0.20.0 candidate — retrieval investigation
+
+- Add repeatable retrieval, software-project and semantic-history workloads, plus opt-in
+  stage, allocation, SQLite statement and fresh-process diagnostics.
+- Retain the 0.19.6 retrieval and storage behavior; the performance optimizations and
+  historical-correction fix are planned separately for 0.20.1.
+- Record the known 0.19.6 correction/withdrawal history failure and profiling limits.
+  Performance targets and final release validation remain open; see the
+  [0.20.0 release findings](docs/findings/0.20.0-release-preparation.md).
+
 ## [0.19.6] - 2026-11-17 — Embedded runtime stabilisation and Python compatibility
 
 ### Changed

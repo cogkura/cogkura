@@ -1,0 +1,150 @@
+{
+  "counts": {
+    "episodes": 31,
+    "observation_revisions": 131,
+    "observations": 31,
+    "semantic_memories": 22,
+    "semantic_revisions": 31
+  },
+  "environment": {
+    "activation_source_sha256": "53c901dfa616da7d19cbea6602ff572bce2ec70eb9134977400044d863d90420",
+    "commit": "9745201bfcc5410d678a07737a4c935dd294e5b4",
+    "core_distribution_version": "0.20.0",
+    "core_runtime_version": "0.20.0",
+    "diagnostics_source_sha256": "533b3ef44a68bb0c51376b69bb03ccfaba71f3abb4810e930e17834de04d20b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profiler_source_sha256": "c9eb038c22419b733bc35cd8f62f744ee283f69e7c6eda957f61945a8a3118cc",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "method": "uninstrumented; per-recall timing, diagnostic modes include instrumentation overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "process_peak_rss": {
+    "includes_fixture": true,
+    "unit": "bytes",
+    "value": 60469248
+  },
+  "profiles": [
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.16618299999999997,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.19091558700893074
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.16078500000000018,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.18076236004708335
+    },
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 0.15432499999999982,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 0.17083786003058776
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964419
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.99961642
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.9995431
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.9995431
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99950745
+      ]
+    ],
+    [
+      [
+        "episode",
+        "Service service-0001 deployment target was withdrawn.",
+        0.99961909
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99953812
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99953812
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99953812
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99950377
+      ]
+    ],
+    [
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99964419
+      ],
+      [
+        "episode",
+        "Service service-0002 deployment target was corrected.",
+        0.99961642
+      ],
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.9995431
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.9995431
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99950745
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "postgres",
+    "diagnostic": null,
+    "observations": 25,
+    "profiled": false,
+    "recalls": 3,
+    "revisions": 5
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "context_profiles": [],
+  "counts": {
+    "episodes": 256,
+    "observation_revisions": 1256,
+    "observations": 256,
+    "semantic_memories": 247,
+    "semantic_revisions": 256
+  },
+  "environment": {
+    "activation_source_sha256": "53c901dfa616da7d19cbea6602ff572bce2ec70eb9134977400044d863d90420",
+    "commit": "1bbfef3990ab7b2e07c30260b562743eaa819be5",
+    "core_distribution_version": "0.20.0",
+    "core_runtime_version": "0.20.0",
+    "core_source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics_source_sha256": "533b3ef44a68bb0c51376b69bb03ccfaba71f3abb4810e930e17834de04d20b4",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "profiler_source_sha256": "3d9876dd70384d244b38be123cf37fc0bcc5c858adae135b554d59528e0edb25",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "641b007883b6ba1dfd78255a399854d09e35c63da84829be4e6a0ef8d2a32354"
+  },
+  "method": "uninstrumented; per-recall timing, diagnostic modes include instrumentation overhead",
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "process_peak_rss": {
+    "includes_fixture": true,
+    "unit": "bytes",
+    "value": 81555456
+  },
+  "profiles": [
+    {
+      "allocation": null,
+      "functions": null,
+      "process_cpu_seconds": 5.3631709999999995,
+      "sql_select_count": null,
+      "sql_statement_count": null,
+      "stages": null,
+      "wall_seconds": 5.497500377998222
+    }
+  ],
+  "recall_outputs": [
+    [
+      [
+        "semantic",
+        "service-0000 deployment environment revised-0",
+        0.99964803
+      ],
+      [
+        "episode",
+        "Service service-0000 deployment target was corrected.",
+        0.9996287
+      ],
+      [
+        "semantic",
+        "service-0002 deployment environment revised-2",
+        0.99951393
+      ],
+      [
+        "semantic",
+        "service-0004 deployment environment revised-4",
+        0.99951393
+      ],
+      [
+        "episode",
+        "Service service-0003 deployment target was withdrawn.",
+        0.99948725
+      ]
+    ]
+  ],
+  "workload": {
+    "backend": "postgres",
+    "context": false,
+    "diagnostic": null,
+    "observations": 250,
+    "profiled": false,
+    "recalls": 1,
+    "revisions": 5
+  }
+}

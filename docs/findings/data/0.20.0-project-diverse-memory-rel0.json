@@ -1,0 +1,319 @@
+{
+  "corrections_applied": 5,
+  "entity_relationships": 0,
+  "environment": {
+    "activation_source_sha256": "53c901dfa616da7d19cbea6602ff572bce2ec70eb9134977400044d863d90420",
+    "commit": "c20eba63b5bb72d938606971a7937c55a29aa53e",
+    "core_distribution_version": "0.20.0",
+    "core_runtime_version": "0.20.0",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "452c65d9526997ed18d3cd944c9174dcc4a1e9efcf59fb506af407c011b04dc4"
+  },
+  "episodes": 45,
+  "queries": [
+    {
+      "name": "current_architecture",
+      "process_cpu_seconds": 0.18533899999999998,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99963685
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99959426
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99959426
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99959426
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99959426
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99958409
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99904988
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99903622
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99893853
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99893853
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.18641041300725192
+    },
+    {
+      "name": "historical_architecture",
+      "process_cpu_seconds": 0.13833799999999996,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.9993505
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99927148
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99927148
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99927148
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99927148
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99914097
+        ],
+        [
+          "semantic",
+          "project-000 storage engine postgres_primary",
+          0.99917387
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99908172
+        ],
+        [
+          "semantic",
+          "project-004 storage engine postgres_primary",
+          0.99907337
+        ],
+        [
+          "semantic",
+          "project-001 storage engine postgres_primary",
+          0.99907337
+        ]
+      ],
+      "valid_at": "2026-02-06T00:00:00+00:00",
+      "wall_seconds": 0.13948196603450924
+    },
+    {
+      "name": "incident",
+      "process_cpu_seconds": 0.19848500000000002,
+      "query": "project-000 recall deployment incident database connection failures",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.9994945
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99948723
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99945968
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99945968
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99945968
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99945968
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99903334
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99898952
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99891995
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99891995
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.20178942900383845
+    },
+    {
+      "name": "migration",
+      "process_cpu_seconds": 0.20012700000000005,
+      "query": "project-000 migration rollout deployment pipeline",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99952303
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99951617
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99946845
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99946845
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99946845
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99946845
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.9992897
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99904652
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99903281
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99893747
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.20326908997958526
+    },
+    {
+      "name": "broad",
+      "process_cpu_seconds": 0.18707700000000016,
+      "query": "agent local memory architecture database integration",
+      "ranked_outputs": [
+        [
+          "episode",
+          "project-002: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99960391
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99943712
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99943712
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99943712
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99943712
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99943712
+        ],
+        [
+          "episode",
+          "project-002: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99932756
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99897099
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99897099
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99897099
+        ]
+      ],
+      "valid_at": null,
+      "wall_seconds": 0.18835177802247927
+    }
+  ],
+  "semantic_revisions": 30,
+  "workload": {
+    "backend": "memory",
+    "heterogeneous": true,
+    "projects": 5,
+    "relationships_per_project": 0
+  }
+}

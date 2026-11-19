@@ -33,3 +33,32 @@ def test_software_project_workload_revises_architecture(tmp_path: Path) -> None:
     assert [q["ranked_outputs"] for q in reports[0]["queries"]] == [
         q["ranked_outputs"] for q in reports[1]["queries"]
     ]
+
+
+def test_project_workload_varies_relationships_independently(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "run_software_project_workload.py"
+    counts = []
+    for relationships in (0, 2):
+        output = tmp_path / f"relationships-{relationships}.json"
+        subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--projects",
+                "2",
+                "--heterogeneous",
+                "--relationships-per-project",
+                str(relationships),
+                "--output",
+                str(output),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+        )
+        report = json.loads(output.read_text())
+        counts.append(report["entity_relationships"])
+        assert report["episodes"] == 18
+        assert report["corrections_applied"] == 2
+    assert counts == [0, 4]

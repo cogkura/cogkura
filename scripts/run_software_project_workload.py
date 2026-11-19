@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import platform
 import sqlite3
@@ -18,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import cogkura
 from cogkura import (
     ActivationConfig,
     ComplementaryLearningSemanticConsolidator,
@@ -101,6 +103,14 @@ _EVENTS: tuple[tuple[str, str, str | None, str | None], ...] = (
     ),
 )
 
+_INCIDENTS = (
+    _EVENTS[2][1],
+    "A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+    "A network partition left stale pool connections, delaying the agent's first recall.",
+    "A database failover left a worker pool using closed connections until restart.",
+    "An idle worker retained expired database sessions and failed rollout readiness checks.",
+)
+
 
 def _observation(
     index: int, event: str, text: str, day: int, metadata: dict[str, Any]
@@ -118,9 +128,13 @@ def _observation(
     )
 
 
-async def workload(memory: Memory, projects: int) -> dict[str, Any]:
+async def workload(
+    memory: Memory, projects: int, *, heterogeneous: bool = False, relationships: int = 1
+) -> dict[str, Any]:
     for index in range(projects):
         for day, (event, content, predicate, value) in enumerate(_EVENTS):
+            if heterogeneous and event == "incident":
+                content = _INCIDENTS[index % len(_INCIDENTS)]
             metadata: dict[str, Any] = {"entity_ids": [f"project-{index:03d}", "memory-store"]}
             if predicate:
                 metadata["semantic_facts"] = [
@@ -134,11 +148,16 @@ async def workload(memory: Memory, projects: int) -> dict[str, Any]:
             if event == "integration":
                 metadata["relationships"] = [
                     {
-                        "source_entity_id": "agent-client",
+                        "source_entity_id": (
+                            "agent-client"
+                            if not heterogeneous and relationships == 1
+                            else f"project-{index:03d}-client-{edge:03d}"
+                        ),
                         "relation_type": "related_to",
                         "target_entity_id": "memory-store",
                         "provenance": "integration-design",
                     }
+                    for edge in range(relationships)
                 ]
             await memory.observe(_observation(index, event, content, day, metadata))
     await memory.process(tenant_id=_TENANT, as_of=_T + timedelta(days=8))
@@ -212,12 +231,15 @@ async def workload(memory: Memory, projects: int) -> dict[str, Any]:
     return {
         "episodes": len(await memory.list_episodes(tenant_id=_TENANT)),
         "semantic_revisions": len(await memory.list_semantic_revisions(tenant_id=_TENANT)),
+        "entity_relationships": len(await memory.list_entity_relationships(tenant_id=_TENANT)),
         "corrections_applied": processed.semantics.authoritative_corrections_applied,
         "queries": results,
     }
 
 
-async def run(backend: str, projects: int) -> dict[str, Any]:
+async def run(
+    backend: str, projects: int, *, heterogeneous: bool = False, relationships: int = 1
+) -> dict[str, Any]:
     options = {
         "activation_config": ActivationConfig(retrieval_threshold=-10),
         "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
@@ -233,7 +255,9 @@ async def run(backend: str, projects: int) -> dict[str, Any]:
         else:
             memory = Memory(**options)
         try:
-            output = await workload(memory, projects)
+            output = await workload(
+                memory, projects, heterogeneous=heterogeneous, relationships=relationships
+            )
         finally:
             if owner:
                 await owner.close()
@@ -249,11 +273,19 @@ async def run(backend: str, projects: int) -> dict[str, Any]:
             "activation_source_sha256": hashlib.sha256(
                 (root / "src/cogkura/algorithms/activation.py").read_bytes()
             ).hexdigest(),
+            "workload_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "core_runtime_version": cogkura.__version__,
+            "core_distribution_version": importlib.metadata.version("cogkura"),
             "python": platform.python_version(),
             "platform": platform.platform(),
             "sqlite": sqlite3.sqlite_version,
         },
-        "workload": {"backend": backend, "projects": projects},
+        "workload": {
+            "backend": backend,
+            "projects": projects,
+            "heterogeneous": heterogeneous,
+            "relationships_per_project": relationships,
+        },
         **output,
     }
 
@@ -262,12 +294,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("memory", "sqlite"), default="memory")
     parser.add_argument("--projects", type=int, default=1)
+    parser.add_argument("--heterogeneous", action="store_true")
+    parser.add_argument("--relationships-per-project", type=int, default=1)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if args.projects < 1:
-        parser.error("projects must be positive")
+    if args.projects < 1 or args.relationships_per_project < 0:
+        parser.error("projects must be positive and relationships nonnegative")
     output = (
-        json.dumps(asyncio.run(run(args.backend, args.projects)), indent=2, sort_keys=True) + "\n"
+        json.dumps(
+            asyncio.run(
+                run(
+                    args.backend,
+                    args.projects,
+                    heterogeneous=args.heterogeneous,
+                    relationships=args.relationships_per_project,
+                )
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
     )
     if args.output:
         args.output.write_text(output, encoding="utf-8")
