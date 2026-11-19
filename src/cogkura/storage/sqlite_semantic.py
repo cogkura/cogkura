@@ -156,7 +156,14 @@ def _load_revision(conn: sqlite3.Connection, row: sqlite3.Row) -> StoredSemantic
     )
 
 
-def _hydrate(conn: sqlite3.Connection, tenants: set[str]) -> InMemorySemanticMemoryStore:
+def _hydrate(
+    conn: sqlite3.Connection,
+    tenants: set[str],
+    *,
+    include_memories: bool = True,
+    include_revisions: bool = True,
+    include_relations: bool = True,
+) -> InMemorySemanticMemoryStore:
     """Read each tenant's semantic inventory in bounded query batches.
 
     Reconstruct the same ordered child tuples as the individual row loaders.
@@ -165,27 +172,29 @@ def _hydrate(conn: sqlite3.Connection, tenants: set[str]) -> InMemorySemanticMem
     state = InMemorySemanticMemoryStore()
     for tenant in sorted(tenants):
         evidence: dict[str, list[EpisodeEvidenceInput]] = defaultdict(list)
-        for row in conn.execute(
-            "SELECT * FROM semantic_evidence WHERE tenant_id=? "
-            "ORDER BY memory_key,sequence_number,observation_id",
-            (tenant,),
-        ):
-            evidence[row["memory_key"]].append(
-                EpisodeEvidenceInput(
-                    observation_id=row["observation_id"],
-                    observation_revision=row["observation_revision"],
-                    sequence_number=row["sequence_number"],
-                    contribution_score=row["contribution_score"],
-                )
-            )
         entities: dict[str, list[EpisodeEntity]] = defaultdict(list)
-        for row in conn.execute(
-            "SELECT * FROM semantic_entities WHERE tenant_id=? ORDER BY memory_key,entity_id,role",
-            (tenant,),
-        ):
-            entities[row["memory_key"]].append(
-                EpisodeEntity(entity_id=row["entity_id"], role=row["role"])
-            )
+        if include_memories:
+            for row in conn.execute(
+                "SELECT * FROM semantic_evidence WHERE tenant_id=? "
+                "ORDER BY memory_key,sequence_number,observation_id",
+                (tenant,),
+            ):
+                evidence[row["memory_key"]].append(
+                    EpisodeEvidenceInput(
+                        observation_id=row["observation_id"],
+                        observation_revision=row["observation_revision"],
+                        sequence_number=row["sequence_number"],
+                        contribution_score=row["contribution_score"],
+                    )
+                )
+            for row in conn.execute(
+                "SELECT * FROM semantic_entities WHERE tenant_id=? "
+                "ORDER BY memory_key,entity_id,role",
+                (tenant,),
+            ):
+                entities[row["memory_key"]].append(
+                    EpisodeEntity(entity_id=row["entity_id"], role=row["role"])
+                )
         derivations: dict[tuple[str, str], list[SemanticDerivationInput]] = defaultdict(list)
         for row in conn.execute(
             "SELECT * FROM semantic_derivations WHERE tenant_id=? "
@@ -199,28 +208,35 @@ def _hydrate(conn: sqlite3.Connection, tenants: set[str]) -> InMemorySemanticMem
                     contribution_score=row["contribution_score"],
                 )
             )
-        for row in conn.execute("SELECT * FROM semantic_memories WHERE tenant_id=?", (tenant,)):
-            memory_key = row["memory_key"]
-            state._memories[(tenant, memory_key)] = StoredSemanticMemory(
-                **_decode(row, _MEM_FIELDS),
-                derivations=tuple(derivations[(memory_key, "")]),
-                observation_evidence=tuple(evidence[memory_key]),
-                entities=tuple(entities[memory_key]),
-            )
-        for row in conn.execute("SELECT * FROM semantic_revisions WHERE tenant_id=?", (tenant,)):
-            revision_key = row["revision_key"]
-            state._revisions[(tenant, revision_key)] = StoredSemanticRevision(
-                **_decode(row, _REV_FIELDS),
-                derivations=tuple(derivations[(row["memory_key"], revision_key)]),
-            )
-        for row in conn.execute("SELECT * FROM semantic_relations WHERE tenant_id=?", (tenant,)):
-            key = (tenant, row["left_revision_key"], row["right_revision_key"], row["relation"])
-            state._relations[key] = (
-                row["left_revision_key"],
-                row["right_revision_key"],
-                row["relation"],
-                row["effective_at"],
-            )
+        if include_memories:
+            for row in conn.execute("SELECT * FROM semantic_memories WHERE tenant_id=?", (tenant,)):
+                memory_key = row["memory_key"]
+                state._memories[(tenant, memory_key)] = StoredSemanticMemory(
+                    **_decode(row, _MEM_FIELDS),
+                    derivations=tuple(derivations[(memory_key, "")]),
+                    observation_evidence=tuple(evidence[memory_key]),
+                    entities=tuple(entities[memory_key]),
+                )
+        if include_revisions:
+            for row in conn.execute(
+                "SELECT * FROM semantic_revisions WHERE tenant_id=?", (tenant,)
+            ):
+                revision_key = row["revision_key"]
+                state._revisions[(tenant, revision_key)] = StoredSemanticRevision(
+                    **_decode(row, _REV_FIELDS),
+                    derivations=tuple(derivations[(row["memory_key"], revision_key)]),
+                )
+        if include_relations:
+            for row in conn.execute(
+                "SELECT * FROM semantic_relations WHERE tenant_id=?", (tenant,)
+            ):
+                key = (tenant, row["left_revision_key"], row["right_revision_key"], row["relation"])
+                state._relations[key] = (
+                    row["left_revision_key"],
+                    row["right_revision_key"],
+                    row["relation"],
+                    row["effective_at"],
+                )
     return state
 
 
@@ -319,12 +335,21 @@ class SQLiteSemanticMemoryStore:
         self,
         tenant: str,
         operation: Callable[[InMemorySemanticMemoryStore], Coroutine[Any, Any, _T]],
+        *,
+        include_memories: bool = True,
+        include_revisions: bool = True,
     ) -> _T:
         def work() -> _T:
             conn = self._storage._conn()
             conn.execute("BEGIN")
             try:
-                state = _hydrate(conn, {tenant})
+                state = _hydrate(
+                    conn,
+                    {tenant},
+                    include_memories=include_memories,
+                    include_revisions=include_revisions,
+                    include_relations=False,
+                )
                 result = asyncio.run(operation(state))
                 conn.commit()
                 return result
@@ -385,6 +410,7 @@ class SQLiteSemanticMemoryStore:
                 limit=limit,
                 valid_at=valid_at,
             ),
+            include_revisions=valid_at is not None,
         )
 
     async def list_revisions(
@@ -405,6 +431,7 @@ class SQLiteSemanticMemoryStore:
                 valid_at=valid_at,
                 limit=limit,
             ),
+            include_memories=subject_id is not None,
         )
 
     async def inspect_slot(

@@ -227,3 +227,60 @@ async def test_semantics_isolate_tenants_and_clear(tmp_path: Path) -> None:
     assert await memory.list_semantic_memories(tenant_id=_TENANT) == []
     assert await memory.list_semantic_memories(tenant_id="other") == other
     await storage.close()
+
+
+@pytest.mark.asyncio
+async def test_scoped_semantic_reads_match_full_inventory(tmp_path: Path) -> None:
+    """Current, historical and subject-scoped reads retain full-snapshot behavior."""
+    storage = await SQLiteStorage.open(tmp_path / "scoped-reads.db")
+    try:
+        memory = _memory(storage)
+        predecessor = await _adopt(memory)
+        await memory.observe(
+            _observation(
+                record_id="read-scope-correction",
+                content="Migrations now run during deployment.",
+                observed_at=_CORRECTION,
+                facts=[
+                    _fact(
+                        "migration_execution_strategy",
+                        "deployment_pipeline",
+                        correction={
+                            "replaces_revision_key": predecessor,
+                            "effective_at": _CORRECTION.isoformat(),
+                        },
+                    )
+                ],
+            )
+        )
+        await memory.process(tenant_id=_TENANT, as_of=_CORRECTION)
+        store = memory._semantic_store
+        assert isinstance(store, SQLiteSemanticMemoryStore)
+        for options in (
+            {},
+            {"include_inactive": True},
+            {"valid_at": _T},
+            {"valid_at": _CORRECTION},
+            {"subject_id": "payments-api", "limit": 1},
+            {"subject_id": "missing"},
+        ):
+            actual = await store.list(tenant_id=_TENANT, **options)
+            expected = await store._read(
+                _TENANT, lambda full, options=options: full.list(tenant_id=_TENANT, **options)
+            )
+            assert actual == expected
+        for options in (
+            {},
+            {"memory_key": "missing"},
+            {"subject_id": "payments-api", "limit": 1},
+            {"subject_id": "missing"},
+            {"valid_at": _T},
+        ):
+            actual = await store.list_revisions(tenant_id=_TENANT, **options)
+            expected = await store._read(
+                _TENANT,
+                lambda full, options=options: full.list_revisions(tenant_id=_TENANT, **options),
+            )
+            assert actual == expected
+    finally:
+        await storage.close()
