@@ -20,7 +20,10 @@ from cogkura.algorithms.behavioral_competition import (
     BehavioralCompetitionPolicy,
     DeterministicBehavioralCompetitionPolicy,
 )
-from cogkura.algorithms.cognitive_traces import build_activation_candidates
+from cogkura.algorithms.cognitive_traces import (
+    build_activation_candidates,
+    derive_semantic_cognitive_traces,
+)
 from cogkura.algorithms.competition import CompetitionMatcher, DeterministicCompetitionMatcher
 from cogkura.algorithms.context_matching import (
     ContextMatcher,
@@ -601,6 +604,7 @@ class Memory:
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        trace_episode_by_id = {episode.id: episode for episode in episodes}
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         revisions = recover_closed_correction_links(
@@ -650,6 +654,10 @@ class Memory:
             eligible_semantics,
             episode_support_provenance_index=episode_support_provenance_index,
         )
+        candidates = _historically_safe_candidates(
+            candidates, trace_episode_by_id, as_of=evaluation_time
+        )
+        episodes = [episode for episode in episodes if episode.ended_at <= evaluation_time]
         pre_forgetting = list(candidates)
         candidates = await self._filter_recallable_candidates(
             candidates=candidates,
@@ -820,6 +828,7 @@ class Memory:
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        trace_episode_by_id = {episode.id: episode for episode in episodes}
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         revisions = recover_closed_correction_links(
@@ -869,6 +878,10 @@ class Memory:
             eligible_semantics,
             episode_support_provenance_index=episode_support_provenance_index,
         )
+        candidates = _historically_safe_candidates(
+            candidates, trace_episode_by_id, as_of=evaluation_time
+        )
+        episodes = [episode for episode in episodes if episode.ended_at <= evaluation_time]
         candidates = await self._filter_recallable_candidates(
             candidates=candidates,
             tenant_id=tenant_id,
@@ -2379,6 +2392,30 @@ def _memory_key_from_result(result: RecallResult) -> str:
     if isinstance(memory, StoredSemanticMemory):
         return memory.memory_key
     raise ValidationError("Unsupported memory type for access recording.")
+
+
+def _historically_safe_candidates(
+    candidates: Sequence[ActivationCandidate],
+    episode_by_id: Mapping[str, StoredEpisode],
+    *,
+    as_of: datetime,
+) -> list[ActivationCandidate]:
+    """Omit memories whose current content includes evidence not yet known.
+
+    Episode statements and semantic aggregate snapshots cannot in general be
+    reconstructed from their current rows. Fail closed for mixed-time evidence.
+    Use all loaded episodes to check support, even when valid_at excluded one,
+    without changing the traces used to score the remaining candidates.
+    """
+    safe = []
+    for candidate in candidates:
+        if isinstance(candidate.memory, StoredSemanticMemory):
+            traces = derive_semantic_cognitive_traces(candidate.memory, episode_by_id)
+        else:
+            traces = candidate.cognitive_traces
+        if all(trace.referenced_at <= as_of for trace in (*traces, *candidate.cognitive_traces)):
+            safe.append(candidate)
+    return safe
 
 
 def _evaluation_time(as_of: datetime | None) -> datetime:
