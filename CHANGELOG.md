@@ -7,17 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 0.20.1 candidate — retrieval optimization
+## [0.20.1] - 2026-11-21 — Retrieval performance and historical reconstruction
 
-- Reuse retrieval-local features and lookup results to reduce repeated work without
-  changing the intended ranking or admission rules.
-- Scope SQLite semantic read hydration to the records needed by each query.
-- Preserve correction provenance and knowledge-time history when a later withdrawal
-  closes a revision, including previously persisted snapshots.
-- Retain the source-transition and frozen-output differences for independent review;
-  see the [development findings](docs/findings/0.20.1-scoped-sqlite-read.md).
+### Changed
 
-### 0.20.0 candidate — retrieval investigation
+- Reuse retrieval-local features and lookup results, and scope SQLite semantic reads,
+  to reduce repeated work.
+- Preserve correction and withdrawal transitions, and retain episode, semantic,
+  revision and relation snapshots for supported historical reconstruction.
+- Detect ambiguous backdated tenant history and fail historical reads with
+  `HistoricalStateUnavailableError` where the shared ordering record is available.
+- Correct SQLite snapshot ordering and PostgreSQL current-revision derivation loading.
+
+### Validation and limits
+
+- The exact tag passed the 25-job Core CI matrix, the candidate-specific reviewed
+  frozen gate, source-history v2 and exact cross-backend comparisons. The original
+  frozen gold and raw failure remain preserved.
+- On the selected 2018 Mac, the synthetic 1,000-observation workload measured
+  p95 recall at 1.191 s in memory and 1.741 s on SQLite. These measurements are
+  not production latency guarantees.
+- Historical reconstruction has documented limits for legacy and custom stores,
+  missing snapshots and concurrent writes. See the [release findings](docs/findings/0.20.1-release.md).
+
+### Earlier 0.20.0 investigation
 
 - Add repeatable retrieval, software-project and semantic-history workloads, plus opt-in
   stage, allocation, SQLite statement and fresh-process diagnostics.
