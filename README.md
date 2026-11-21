@@ -360,6 +360,8 @@ result = await memory.apply_forgetting(tenant_id="company_123", as_of=as_of)
 
 For simulated replay, pass the same `as_of` to `encode_episodes()` and `consolidate_semantics()` so `created_at` is not wall clock. Live callers can omit it.
 
+Historical reconstruction depends on retained versions of derived memories. The built-in stores detect out-of-order derived-memory writes across a tenant; a historical read before the latest write raises `HistoricalStateUnavailableError` when those writes make the requested state ambiguous. Current reads remain available. Older databases, custom store combinations and concurrent writes may not provide complete historical coverage; see the [historical reconstruction notes](docs/findings/0.20.1-historical-reconstruction-design.md).
+
 Tune retrieval with `activation_config=ActivationConfig(retrieval_threshold=-1.0)` on `Memory(...)`. See [`docs/design-ranking-time-current-state.md`](docs/design-ranking-time-current-state.md) and [`docs/design-string-cues-current-state.md`](docs/design-string-cues-current-state.md).
 
 For PostgreSQL, pass `PostgresObservationStore`, `PostgresEpisodeStore`, `PostgresSemanticMemoryStore`, `PostgresActivationStore`, `PostgresEntityRelationshipStore`, `PostgresMemoryDynamicsStore`, and `PostgresLearningStore` to `Memory`.
