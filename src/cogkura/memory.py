@@ -690,8 +690,14 @@ class Memory:
                 m for m in all_semantics if m.revision_key not in unavailable_revisions
             ]
         if revision_snapshots or unavailable_revisions:
-            semantic_memories = _restore_historical_revision_memories(
-                semantic_memories, projection_revisions, revision_snapshots, valid_at=valid_at
+            semantic_memories = await _restore_historical_revision_memories(
+                semantic_memories,
+                projection_revisions,
+                revision_snapshots,
+                valid_at=valid_at,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                as_of=evaluation_time,
             )
             projected = {m.id: m for m in semantic_memories if m.revision_key in revision_snapshots}
             all_semantics = [projected.get(m.id, m) for m in all_semantics]
@@ -994,8 +1000,14 @@ class Memory:
                 m for m in all_semantics if m.revision_key not in unavailable_revisions
             ]
         if revision_snapshots or unavailable_revisions:
-            semantic_memories = _restore_historical_revision_memories(
-                semantic_memories, projection_revisions, revision_snapshots, valid_at=valid_at
+            semantic_memories = await _restore_historical_revision_memories(
+                semantic_memories,
+                projection_revisions,
+                revision_snapshots,
+                valid_at=valid_at,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                as_of=evaluation_time,
             )
             projected = {m.id: m for m in semantic_memories if m.revision_key in revision_snapshots}
             all_semantics = [projected.get(m.id, m) for m in all_semantics]
@@ -2697,14 +2709,27 @@ async def _filter_inactive_factual_semantics(
     ]
 
 
-def _restore_historical_revision_memories(
+async def _restore_historical_revision_memories(
     memories: Sequence[StoredSemanticMemory],
     revisions: Sequence[StoredSemanticRevision],
     snapshot_keys: set[str],
     *,
     valid_at: datetime | None,
+    store: SemanticMemoryStore,
+    tenant_id: str,
+    as_of: datetime,
 ) -> list[StoredSemanticMemory]:
     by_key = {revision.revision_key: revision for revision in revisions}
+    read_history = getattr(store, "historical_semantics", None)
+    snapshots = (
+        await read_history(
+            tenant_id=tenant_id,
+            memory_ids={m.id for m in memories if m.revision_key in snapshot_keys},
+            as_of=as_of,
+        )
+        if read_history is not None and valid_at is None
+        else {}
+    )
     result = []
     for memory in memories:
         if memory.revision_key not in snapshot_keys:
@@ -2712,6 +2737,14 @@ def _restore_historical_revision_memories(
             continue
         revision = by_key[memory.revision_key]
         if valid_at is not None and not revision_valid_at(revision, valid_at):
+            continue
+        snapshot = snapshots.get(memory.id)
+        if (
+            valid_at is None
+            and snapshot is not None
+            and snapshot.revision_key == revision.revision_key
+        ):
+            result.append(snapshot)
             continue
         restored = memory_from_revision_snapshot(memory, revision)
         if restored is not None:

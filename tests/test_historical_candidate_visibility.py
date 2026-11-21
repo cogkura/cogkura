@@ -841,6 +841,8 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
         await _exercise_revision_relations(correction_memory)
         await correction_memory.clear(tenant_id="historical-candidate")
         await _exercise_linked_mixed_before_correction(correction_memory)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_contested_revision_snapshot(correction_memory)
     finally:
         await memory.clear(tenant_id="historical-candidate")
         await engine.dispose()
@@ -949,3 +951,83 @@ async def test_history_order_update_rolls_back_with_snapshot(tmp_path: Path) -> 
         )
         assert not status.ambiguous
         assert status.last_recorded_at == _T2
+
+
+async def _exercise_contested_revision_snapshot(memory: Memory) -> None:
+    from cogkura import SemanticKnowledgeState, SemanticSlotQuery
+
+    tenant = "historical-candidate"
+    for value in ("startup", "pipeline"):
+        for number in range(2):
+            await memory.observe(
+                ObservationInput(
+                    tenant_id=tenant,
+                    subject_id="service",
+                    source_namespace="history-test",
+                    source_record_id=f"{value}-{number}",
+                    content=f"Deployment policy is {value} ({number}).",
+                    observed_at=_T0,
+                    metadata={
+                        "conversation_id": f"{value}-{number}",
+                        "semantic_facts": [
+                            {
+                                "subject_entity_id": "service",
+                                "predicate": "deployment_policy",
+                                "object_value": value,
+                                "cardinality": "one",
+                                "valid_from": _T0.isoformat(),
+                                "valid_until": (_T0 + timedelta(days=10)).isoformat(),
+                            }
+                        ],
+                    },
+                )
+            )
+    await memory.process(tenant_id=tenant, as_of=_T0)
+    slot = SemanticSlotQuery("service", "deployment_policy")
+    before_slot = await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=_T1)
+    assert before_slot.state is SemanticKnowledgeState.CONTESTED
+    before = {
+        factual_time: await memory.inspect_recall(
+            "deployment policy", tenant_id=tenant, as_of=_T1, valid_at=factual_time, limit=20
+        )
+        for factual_time in (None, _T1, _T2)
+    }
+    await memory.observe(
+        ObservationInput(
+            tenant_id=tenant,
+            subject_id="service",
+            source_namespace="history-test",
+            source_record_id="startup-later",
+            content="Deployment policy is startup (later).",
+            observed_at=_T2,
+            metadata={
+                "conversation_id": "startup-later",
+                "semantic_facts": [
+                    {
+                        "subject_entity_id": "service",
+                        "predicate": "deployment_policy",
+                        "object_value": "startup",
+                        "cardinality": "one",
+                        "valid_from": _T0.isoformat(),
+                        "valid_until": (_T0 + timedelta(days=10)).isoformat(),
+                    }
+                ],
+            },
+        )
+    )
+    await memory.process(tenant_id=tenant, as_of=_T2)
+    assert await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=_T1) == before_slot
+    for factual_time, expected in before.items():
+        assert (
+            await memory.inspect_recall(
+                "deployment policy", tenant_id=tenant, as_of=_T1, valid_at=factual_time, limit=20
+            )
+            == expected
+        )
+
+
+async def test_contested_revision_snapshots_memory_and_sqlite(tmp_path: Path) -> None:
+    kwargs = {"activation_config": ActivationConfig(retrieval_threshold=-10)}
+    await _exercise_contested_revision_snapshot(Memory(**kwargs))
+    async with await EmbeddedMemory.open(tmp_path / "contested.db", **kwargs) as memory:
+        await _exercise_contested_revision_snapshot(memory)
