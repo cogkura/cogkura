@@ -76,6 +76,7 @@ from cogkura.algorithms.working_memory import (
 )
 from cogkura.exceptions import (
     CandidateSetTooLargeError,
+    HistoricalStateUnavailableError,
     RecallInspectionUnsupportedError,
     ValidationError,
 )
@@ -162,6 +163,7 @@ from cogkura.storage import (
     SemanticInspectionStore,
     SemanticMemoryStore,
 )
+from cogkura.storage.history_order import InMemoryHistoryOrder
 from cogkura.storage.in_memory_activation import InMemoryActivationStore
 from cogkura.storage.in_memory_dynamics import InMemoryMemoryDynamicsStore
 from cogkura.storage.in_memory_entity_relationship import InMemoryEntityRelationshipStore
@@ -235,9 +237,16 @@ class Memory:
         self._checkpoint_store = (
             checkpoint_store if checkpoint_store is not None else InMemoryCheckpointStore()
         )
-        self._episode_store = episode_store if episode_store is not None else InMemoryEpisodeStore()
+        history_order = InMemoryHistoryOrder()
+        self._episode_store = (
+            episode_store
+            if episode_store is not None
+            else InMemoryEpisodeStore(history_order=history_order)
+        )
         self._semantic_store = (
-            semantic_store if semantic_store is not None else InMemorySemanticMemoryStore()
+            semantic_store
+            if semantic_store is not None
+            else InMemorySemanticMemoryStore(history_order=history_order)
         )
         self._semantic_diagnostics_config = (
             semantic_diagnostics_config or SemanticDiagnosticsConfig()
@@ -489,6 +498,30 @@ class Memory:
             )
         return result, batch_checkpoint
 
+    async def _check_history_order(self, *, tenant_id: str, as_of: datetime | None) -> None:
+        if as_of is None:
+            return
+        episode_store = self._episode_store
+        semantic_store = self._semantic_store
+        # Only use an order record when both stores demonstrably share it.
+        shared = any(
+            (value := getattr(episode_store, name, None)) is not None
+            and value is getattr(semantic_store, name, None)
+            for name in ("_history_order", "_storage", "_engine")
+        )
+        status_reader = getattr(episode_store, "historical_order_status", None)
+        if not shared or status_reader is None:
+            return
+        status = await status_reader(tenant_id=tenant_id)
+        if (
+            status.ambiguous
+            and status.last_recorded_at is not None
+            and as_of < status.last_recorded_at
+        ):
+            raise HistoricalStateUnavailableError(
+                "Historical state is unavailable because derived-memory writes were backdated."
+            )
+
     async def recall(
         self,
         query: str | RetrievalCue,
@@ -512,6 +545,7 @@ class Memory:
 
         cue = _normalise_cue(query, subject_id=subject_id, retrieval_context=retrieval_context)
         evaluation_time = _evaluation_time(as_of)
+        await self._check_history_order(tenant_id=tenant_id, as_of=as_of)
         ranked = await self._rank_declarative_results(
             cue=cue,
             tenant_id=tenant_id,
@@ -558,6 +592,7 @@ class Memory:
 
         cue = _normalise_cue(query, subject_id=subject_id, retrieval_context=retrieval_context)
         evaluation_time = _evaluation_time(as_of)
+        await self._check_history_order(tenant_id=tenant_id, as_of=as_of)
         episodes, semantic_memories = await asyncio.gather(
             self._episode_store.list(
                 tenant_id=tenant_id,
@@ -1333,6 +1368,7 @@ class Memory:
         if subject_id is not None and (not isinstance(subject_id, str) or not subject_id.strip()):
             raise ValidationError("subject_id must be None or a non-empty string.")
         evaluation_time = _evaluation_time(as_of)
+        await self._check_history_order(tenant_id=tenant_id, as_of=as_of)
         bounds = limits or SourceInspectionLimits()
         slot_key = semantic_slot_key(
             tenant_id=tenant_id,
@@ -2222,6 +2258,9 @@ class Memory:
         await self._semantic_store.clear(tenant_id=tenant_id)
         await self._episode_store.clear(tenant_id=tenant_id)
         await self._observation_store.clear(tenant_id=tenant_id)
+        clear_order = getattr(self._episode_store, "clear_history_order", None)
+        if clear_order is not None:
+            await clear_order(tenant_id=tenant_id)
 
     async def _prepare_retrieval_state(
         self,
@@ -2242,6 +2281,7 @@ class Memory:
         )
         goal_cue = _normalize_goal_cue(goal, query_cue)
         evaluation_time = _evaluation_time(as_of)
+        await self._check_history_order(tenant_id=tenant_id, as_of=as_of)
         ranked = await self._rank_declarative_results(
             cue=query_cue,
             tenant_id=tenant_id,

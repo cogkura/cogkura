@@ -135,7 +135,10 @@ async def test_episode_history_fails_closed_when_writes_are_backdated() -> None:
     await _observe(memory, "first", "migration known", _T0, session_id="shared")
     await _observe(memory, "second", "migration future secret", _T2, session_id="shared")
     await _observe(memory, "late", "migration arrived later", _T1, session_id="shared")
-    assert await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1) == []
+    from cogkura import HistoricalStateUnavailableError
+
+    with pytest.raises(HistoricalStateUnavailableError):
+        await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1)
 
 
 async def test_episode_history_does_not_invent_pre_migration_state(
@@ -726,6 +729,7 @@ async def test_semantic_snapshots_memory_and_sqlite(tmp_path: Path) -> None:
     async with await EmbeddedMemory.open(
         tmp_path / "semantic-history.db", semantic_consolidator=consolidator
     ) as memory:
+        await _exercise_tenant_history_order(memory)
         await _exercise_semantic_snapshots(memory)
     async with await EmbeddedMemory.open(
         tmp_path / "semantic-history.db", semantic_consolidator=consolidator
@@ -746,10 +750,12 @@ async def test_semantic_history_fails_closed_when_reconciliation_is_backdated() 
     )
     await _exercise_semantic_snapshots(memory)
     await memory.consolidate_semantics(tenant_id="historical-candidate", as_of=_T0)
-    inspection = await memory.inspect_recall(
-        "database PostgreSQL", tenant_id="historical-candidate", as_of=_T1
-    )
-    assert inspection.considered_count == 1
+    from cogkura import HistoricalStateUnavailableError
+
+    with pytest.raises(HistoricalStateUnavailableError):
+        await memory.inspect_recall(
+            "database PostgreSQL", tenant_id="historical-candidate", as_of=_T1
+        )
 
 
 async def test_semantic_snapshot_failure_rolls_back_sqlite_reconciliation(tmp_path: Path) -> None:
@@ -813,6 +819,7 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
     )
     try:
         await memory.clear(tenant_id="historical-candidate")
+        await _exercise_tenant_history_order(memory)
         await _exercise_semantic_snapshots(memory)
         await memory.clear(tenant_id="historical-candidate")
         await _exercise_linked_mixed_episode(memory)
@@ -837,3 +844,108 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
     finally:
         await memory.clear(tenant_id="historical-candidate")
         await engine.dispose()
+
+
+async def _exercise_tenant_history_order(memory: Memory) -> None:
+    tenant = "historical-candidate"
+    status = memory._episode_store.historical_order_status
+    await _observe(memory, "first", "first claim", _T0)
+    await _observe(memory, "same-time", "another claim", _T0)
+    assert (await status(tenant_id=tenant)).complete
+    assert not (await status(tenant_id=tenant)).ambiguous
+    await _observe(memory, "later", "later claim", _T2)
+    await _observe(memory, "backdated", "backdated claim", _T1)
+    result = await status(tenant_id=tenant)
+    assert result.ambiguous
+    assert result.last_recorded_at == _T2
+    from cogkura import HistoricalStateUnavailableError
+
+    with pytest.raises(HistoricalStateUnavailableError):
+        await memory.recall("claim", tenant_id=tenant, as_of=_T1)
+    with pytest.raises(HistoricalStateUnavailableError):
+        await memory.inspect_recall("claim", tenant_id=tenant, as_of=_T1)
+    with pytest.raises(HistoricalStateUnavailableError):
+        await memory.prepare_context("claim", tenant_id=tenant, as_of=_T1)
+    assert await memory.recall("claim", tenant_id=tenant, as_of=_T2)
+    assert not (await status(tenant_id="other-tenant")).ambiguous
+    await memory.clear(tenant_id=tenant)
+    assert not (await status(tenant_id=tenant)).ambiguous
+    assert (await status(tenant_id=tenant)).last_recorded_at is None
+
+    fact = {
+        "subject_entity_id": "service",
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    await _observe(memory, "semantic", "service database postgresql", _T0, semantic_facts=[fact])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+    assert (await status(tenant_id=tenant)).last_recorded_at == _T2
+    await _observe(memory, "older-episode", "older other memory", _T1)
+    assert (await status(tenant_id=tenant)).ambiguous
+    await memory.clear(tenant_id=tenant)
+
+
+async def test_tenant_history_order_memory_and_sqlite(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator
+
+    kwargs = {
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        )
+    }
+    await _exercise_tenant_history_order(Memory(**kwargs))
+    path = tmp_path / "history-order.db"
+    async with await EmbeddedMemory.open(path, **kwargs) as memory:
+        await _exercise_tenant_history_order(memory)
+        await _observe(memory, "later", "later claim", _T2)
+        await _observe(memory, "backdated", "backdated claim", _T1)
+    async with await EmbeddedMemory.open(path) as memory:
+        result = await memory._episode_store.historical_order_status(
+            tenant_id="historical-candidate"
+        )
+        assert result.ambiguous
+        assert result.last_recorded_at == _T2
+
+
+async def test_history_order_migration_marks_existing_tenants_incomplete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import cogkura.storage.sqlite as sqlite_module
+
+    paths = sqlite_module._migrations()
+    monkeypatch.setattr(sqlite_module, "_migrations", lambda: paths[:7])
+    path = tmp_path / "legacy-order.db"
+    async with await EmbeddedMemory.open(path) as memory:
+        await _observe(memory, "existing", "existing claim", _T0)
+    monkeypatch.setattr(sqlite_module, "_migrations", lambda: paths)
+    async with await EmbeddedMemory.open(path) as memory:
+        status = memory._episode_store.historical_order_status
+        assert not (await status(tenant_id="historical-candidate")).complete
+        assert (await status(tenant_id="new-tenant")).complete
+        await memory.clear(tenant_id="historical-candidate")
+        assert (await status(tenant_id="historical-candidate")).complete
+
+
+async def test_history_order_update_rolls_back_with_snapshot(tmp_path: Path) -> None:
+    owner = await EmbeddedMemory.open(tmp_path / "order-rollback.db")
+    async with owner as memory:
+        await _observe(memory, "later", "later claim", _T2)
+
+        def rollback() -> None:
+            conn = owner._storage._conn()
+            conn.execute("BEGIN")
+            conn.execute(
+                "INSERT INTO episode_history(tenant_id,episode_id,recorded_at,snapshot) "
+                "SELECT tenant_id,episode_id,?,snapshot FROM episode_history LIMIT 1",
+                (_T0.isoformat(),),
+            )
+            conn.rollback()
+
+        await owner._storage._run(rollback)
+        status = await memory._episode_store.historical_order_status(
+            tenant_id="historical-candidate"
+        )
+        assert not status.ambiguous
+        assert status.last_recorded_at == _T2

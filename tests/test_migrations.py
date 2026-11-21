@@ -49,6 +49,7 @@ async def test_migration_files_are_ordered() -> None:
         "012_episode_history.sql",
         "013_semantic_history.sql",
         "014_revision_history.sql",
+        "015_history_order.sql",
     ]
 
 
@@ -76,6 +77,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "012_episode_history",
         "013_semantic_history",
         "014_revision_history",
+        "015_history_order",
     ]
 
 

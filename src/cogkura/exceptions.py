@@ -19,3 +19,7 @@ class CandidateSetTooLargeError(CogkuraError):
 
 class RecallInspectionUnsupportedError(CogkuraError):
     """Raised when the configured declarative activator does not support inspection."""
+
+
+class HistoricalStateUnavailableError(CogkuraError):
+    """Raised when backdated writes make a historical state ambiguous."""

@@ -22,6 +22,7 @@ from cogkura.storage.historical_snapshots import (
     encode_episode_snapshot_or_none,
     select_episode_snapshot,
 )
+from cogkura.storage.history_order import HistoryOrderStatus
 from cogkura.storage.sqlite import SQLiteStorage, _datetime, _time
 
 
@@ -86,6 +87,36 @@ class SQLiteEpisodeStore:
 
     def __init__(self, storage: SQLiteStorage) -> None:
         self._storage = storage
+
+    async def historical_order_status(self, *, tenant_id: str) -> HistoryOrderStatus:
+        def read() -> HistoryOrderStatus:
+            conn = self._storage._conn()
+            if not conn.execute(
+                "SELECT 1 FROM schema_migrations WHERE version='008_history_order'"
+            ).fetchone():
+                return HistoryOrderStatus(complete=False)
+            row = conn.execute(
+                "SELECT * FROM history_order WHERE tenant_id=?", (tenant_id,)
+            ).fetchone()
+            if row is None:
+                return HistoryOrderStatus()
+            return HistoryOrderStatus(
+                last_recorded_at=_datetime(row["last_recorded_at"]),
+                ambiguous=bool(row["ambiguous"]),
+                complete=bool(row["complete"]),
+            )
+
+        return await self._storage._run(read)
+
+    async def clear_history_order(self, *, tenant_id: str) -> None:
+        def clear() -> None:
+            conn = self._storage._conn()
+            if conn.execute(
+                "SELECT 1 FROM schema_migrations WHERE version='008_history_order'"
+            ).fetchone():
+                conn.execute("DELETE FROM history_order WHERE tenant_id=?", (tenant_id,))
+
+        await self._storage._run(clear)
 
     async def upsert(
         self, episode: EpisodeInput, *, as_of: datetime | None = None

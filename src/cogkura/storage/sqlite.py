@@ -120,6 +120,8 @@ def _initialize(conn: sqlite3.Connection) -> None:
             required.add("semantic_history")
         if "007_revision_history" in expected:
             required.update({"semantic_revision_history", "semantic_relation_history"})
+        if "008_history_order" in expected:
+            required.add("history_order")
         actual = {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }

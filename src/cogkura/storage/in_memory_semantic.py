@@ -28,6 +28,7 @@ from cogkura.storage.historical_snapshots import (
     select_revision_snapshot,
     select_semantic_snapshot,
 )
+from cogkura.storage.history_order import InMemoryHistoryOrder
 
 _List = list  # avoid shadowing by SemanticMemoryStore.list
 
@@ -35,7 +36,8 @@ _List = list  # avoid shadowing by SemanticMemoryStore.list
 class InMemorySemanticMemoryStore(SemanticMemoryStore):
     """In-memory semantic memory store."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, history_order: InMemoryHistoryOrder | None = None) -> None:
+        self._history_order = history_order or InMemoryHistoryOrder()
         self._memories: dict[tuple[str, str], StoredSemanticMemory] = {}
         self._revisions: dict[tuple[str, str], StoredSemanticRevision] = {}
         self._relations: dict[tuple[str, str, str, str], tuple[str, str, str, str | None]] = {}
@@ -63,6 +65,7 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         return [relation for at, relation in entries if at <= as_of]
 
     def _record_history(self, memory: StoredSemanticMemory, now: datetime) -> None:
+        self._history_order.record(memory.tenant_id, now)
         self._semantic_history.setdefault((memory.tenant_id, memory.id), []).append(
             (now, encode_semantic_snapshot_or_none(memory))
         )
@@ -320,10 +323,13 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         self._revisions = revisions
         self._relations = relations
         for revision in plan.revisions:
+            self._history_order.record(revision.tenant_id, now)
             key = self._revision_key(revision.tenant_id, revision.revision_key)
             self._revision_history.setdefault(key, []).append(
                 (now, encode_revision_snapshot_or_none(revisions[key]))
             )
+        for relation in new_relations:
+            self._history_order.record(relation.tenant_id, now)
         self._relation_history.extend((now, relation) for relation in new_relations)
         for memory in plan.current_memories:
             self._record_history(

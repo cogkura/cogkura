@@ -51,7 +51,7 @@ from cogkura.algorithms.working_memory import (
     WorkingMemorySelector,
 )
 from cogkura.embedded import EmbeddedMemory
-from cogkura.exceptions import RecallInspectionUnsupportedError
+from cogkura.exceptions import HistoricalStateUnavailableError, RecallInspectionUnsupportedError
 from cogkura.memory import Memory
 from cogkura.models import (
     ActivationComponents,
@@ -334,6 +334,7 @@ __all__ = [
     "RecallInspectionCandidate",
     "RecallInspectionDisposition",
     "RecallInspectionResult",
+    "HistoricalStateUnavailableError",
     "RecallInspectionUnsupportedError",
     "RecallResult",
     "RelationshipEdge",

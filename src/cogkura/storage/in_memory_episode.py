@@ -18,19 +18,28 @@ from cogkura.storage.historical_snapshots import (
     encode_episode_snapshot_or_none,
     select_episode_snapshot,
 )
+from cogkura.storage.history_order import HistoryOrderStatus, InMemoryHistoryOrder
 
 
 class InMemoryEpisodeStore(EpisodeStore):
     """In-memory episodic memory store."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, history_order: InMemoryHistoryOrder | None = None) -> None:
+        self._history_order = history_order or InMemoryHistoryOrder()
         self._episodes: dict[tuple[str, str], StoredEpisode] = {}
         self._episode_history: dict[tuple[str, str], list[tuple[datetime, str | None]]] = {}
 
     def _record_history(self, episode: StoredEpisode, now: datetime) -> None:
+        self._history_order.record(episode.tenant_id, now)
         self._episode_history.setdefault((episode.tenant_id, episode.id), []).append(
             (now, encode_episode_snapshot_or_none(episode))
         )
+
+    async def historical_order_status(self, *, tenant_id: str) -> HistoryOrderStatus:
+        return self._history_order.get(tenant_id)
+
+    async def clear_history_order(self, *, tenant_id: str) -> None:
+        self._history_order.clear(tenant_id)
 
     async def historical_episodes(
         self, *, tenant_id: str, episode_ids: set[str], as_of: datetime

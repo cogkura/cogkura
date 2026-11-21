@@ -88,6 +88,7 @@ from cogkura.storage.historical_snapshots import (
     select_revision_snapshot,
     select_semantic_snapshot,
 )
+from cogkura.storage.history_order import HistoryOrderStatus
 
 
 class PostgresObservationStore(ObservationStore):
@@ -636,6 +637,35 @@ class PostgresEpisodeStore(EpisodeStore):
 
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
+
+    async def historical_order_status(self, *, tenant_id: str) -> HistoryOrderStatus:
+        async with self._engine.connect() as conn:
+            row = (
+                (
+                    await conn.execute(
+                        text(
+                            f"SELECT * FROM {self._table('history_order')} WHERE tenant_id=:tenant"
+                        ),
+                        {"tenant": tenant_id},
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return HistoryOrderStatus()
+        return HistoryOrderStatus(
+            last_recorded_at=row["last_recorded_at"],
+            ambiguous=row["ambiguous"],
+            complete=row["complete"],
+        )
+
+    async def clear_history_order(self, *, tenant_id: str) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"DELETE FROM {self._table('history_order')} WHERE tenant_id=:tenant"),
+                {"tenant": tenant_id},
+            )
 
     async def _record_history(self, conn: Any, memory_id: str, now: datetime) -> None:
         row = (
