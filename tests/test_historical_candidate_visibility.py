@@ -66,13 +66,104 @@ async def test_historical_candidate_visibility_memory_and_sqlite(tmp_path: Path,
         await _exercise(memory)
 
 
-async def test_episode_spanning_as_of_is_omitted_without_historical_snapshot() -> None:
+async def _exercise_mixed_episode(memory: Memory) -> None:
+    await _observe(memory, "first", "migration known", _T0, session_id="shared")
+    before = await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1)
+    assert len(before) == 1
+    await _observe(memory, "second", "migration future secret", _T2, session_id="shared")
+    results = await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1)
+    assert results == before
+    inspection = await memory.inspect_recall(
+        "migration", tenant_id="historical-candidate", as_of=_T1
+    )
+    assert inspection.considered_count == 1
+    assert "future secret" not in repr(inspection)
+    assert await memory.recall("migration", tenant_id="historical-candidate", as_of=_T2)
+
+
+async def test_episode_spanning_as_of_memory_and_sqlite(tmp_path: Path) -> None:
+    config = ActivationConfig(retrieval_threshold=-10)
+    await _exercise_mixed_episode(Memory(activation_config=config))
+    async with await EmbeddedMemory.open(
+        tmp_path / "history.db", activation_config=config
+    ) as memory:
+        await _exercise_mixed_episode(memory)
+    async with await EmbeddedMemory.open(
+        tmp_path / "history.db", activation_config=config
+    ) as memory:
+        restored = await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1)
+        assert len(restored) == 1
+        assert "future secret" not in restored[0].memory.statement
+
+
+async def test_episode_history_fails_closed_when_writes_are_backdated() -> None:
     memory = Memory(activation_config=ActivationConfig(retrieval_threshold=-10))
     await _observe(memory, "first", "migration known", _T0, session_id="shared")
     await _observe(memory, "second", "migration future secret", _T2, session_id="shared")
-    results = await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1)
-    assert results == []
-    assert await memory.recall("migration", tenant_id="historical-candidate", as_of=_T2)
+    await _observe(memory, "late", "migration arrived later", _T1, session_id="shared")
+    assert await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1) == []
+
+
+async def test_episode_history_does_not_invent_pre_migration_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cogkura.storage import sqlite as sqlite_module
+
+    paths = sqlite_module._migrations()
+    monkeypatch.setattr(sqlite_module, "_migrations", lambda: paths[:4])
+    path = tmp_path / "old.db"
+    config = ActivationConfig(retrieval_threshold=-10)
+    async with await EmbeddedMemory.open(path, activation_config=config) as memory:
+        await _observe(memory, "first", "migration known", _T0, session_id="shared")
+    monkeypatch.setattr(sqlite_module, "_migrations", lambda: paths)
+    async with await EmbeddedMemory.open(path, activation_config=config) as memory:
+        await _observe(memory, "second", "migration future", _T2, session_id="shared")
+        assert await memory.recall("migration", tenant_id="historical-candidate", as_of=_T1) == []
+
+
+async def test_episode_snapshot_failure_rolls_back_sqlite_write(tmp_path: Path) -> None:
+    from cogkura.exceptions import StorageError
+
+    config = ActivationConfig(retrieval_threshold=-10)
+    owner = await EmbeddedMemory.open(tmp_path / "atomic.db", activation_config=config)
+    async with owner as memory:
+        await _observe(memory, "first", "migration known", _T0, session_id="shared")
+        before = await memory.list_episodes(tenant_id="historical-candidate")
+        await owner._storage._run(
+            lambda: owner._storage._conn().execute(
+                "CREATE TRIGGER fail_history BEFORE INSERT ON episode_history "
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+            )
+        )
+        with pytest.raises(StorageError):
+            await _observe(memory, "second", "migration future", _T2, session_id="shared")
+        assert await memory.list_episodes(tenant_id="historical-candidate") == before
+
+
+async def test_episode_history_equal_times_and_tenant_scope() -> None:
+    from dataclasses import replace
+
+    from cogkura.storage.historical_snapshots import (
+        encode_memory_snapshot,
+        select_episode_snapshot,
+    )
+    from cogkura.storage.in_memory_episode import InMemoryEpisodeStore
+
+    memory = Memory(activation_config=ActivationConfig(retrieval_threshold=-10))
+    await _observe(memory, "first", "migration known", _T0, session_id="shared")
+    original = (await memory.list_episodes(tenant_id="historical-candidate"))[0]
+    later = replace(original, statement="migration revised")
+    versions = [(_T0, encode_memory_snapshot(original)), (_T0, encode_memory_snapshot(later))]
+    assert select_episode_snapshot(versions, as_of=_T0) == later
+    assert select_episode_snapshot([*versions, (_T1, None)], as_of=_T1) is None
+    assert select_episode_snapshot([*versions, (_T1, "corrupt")], as_of=_T1) is None
+
+    store = memory._episode_store
+    assert isinstance(store, InMemoryEpisodeStore)
+    assert (
+        await store.historical_episodes(tenant_id="other", episode_ids={original.id}, as_of=_T0)
+        == {}
+    )
 
 
 @pytest.mark.postgres
@@ -102,6 +193,8 @@ async def test_historical_candidate_visibility_postgres(
     try:
         await memory.clear(tenant_id="historical-candidate")
         await _exercise(memory)
+        await memory.clear(tenant_id="historical-candidate")
+        await _exercise_mixed_episode(memory)
     finally:
         await memory.clear(tenant_id="historical-candidate")
         await engine.dispose()

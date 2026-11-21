@@ -222,6 +222,7 @@ async def test_failed_migration_rolls_back(tmp_path: Path, monkeypatch: pytest.M
             ("002_episodes",),
             ("003_semantic",),
             ("004_cognitive_state",),
+            ("005_episode_history",),
         ]
         assert not conn.execute(
             "SELECT 1 FROM sqlite_master WHERE name='temporary_test'"

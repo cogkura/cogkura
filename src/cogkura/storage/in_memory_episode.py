@@ -14,6 +14,10 @@ from cogkura.models import (
     memory_context_signatures_equal,
 )
 from cogkura.storage.base import EpisodeStore
+from cogkura.storage.historical_snapshots import (
+    encode_episode_snapshot_or_none,
+    select_episode_snapshot,
+)
 
 
 class InMemoryEpisodeStore(EpisodeStore):
@@ -21,6 +25,23 @@ class InMemoryEpisodeStore(EpisodeStore):
 
     def __init__(self) -> None:
         self._episodes: dict[tuple[str, str], StoredEpisode] = {}
+        self._episode_history: dict[tuple[str, str], list[tuple[datetime, str | None]]] = {}
+
+    def _record_history(self, episode: StoredEpisode, now: datetime) -> None:
+        self._episode_history.setdefault((episode.tenant_id, episode.id), []).append(
+            (now, encode_episode_snapshot_or_none(episode))
+        )
+
+    async def historical_episodes(
+        self, *, tenant_id: str, episode_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredEpisode]:
+        results = {}
+        for episode_id in episode_ids:
+            versions = self._episode_history.get((tenant_id, episode_id), [])
+            episode = select_episode_snapshot(versions, as_of=as_of)
+            if episode is not None:
+                results[episode_id] = episode
+        return results
 
     def _key(self, tenant_id: str, memory_key: str) -> tuple[str, str]:
         return (tenant_id, memory_key)
@@ -61,6 +82,7 @@ class InMemoryEpisodeStore(EpisodeStore):
                 updated_at=now,
             )
             self._episodes[key] = stored
+            self._record_history(stored, now)
             return EpisodeWriteStatus.UPDATED
 
         stored = StoredEpisode(
@@ -82,6 +104,7 @@ class InMemoryEpisodeStore(EpisodeStore):
             updated_at=now,
         )
         self._episodes[key] = stored
+        self._record_history(stored, now)
         return EpisodeWriteStatus.CREATED
 
     async def list(
@@ -157,6 +180,7 @@ class InMemoryEpisodeStore(EpisodeStore):
                 created_at=episode.created_at,
                 updated_at=now,
             )
+            self._record_history(self._episodes[key], now)
             deactivated += 1
         return deactivated
 
@@ -164,3 +188,5 @@ class InMemoryEpisodeStore(EpisodeStore):
         keys = [key for key in self._episodes if key[0] == tenant_id]
         for key in keys:
             del self._episodes[key]
+        for key in [key for key in self._episode_history if key[0] == tenant_id]:
+            del self._episode_history[key]

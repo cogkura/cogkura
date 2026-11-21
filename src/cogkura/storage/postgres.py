@@ -80,6 +80,10 @@ from cogkura.storage.base import (
     ObservationStore,
     SemanticMemoryStore,
 )
+from cogkura.storage.historical_snapshots import (
+    encode_episode_snapshot_or_none,
+    select_episode_snapshot,
+)
 
 
 class PostgresObservationStore(ObservationStore):
@@ -629,6 +633,92 @@ class PostgresEpisodeStore(EpisodeStore):
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
 
+    async def _record_history(self, conn: Any, memory_id: str, now: datetime) -> None:
+        row = (
+            (
+                await conn.execute(
+                    text(f"SELECT * FROM {self._table('memories')} WHERE id = :id"),
+                    {"id": memory_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+        evidence = (
+            (
+                await conn.execute(
+                    text(
+                        f"SELECT observation_id, observation_revision, sequence_number, "
+                        f"contribution_score FROM {self._table('memory_evidence')} "
+                        "WHERE memory_id = :id ORDER BY sequence_number"
+                    ),
+                    {"id": memory_id},
+                )
+            )
+            .mappings()
+            .all()
+        )
+        entities = (
+            (
+                await conn.execute(
+                    text(
+                        f"SELECT entity_id, entity_role FROM {self._table('memory_entities')} "
+                        "WHERE memory_id = :id ORDER BY entity_id, entity_role"
+                    ),
+                    {"id": memory_id},
+                )
+            )
+            .mappings()
+            .all()
+        )
+        episode = self._to_stored(row, evidence, entities)
+        await conn.execute(
+            text(
+                f"INSERT INTO {self._table('episode_history')} "
+                "(tenant_id,episode_id,recorded_at,snapshot) "
+                "VALUES (:tenant,:id,:now,CAST(:snapshot AS jsonb))"
+            ),
+            {
+                "tenant": episode.tenant_id,
+                "id": memory_id,
+                "now": now,
+                "snapshot": encode_episode_snapshot_or_none(episode),
+            },
+        )
+
+    async def historical_episodes(
+        self, *, tenant_id: str, episode_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredEpisode]:
+        if not episode_ids:
+            return {}
+        async with self._engine.connect() as conn:
+            rows = (
+                (
+                    await conn.execute(
+                        text(
+                            "SELECT episode_id,recorded_at,snapshot "
+                            f"FROM {self._table('episode_history')} "
+                            "WHERE tenant_id=:tenant AND episode_id=ANY(CAST(:ids AS uuid[])) "
+                            "ORDER BY sequence"
+                        ),
+                        {"tenant": tenant_id, "ids": list(episode_ids)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+        for row in rows:
+            raw = row["snapshot"]
+            payload = json.dumps(raw) if raw is not None and not isinstance(raw, str) else raw
+            grouped.setdefault(str(row["episode_id"]), []).append((row["recorded_at"], payload))
+        results = {}
+        for episode_id, versions in grouped.items():
+            episode = select_episode_snapshot(versions, as_of=as_of)
+            if episode is not None:
+                results[episode_id] = episode
+        return results
+
     async def upsert(
         self,
         episode: EpisodeInput,
@@ -726,6 +816,7 @@ class PostgresEpisodeStore(EpisodeStore):
 
     async def _create(self, episode: EpisodeInput, *, as_of: datetime | None = None) -> None:
         memory_id = str(uuid4())
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -744,10 +835,11 @@ class PostgresEpisodeStore(EpisodeStore):
                     )
                     """
                 ),
-                self._memory_params(memory_id, episode, as_of=as_of),
+                self._memory_params(memory_id, episode, as_of=now),
             )
             await self._replace_evidence(conn, memory_id, episode.evidence)
             await self._replace_entities(conn, memory_id, episode.entities)
+            await self._record_history(conn, memory_id, now)
 
     async def _update(
         self,
@@ -796,6 +888,7 @@ class PostgresEpisodeStore(EpisodeStore):
             )
             await self._replace_evidence(conn, memory_id, episode.evidence)
             await self._replace_entities(conn, memory_id, episode.entities)
+            await self._record_history(conn, memory_id, now)
 
     async def _replace_evidence(
         self,
@@ -1011,6 +1104,7 @@ class PostgresEpisodeStore(EpisodeStore):
                     ),
                     {"id": str(row["id"]), "now": now},
                 )
+                await self._record_history(conn, str(row["id"]), now)
             deactivated += 1
         return deactivated
 

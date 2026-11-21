@@ -18,7 +18,20 @@ from cogkura.models import (
     StoredEpisode,
     memory_context_signatures_equal,
 )
+from cogkura.storage.historical_snapshots import (
+    encode_episode_snapshot_or_none,
+    select_episode_snapshot,
+)
 from cogkura.storage.sqlite import SQLiteStorage, _datetime, _time
+
+
+def _history_available(conn: sqlite3.Connection) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM schema_migrations WHERE version='005_episode_history'"
+        ).fetchone()
+        is not None
+    )
 
 
 def _episode(conn: sqlite3.Connection, row: sqlite3.Row) -> StoredEpisode:
@@ -156,8 +169,58 @@ class SQLiteEpisodeStore:
                         "INSERT INTO episode_entities VALUES (?,?,?,?)",
                         (episode.tenant_id, episode_id, entity.entity_id, entity.role),
                     )
+                if _history_available(conn):
+                    stored_row = conn.execute(
+                        "SELECT * FROM episodes WHERE tenant_id=? AND id=?",
+                        (episode.tenant_id, episode_id),
+                    ).fetchone()
+                    conn.execute(
+                        "INSERT INTO episode_history(tenant_id,episode_id,recorded_at,snapshot) "
+                        "VALUES (?,?,?,?)",
+                        (
+                            episode.tenant_id,
+                            episode_id,
+                            now,
+                            encode_episode_snapshot_or_none(_episode(conn, stored_row)),
+                        ),
+                    )
                 conn.commit()
                 return EpisodeWriteStatus.UPDATED if existing else EpisodeWriteStatus.CREATED
+            except BaseException:
+                conn.rollback()
+                raise
+
+        return await self._storage._run(operation)
+
+    async def historical_episodes(
+        self, *, tenant_id: str, episode_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredEpisode]:
+        def operation() -> dict[str, StoredEpisode]:
+            conn = self._storage._conn()
+            result: dict[str, StoredEpisode] = {}
+            conn.execute("BEGIN")
+            try:
+                if _history_available(conn):
+                    ids = sorted(episode_ids)
+                    for i in range(0, len(ids), 500):
+                        chunk = ids[i : i + 500]
+                        marks = ",".join("?" for _ in chunk)
+                        rows = conn.execute(
+                            f"SELECT episode_id,recorded_at,snapshot FROM episode_history "
+                            f"WHERE tenant_id=? AND episode_id IN ({marks}) ORDER BY sequence",
+                            (tenant_id, *chunk),
+                        )
+                        grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+                        for row in rows:
+                            at = _datetime(row["recorded_at"])
+                            assert at is not None
+                            grouped.setdefault(row["episode_id"], []).append((at, row["snapshot"]))
+                        for episode_id, versions in grouped.items():
+                            episode = select_episode_snapshot(versions, as_of=as_of)
+                            if episode is not None:
+                                result[episode_id] = episode
+                conn.commit()
+                return result
             except BaseException:
                 conn.rollback()
                 raise
@@ -249,6 +312,21 @@ class SQLiteEpisodeStore:
                     "UPDATE episodes SET is_active=0,updated_at=? WHERE tenant_id=? AND id=?",
                     [(now, tenant_id, item) for item in ids],
                 )
+                for episode_id in ids if _history_available(conn) else ():
+                    row = conn.execute(
+                        "SELECT * FROM episodes WHERE tenant_id=? AND id=?",
+                        (tenant_id, episode_id),
+                    ).fetchone()
+                    conn.execute(
+                        "INSERT INTO episode_history(tenant_id,episode_id,recorded_at,snapshot) "
+                        "VALUES (?,?,?,?)",
+                        (
+                            tenant_id,
+                            episode_id,
+                            now,
+                            encode_episode_snapshot_or_none(_episode(conn, row)),
+                        ),
+                    )
                 conn.commit()
                 return len(ids)
             except BaseException:

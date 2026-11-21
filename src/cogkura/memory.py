@@ -605,6 +605,13 @@ class Memory:
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         trace_episode_by_id = {episode.id: episode for episode in episodes}
+        episodes = await _project_mixed_time_episodes(
+            episodes,
+            [*all_semantics, *retracted_semantics, *projection_bases],
+            store=self._episode_store,
+            tenant_id=tenant_id,
+            as_of=evaluation_time,
+        )
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         revisions = recover_closed_correction_links(
@@ -829,6 +836,13 @@ class Memory:
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
         trace_episode_by_id = {episode.id: episode for episode in episodes}
+        episodes = await _project_mixed_time_episodes(
+            episodes,
+            [*all_semantics, *retracted_semantics, *projection_bases],
+            store=self._episode_store,
+            tenant_id=tenant_id,
+            as_of=evaluation_time,
+        )
         if valid_at is not None:
             episodes = [episode for episode in episodes if _episode_visible_at(episode, valid_at)]
         revisions = recover_closed_correction_links(
@@ -2392,6 +2406,38 @@ def _memory_key_from_result(result: RecallResult) -> str:
     if isinstance(memory, StoredSemanticMemory):
         return memory.memory_key
     raise ValidationError("Unsupported memory type for access recording.")
+
+
+async def _project_mixed_time_episodes(
+    episodes: Sequence[StoredEpisode],
+    semantics: Sequence[StoredSemanticMemory],
+    *,
+    store: EpisodeStore,
+    tenant_id: str,
+    as_of: datetime,
+) -> list[StoredEpisode]:
+    """Use complete snapshots for mixed episodes with no semantic derivations.
+
+    Semantic provenance is not yet versioned, so episodes referenced by a
+    semantic memory remain fail-closed until its history is also available.
+    """
+    read_history = getattr(store, "historical_episodes", None)
+    if read_history is None:
+        return list(episodes)
+    linked = {item.episode_id for memory in semantics for item in memory.derivations}
+    ids = {
+        episode.id
+        for episode in episodes
+        if episode.id not in linked and episode.started_at <= as_of < episode.ended_at
+    }
+    if not ids:
+        return list(episodes)
+    history = await read_history(tenant_id=tenant_id, episode_ids=ids, as_of=as_of)
+    return [
+        historical
+        for episode in episodes
+        if (historical := history.get(episode.id, episode)).is_active
+    ]
 
 
 def _historically_safe_candidates(

@@ -113,6 +113,35 @@ def decode_memory_snapshot(payload: str) -> StoredEpisode | StoredSemanticMemory
         raise StorageError("Invalid or unsupported historical memory snapshot") from exc
 
 
+def select_episode_snapshot(
+    versions: list[tuple[datetime, str | None]], *, as_of: datetime
+) -> StoredEpisode | None:
+    """Select the last known episode, failing closed on reordered or missing writes.
+
+    Versions are supplied in actual write order. Equal timestamps use that order;
+    a backdated write invalidates the entire sequence because it cannot prove
+    what was known at an earlier point.
+    """
+    if any(earlier[0] > later[0] for earlier, later in zip(versions, versions[1:], strict=False)):
+        return None
+    matches = [payload for recorded_at, payload in versions if recorded_at <= as_of]
+    if not matches or matches[-1] is None:
+        return None
+    try:
+        memory = decode_memory_snapshot(matches[-1])
+    except StorageError:
+        return None
+    return memory if isinstance(memory, StoredEpisode) else None
+
+
+def encode_episode_snapshot_or_none(episode: StoredEpisode) -> str | None:
+    """Mark unsupported metadata unavailable without breaking existing writes."""
+    try:
+        return encode_memory_snapshot(episode)
+    except (TypeError, ValueError):
+        return None
+
+
 def _timestamp(value: str) -> datetime:
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
