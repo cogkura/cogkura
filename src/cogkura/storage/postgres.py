@@ -1406,11 +1406,11 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 f"""
                 SELECT source_memory_id, relation, contribution_score
                 FROM {self._table("memory_derivations")}
-                WHERE target_memory_id = :memory_id
+                WHERE target_memory_id = :memory_id AND revision_key = :revision_key
                 ORDER BY source_memory_id, relation
                 """
             ),
-            {"memory_id": memory_id},
+            {"memory_id": memory_id, "revision_key": memory_row["current_revision_key"]},
         )
         evidence_result = await conn.execute(
             text(
@@ -1909,8 +1909,13 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
         by_revision_derivations: dict[str, list[Any]] = defaultdict(list)
         by_evidence: dict[str, list[Any]] = defaultdict(list)
         by_entities: dict[str, list[Any]] = defaultdict(list)
+        current_revisions = {
+            str(row["id"]): row["current_revision_key"] for row in selected_memories
+        }
         for row in derivations:
-            by_memory_derivations[str(row["target_memory_id"])].append(row)
+            memory_id = str(row["target_memory_id"])
+            if current_revisions.get(memory_id) == row["revision_key"]:
+                by_memory_derivations[memory_id].append(row)
             by_revision_derivations[row["revision_key"]].append(row)
         for row in evidence:
             by_evidence[str(row["memory_id"])].append(row)

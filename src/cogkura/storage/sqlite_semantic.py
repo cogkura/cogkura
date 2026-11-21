@@ -33,7 +33,12 @@ from cogkura.models import (
     StoredSemanticMemory,
     StoredSemanticRevision,
 )
-from cogkura.storage.historical_snapshots import select_revision_snapshot, select_semantic_snapshot
+from cogkura.storage.historical_snapshots import (
+    encode_revision_snapshot_or_none,
+    encode_semantic_snapshot_or_none,
+    select_revision_snapshot,
+    select_semantic_snapshot,
+)
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 from cogkura.storage.sqlite import SQLiteStorage, _datetime, _time
 
@@ -380,20 +385,42 @@ class SQLiteSemanticMemoryStore:
                     "SELECT 1 FROM schema_migrations WHERE version='006_semantic_history'"
                 ).fetchone():
                     for (tenant, memory_id), versions in after._semantic_history.items():
+                        # Snapshot the persisted ordering of derivations, evidence and entities.
+                        row = conn.execute(
+                            "SELECT * FROM semantic_memories WHERE tenant_id=? AND id=?",
+                            (tenant, memory_id),
+                        ).fetchone()
+                        persisted = encode_semantic_snapshot_or_none(_load_memory(conn, row))
                         conn.executemany(
                             "INSERT INTO semantic_history "
                             "(tenant_id,memory_id,recorded_at,snapshot) "
                             "VALUES (?,?,?,?)",
-                            [(tenant, memory_id, _time(at), payload) for at, payload in versions],
+                            [
+                                (
+                                    tenant,
+                                    memory_id,
+                                    _time(at),
+                                    persisted if payload is not None else None,
+                                )
+                                for at, payload in versions
+                            ],
                         )
                 if conn.execute(
                     "SELECT 1 FROM schema_migrations WHERE version='007_revision_history'"
                 ).fetchone():
                     for (tenant, key), versions in after._revision_history.items():
+                        row = conn.execute(
+                            "SELECT * FROM semantic_revisions WHERE tenant_id=? AND revision_key=?",
+                            (tenant, key),
+                        ).fetchone()
+                        persisted = encode_revision_snapshot_or_none(_load_revision(conn, row))
                         conn.executemany(
                             "INSERT INTO semantic_revision_history "
                             "(tenant_id,revision_key,recorded_at,snapshot) VALUES (?,?,?,?)",
-                            [(tenant, key, _time(at), payload) for at, payload in versions],
+                            [
+                                (tenant, key, _time(at), persisted if payload is not None else None)
+                                for at, payload in versions
+                            ],
                         )
                     conn.executemany(
                         "INSERT INTO semantic_relation_history "

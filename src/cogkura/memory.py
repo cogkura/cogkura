@@ -720,6 +720,7 @@ class Memory:
             tenant_id=tenant_id,
             as_of=evaluation_time,
             valid_at=valid_at,
+            unavailable_revision_keys=unavailable_revisions,
         )
         if historical_semantics:
             episodes = [historical_episodes.get(e.id, e) for e in episodes]
@@ -1030,6 +1031,7 @@ class Memory:
             tenant_id=tenant_id,
             as_of=evaluation_time,
             valid_at=valid_at,
+            unavailable_revision_keys=unavailable_revisions,
         )
         if historical_semantics:
             episodes = [historical_episodes.get(e.id, e) for e in episodes]
@@ -2783,6 +2785,7 @@ async def _project_reinforced_semantics(
     tenant_id: str,
     as_of: datetime,
     valid_at: datetime | None,
+    unavailable_revision_keys: set[str],
 ) -> tuple[list[StoredSemanticMemory], dict[str, StoredSemanticMemory], dict[str, StoredEpisode]]:
     """Restore same-revision reinforcement only when all supporting state is known."""
     read_history = getattr(store, "historical_semantics", None)
@@ -2806,18 +2809,17 @@ async def _project_reinforced_semantics(
                     for item in memory.derivations
                 )
             )
-            and memory.status is SemanticMemoryStatus.ACTIVE
-            and len(history) == 1
-            and history[0].revision_key == memory.revision_key
-            and history[0].snapshot.get("slot_key") == memory.slot_key
-            and not any(
-                other.memory_key != memory.memory_key
-                and other.created_at <= as_of
-                and other.snapshot.get("slot_key") == memory.slot_key
-                for other in revisions
+            and memory.status in (SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED)
+            and any(
+                revision.revision_key == memory.revision_key
+                and revision.snapshot.get("slot_key") == memory.slot_key
+                for revision in history
             )
             and not any(
-                key in history[0].snapshot for key in ("correction", "withdrawal", "closed_by")
+                revision.revision_key in unavailable_revision_keys
+                and revision.created_at <= as_of
+                and revision.snapshot.get("slot_key") == memory.slot_key
+                for revision in revisions
             )
         ):
             eligible[memory.id] = memory
@@ -2844,7 +2846,7 @@ async def _project_reinforced_semantics(
             current is None
             or snapshot.revision_key != current.revision_key
             or not snapshot.is_active
-            or snapshot.status is not SemanticMemoryStatus.ACTIVE
+            or snapshot.status not in (SemanticMemoryStatus.ACTIVE, SemanticMemoryStatus.CONTESTED)
         ):
             continue
         if snapshot.last_supported_at > as_of:
@@ -2868,6 +2870,7 @@ async def _project_reinforced_semantics(
                         other.id != memory_id
                         and other.created_at <= as_of
                         and any(d.episode_id == item.episode_id for d in other.derivations)
+                        and (other.id not in eligible or other.id not in snapshots)
                         for other in all_semantics
                     )
                 )
@@ -2890,6 +2893,33 @@ async def _project_reinforced_semantics(
             restored[memory_id] = current if valid_at is not None else snapshot
             restored_episodes.update({e.id: e for e in support if e.id in prior_episodes})
             continue
+    # A shared episode is safe only if every previously known semantic that
+    # references it has also passed the complete snapshot and support checks.
+    # Repeat because removing one semantic can invalidate another shared group.
+    while True:
+        incomplete = {
+            memory_id
+            for memory_id, memory in restored.items()
+            if any(
+                item.episode_id in restored_episodes
+                and any(
+                    other.id != memory_id
+                    and other.created_at <= as_of
+                    and other.id not in restored
+                    and any(d.episode_id == item.episode_id for d in other.derivations)
+                    for other in all_semantics
+                )
+                for item in memory.derivations
+            )
+        }
+        if not incomplete:
+            break
+        for memory_id in incomplete:
+            del restored[memory_id]
+    used_episodes = {d.episode_id for memory in restored.values() for d in memory.derivations}
+    restored_episodes = {
+        key: value for key, value in restored_episodes.items() if key in used_episodes
+    }
     return [restored.get(memory.id, memory) for memory in memories], restored, restored_episodes
 
 

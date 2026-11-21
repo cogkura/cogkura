@@ -843,6 +843,12 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
         await _exercise_linked_mixed_before_correction(correction_memory)
         await correction_memory.clear(tenant_id="historical-candidate")
         await _exercise_contested_revision_snapshot(correction_memory)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_shared_contested_history(correction_memory)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_mixed_episode_after_correction(correction_memory)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_mixed_multiple_revisions(correction_memory)
     finally:
         await memory.clear(tenant_id="historical-candidate")
         await engine.dispose()
@@ -1031,3 +1037,271 @@ async def test_contested_revision_snapshots_memory_and_sqlite(tmp_path: Path) ->
     await _exercise_contested_revision_snapshot(Memory(**kwargs))
     async with await EmbeddedMemory.open(tmp_path / "contested.db", **kwargs) as memory:
         await _exercise_contested_revision_snapshot(memory)
+
+
+async def _exercise_shared_contested_history(
+    memory: Memory, *, remove_snapshot: bool = False
+) -> None:
+    from cogkura import SemanticKnowledgeState, SemanticSlotQuery
+
+    tenant = "historical-candidate"
+    facts = [
+        {
+            "subject_entity_id": "service",
+            "predicate": "deployment_policy",
+            "object_value": value,
+            "cardinality": "one",
+            "valid_from": _T0.isoformat(),
+            "valid_until": (_T0 + timedelta(days=10)).isoformat(),
+        }
+        for value in ("startup", "pipeline")
+    ]
+
+    async def observe(record: str, when: datetime, session: str) -> None:
+        await memory.observe(
+            ObservationInput(
+                tenant_id=tenant,
+                subject_id="service",
+                source_namespace="history-test",
+                source_record_id=record,
+                content=f"deployment policy startup pipeline {record}",
+                observed_at=when,
+                metadata={"conversation_id": session, "semantic_facts": facts},
+            )
+        )
+
+    await observe("first", _T0, "shared")
+    await observe("other", _T0, "other")
+    await memory.process(tenant_id=tenant, as_of=_T0)
+    slot = SemanticSlotQuery("service", "deployment_policy")
+    before_slot = await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=_T1)
+    assert before_slot.state is SemanticKnowledgeState.CONTESTED
+    before = {
+        factual_time: await memory.inspect_recall(
+            "deployment policy", tenant_id=tenant, as_of=_T1, valid_at=factual_time, limit=20
+        )
+        for factual_time in (None, _T1, _T2)
+    }
+    assert all(result.considered_count == 4 for result in before.values())
+    await observe("future secret", _T2, "shared")
+    await memory.process(tenant_id=tenant, as_of=_T2)
+    if remove_snapshot:
+        semantics = await memory.list_semantic_memories(tenant_id=tenant)
+        history = memory._semantic_store._semantic_history
+        history.pop((tenant, semantics[0].id))
+        result = await memory.inspect_recall("deployment policy", tenant_id=tenant, as_of=_T1)
+        candidates = (*result.returned, *result.rejected)
+        assert all("future secret" not in candidate.memory.statement for candidate in candidates)
+        assert all("first" not in candidate.memory.statement for candidate in candidates)
+        return
+    assert await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=_T1) == before_slot
+    for factual_time, expected in before.items():
+        assert (
+            await memory.inspect_recall(
+                "deployment policy", tenant_id=tenant, as_of=_T1, valid_at=factual_time, limit=20
+            )
+            == expected
+        )
+
+
+async def test_shared_contested_history_memory_and_sqlite(tmp_path: Path) -> None:
+    kwargs = {"activation_config": ActivationConfig(retrieval_threshold=-10)}
+    await _exercise_shared_contested_history(Memory(**kwargs))
+    await _exercise_shared_contested_history(Memory(**kwargs), remove_snapshot=True)
+    async with await EmbeddedMemory.open(tmp_path / "shared-contested.db", **kwargs) as memory:
+        await _exercise_shared_contested_history(memory)
+
+
+async def _exercise_mixed_episode_after_correction(memory: Memory) -> None:
+    from cogkura import SemanticSlotQuery
+
+    tenant = "historical-candidate"
+    fact = {
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    await _observe(memory, "original", "Service database postgresql.", _T0, semantic_facts=[fact])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T0)
+    predecessor = (await memory.list_semantic_revisions(tenant_id=tenant))[0].revision_key
+    replacement = {
+        **fact,
+        "object_value": "mysql",
+        "correction": {"replaces_revision_key": predecessor, "effective_at": _T1.isoformat()},
+    }
+    await _observe(
+        memory,
+        "correction",
+        "Service database mysql.",
+        _T1,
+        session_id="shared",
+        semantic_facts=[replacement],
+    )
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T1)
+    successor = next(
+        revision
+        for revision in await memory.list_semantic_revisions(tenant_id=tenant)
+        if revision.revision_key != predecessor
+    )
+    earlier = _T1 + timedelta(hours=12)
+    slot = SemanticSlotQuery("service", "database")
+    before_slot = await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=earlier)
+    before = {
+        valid_at: await memory.inspect_recall(
+            "database mysql", tenant_id=tenant, as_of=earlier, valid_at=valid_at, limit=20
+        )
+        for valid_at in (None, earlier, _T2)
+    }
+    await _observe(
+        memory,
+        "later",
+        "Service database mysql future.",
+        _T2,
+        session_id="shared",
+        semantic_facts=[{**fact, "object_value": "mysql"}],
+    )
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+    withdrawal_at = _T2 + timedelta(days=1)
+    await _observe(
+        memory,
+        "withdraw",
+        "Database claim withdrawn.",
+        withdrawal_at,
+        semantic_facts=[],
+        semantic_withdrawals=[
+            {
+                "target_revision_key": successor.revision_key,
+                "effective_at": withdrawal_at.isoformat(),
+                "authority": {"basis": "application_asserted"},
+            }
+        ],
+    )
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=withdrawal_at)
+    assert await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=earlier) == before_slot
+    for valid_at, expected in before.items():
+        assert (
+            await memory.inspect_recall(
+                "database mysql", tenant_id=tenant, as_of=earlier, valid_at=valid_at, limit=20
+            )
+            == expected
+        )
+    relations = await memory._semantic_store.historical_relations(
+        tenant_id=tenant, as_of=withdrawal_at
+    )
+    assert {relation.relation.value for relation in relations} >= {"supersedes"}
+
+
+async def test_mixed_episode_after_correction_memory_and_sqlite(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator, SemanticCorrectionConfig
+
+    kwargs = {
+        "activation_config": ActivationConfig(retrieval_threshold=-10),
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+        "semantic_correction_config": SemanticCorrectionConfig(enabled=True),
+    }
+    await _exercise_mixed_episode_after_correction(Memory(**kwargs))
+    async with await EmbeddedMemory.open(tmp_path / "mixed-transition.db", **kwargs) as memory:
+        await _exercise_mixed_episode_after_correction(memory)
+
+
+async def _exercise_mixed_multiple_revisions(memory: Memory) -> None:
+    from cogkura import SemanticSlotQuery
+
+    tenant = "historical-candidate"
+    fact = {
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    await _observe(memory, "original", "Service database postgresql.", _T0, semantic_facts=[fact])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T0)
+    original = (await memory.list_semantic_revisions(tenant_id=tenant))[0]
+    mysql = {
+        **fact,
+        "object_value": "mysql",
+        "correction": {
+            "replaces_revision_key": original.revision_key,
+            "effective_at": _T1.isoformat(),
+        },
+    }
+    await _observe(memory, "mysql", "Service database mysql.", _T1, semantic_facts=[mysql])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T1)
+    middle = next(
+        revision
+        for revision in await memory.list_semantic_revisions(tenant_id=tenant)
+        if revision.revision_key != original.revision_key
+    )
+    returned = {
+        **fact,
+        "correction": {
+            "replaces_revision_key": middle.revision_key,
+            "effective_at": _T2.isoformat(),
+        },
+    }
+    await _observe(
+        memory,
+        "return",
+        "Service database postgresql again.",
+        _T2,
+        session_id="shared",
+        semantic_facts=[returned],
+    )
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+    revisions = await memory.list_semantic_revisions(tenant_id=tenant)
+    assert (
+        len([revision for revision in revisions if revision.memory_key == original.memory_key]) == 2
+    )
+    current = next(
+        item
+        for item in await memory.list_semantic_memories(tenant_id=tenant)
+        if item.memory_key == original.memory_key
+    )
+    current_revision = next(r for r in revisions if r.revision_key == current.revision_key)
+    assert set(current.derivations) == set(current_revision.derivations)
+    assert len(current.derivations) == len(set(current.derivations))
+    as_of = _T2 + timedelta(hours=12)
+    later = _T2 + timedelta(days=1)
+    before = {
+        valid_at: await memory.inspect_recall(
+            "database postgresql", tenant_id=tenant, as_of=as_of, valid_at=valid_at, limit=20
+        )
+        for valid_at in (None, _T1, as_of)
+    }
+    slot = SemanticSlotQuery("service", "database")
+    before_slot = await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=as_of)
+    await _observe(
+        memory,
+        "future",
+        "Service database postgresql future.",
+        later,
+        session_id="shared",
+        semantic_facts=[fact],
+    )
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=later)
+    assert await memory.inspect_semantic_slot(slot, tenant_id=tenant, as_of=as_of) == before_slot
+    for valid_at, expected in before.items():
+        assert (
+            await memory.inspect_recall(
+                "database postgresql", tenant_id=tenant, as_of=as_of, valid_at=valid_at, limit=20
+            )
+            == expected
+        )
+
+
+async def test_mixed_multiple_revisions_memory_and_sqlite(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator, SemanticCorrectionConfig
+
+    kwargs = {
+        "activation_config": ActivationConfig(retrieval_threshold=-10),
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+        "semantic_correction_config": SemanticCorrectionConfig(enabled=True),
+    }
+    await _exercise_mixed_multiple_revisions(Memory(**kwargs))
+    async with await EmbeddedMemory.open(tmp_path / "multiple-revisions.db", **kwargs) as memory:
+        await _exercise_mixed_multiple_revisions(memory)
