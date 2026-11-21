@@ -33,6 +33,7 @@ from cogkura.models import (
     StoredSemanticMemory,
     StoredSemanticRevision,
 )
+from cogkura.storage.historical_snapshots import select_semantic_snapshot
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 from cogkura.storage.sqlite import SQLiteStorage, _datetime, _time
 
@@ -375,6 +376,53 @@ class SQLiteSemanticMemoryStore:
                 after._relations = dict(before._relations)
                 result = asyncio.run(operation(after))
                 _flush(conn, before, after)
+                if conn.execute(
+                    "SELECT 1 FROM schema_migrations WHERE version='006_semantic_history'"
+                ).fetchone():
+                    for (tenant, memory_id), versions in after._semantic_history.items():
+                        conn.executemany(
+                            "INSERT INTO semantic_history "
+                            "(tenant_id,memory_id,recorded_at,snapshot) "
+                            "VALUES (?,?,?,?)",
+                            [(tenant, memory_id, _time(at), payload) for at, payload in versions],
+                        )
+                conn.commit()
+                return result
+            except BaseException:
+                conn.rollback()
+                raise
+
+        return await self._storage._run(work)
+
+    async def historical_semantics(
+        self, *, tenant_id: str, memory_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticMemory]:
+        def work() -> dict[str, StoredSemanticMemory]:
+            conn = self._storage._conn()
+            result: dict[str, StoredSemanticMemory] = {}
+            conn.execute("BEGIN")
+            try:
+                exists = conn.execute(
+                    "SELECT 1 FROM schema_migrations WHERE version='006_semantic_history'"
+                ).fetchone()
+                ids = sorted(memory_ids) if exists else []
+                for i in range(0, len(ids), 500):
+                    chunk = ids[i : i + 500]
+                    marks = ",".join("?" for _ in chunk)
+                    rows = conn.execute(
+                        f"SELECT memory_id,recorded_at,snapshot FROM semantic_history "
+                        f"WHERE tenant_id=? AND memory_id IN ({marks}) ORDER BY sequence",
+                        (tenant_id, *chunk),
+                    )
+                    grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+                    for row in rows:
+                        at = _datetime(row["recorded_at"])
+                        assert at is not None
+                        grouped.setdefault(row["memory_id"], []).append((at, row["snapshot"]))
+                    for memory_id, versions in grouped.items():
+                        memory = select_semantic_snapshot(versions, as_of=as_of)
+                        if memory is not None:
+                            result[memory_id] = memory
                 conn.commit()
                 return result
             except BaseException:

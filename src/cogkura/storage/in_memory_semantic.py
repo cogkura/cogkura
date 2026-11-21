@@ -22,6 +22,10 @@ from cogkura.models import (
     StoredSemanticRevision,
 )
 from cogkura.storage.base import SemanticMemoryStore
+from cogkura.storage.historical_snapshots import (
+    encode_semantic_snapshot_or_none,
+    select_semantic_snapshot,
+)
 
 _List = list  # avoid shadowing by SemanticMemoryStore.list
 
@@ -33,6 +37,23 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         self._memories: dict[tuple[str, str], StoredSemanticMemory] = {}
         self._revisions: dict[tuple[str, str], StoredSemanticRevision] = {}
         self._relations: dict[tuple[str, str, str, str], tuple[str, str, str, str | None]] = {}
+        self._semantic_history: dict[tuple[str, str], list[tuple[datetime, str | None]]] = {}
+
+    def _record_history(self, memory: StoredSemanticMemory, now: datetime) -> None:
+        self._semantic_history.setdefault((memory.tenant_id, memory.id), []).append(
+            (now, encode_semantic_snapshot_or_none(memory))
+        )
+
+    async def historical_semantics(
+        self, *, tenant_id: str, memory_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticMemory]:
+        result = {}
+        for memory_id in memory_ids:
+            versions = self._semantic_history.get((tenant_id, memory_id), [])
+            memory = select_semantic_snapshot(versions, as_of=as_of)
+            if memory is not None:
+                result[memory_id] = memory
+        return result
 
     def _memory_key(self, tenant_id: str, memory_key: str) -> tuple[str, str]:
         return (tenant_id, memory_key)
@@ -58,10 +79,12 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
                 memory, memory_id=existing.id, created_at=existing.created_at, now=now
             )
             self._memories[key] = stored
+            self._record_history(stored, now)
             return SemanticWriteStatus.UPDATED
 
         stored = _stored_from_input(memory, memory_id=str(uuid4()), created_at=now, now=now)
         self._memories[key] = stored
+        self._record_history(stored, now)
         return SemanticWriteStatus.CREATED
 
     async def list(
@@ -271,6 +294,10 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         self._memories = memories
         self._revisions = revisions
         self._relations = relations
+        for memory in plan.current_memories:
+            self._record_history(
+                memories[self._memory_key(memory.tenant_id, memory.memory_key)], now
+            )
         return SemanticReconciliationWriteResult(
             created=created,
             updated=updated,
@@ -396,6 +423,7 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
                 created_at=memory.created_at,
                 updated_at=now,
             )
+            self._record_history(self._memories[key], now)
             deactivated += 1
         return deactivated
 
@@ -409,6 +437,8 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         relation_keys = [key for key in self._relations if key[0] == tenant_id]
         for relation_key in relation_keys:
             del self._relations[relation_key]
+        for key in [key for key in self._semantic_history if key[0] == tenant_id]:
+            del self._semantic_history[key]
 
 
 def _stored_from_input(

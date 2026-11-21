@@ -122,6 +122,21 @@ def select_episode_snapshot(
     a backdated write invalidates the entire sequence because it cannot prove
     what was known at an earlier point.
     """
+    memory = _select_snapshot(versions, as_of=as_of)
+    return memory if isinstance(memory, StoredEpisode) else None
+
+
+def select_semantic_snapshot(
+    versions: list[tuple[datetime, str | None]], *, as_of: datetime
+) -> StoredSemanticMemory | None:
+    """Select a semantic snapshot under the same conservative ordering rules."""
+    memory = _select_snapshot(versions, as_of=as_of)
+    return memory if isinstance(memory, StoredSemanticMemory) else None
+
+
+def _select_snapshot(
+    versions: list[tuple[datetime, str | None]], *, as_of: datetime
+) -> StoredEpisode | StoredSemanticMemory | None:
     if any(earlier[0] > later[0] for earlier, later in zip(versions, versions[1:], strict=False)):
         return None
     matches = [payload for recorded_at, payload in versions if recorded_at <= as_of]
@@ -131,13 +146,21 @@ def select_episode_snapshot(
         memory = decode_memory_snapshot(matches[-1])
     except StorageError:
         return None
-    return memory if isinstance(memory, StoredEpisode) else None
+    return memory
 
 
 def encode_episode_snapshot_or_none(episode: StoredEpisode) -> str | None:
     """Mark unsupported metadata unavailable without breaking existing writes."""
     try:
         return encode_memory_snapshot(episode)
+    except (TypeError, ValueError):
+        return None
+
+
+def encode_semantic_snapshot_or_none(memory: StoredSemanticMemory) -> str | None:
+    """Mark unsupported semantic metadata unavailable without breaking writes."""
+    try:
+        return encode_memory_snapshot(memory)
     except (TypeError, ValueError):
         return None
 

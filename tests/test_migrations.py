@@ -47,6 +47,7 @@ async def test_migration_files_are_ordered() -> None:
         "010_retrieval_inhibition.sql",
         "011_semantic_revision_snapshots.sql",
         "012_episode_history.sql",
+        "013_semantic_history.sql",
     ]
 
 
@@ -72,6 +73,7 @@ async def test_apply_migrations_is_idempotent(memory_engine: AsyncEngine) -> Non
         "010_retrieval_inhibition",
         "011_semantic_revision_snapshots",
         "012_episode_history",
+        "013_semantic_history",
     ]
 
 

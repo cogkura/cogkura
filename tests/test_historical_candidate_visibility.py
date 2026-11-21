@@ -288,7 +288,7 @@ async def test_knowledge_time_does_not_exclude_known_future_validity() -> None:
     assert inspection.considered_count == 2
 
 
-async def test_mixed_time_semantic_support_is_omitted_from_historical_recall() -> None:
+async def test_mixed_time_semantic_support_is_restored_from_snapshot() -> None:
     from cogkura import ComplementaryLearningSemanticConsolidator
 
     memory = Memory(
@@ -315,6 +315,137 @@ async def test_mixed_time_semantic_support_is_omitted_from_historical_recall() -
         after = await memory.inspect_recall(
             "database PostgreSQL", tenant_id="historical-candidate", as_of=_T1, valid_at=valid_at
         )
-        # With explicit factual time the store can project an earlier semantic
-        # revision; without it the mixed current aggregate must be excluded.
-        assert after.considered_count == (1 if valid_at is None else 2)
+        assert after.considered_count == 2
+
+
+async def _exercise_semantic_snapshots(memory: Memory) -> None:
+    fact = {
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    tenant = "historical-candidate"
+    await _observe(memory, "known", "Service database PostgreSQL.", _T0, semantic_facts=[fact])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T0)
+    before = (await memory.list_semantic_memories(tenant_id=tenant))[0]
+    before_recall = await memory.recall("database PostgreSQL", tenant_id=tenant, as_of=_T1)
+    await _observe(memory, "later", "PostgreSQL remains the database.", _T2, semantic_facts=[fact])
+    await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+    after = (await memory.list_semantic_memories(tenant_id=tenant))[0]
+    assert after.support_count > before.support_count
+    snapshot = await memory._semantic_store.historical_semantics(
+        tenant_id=tenant, memory_ids={before.id}, as_of=_T1
+    )
+    assert snapshot == {before.id: before}
+    assert (
+        await memory._semantic_store.historical_semantics(
+            tenant_id="other", memory_ids={before.id}, as_of=_T1
+        )
+        == {}
+    )
+    assert await memory.recall("database PostgreSQL", tenant_id=tenant, as_of=_T1) == before_recall
+    inspection = await memory.inspect_recall("database PostgreSQL", tenant_id=tenant, as_of=_T1)
+    assert inspection.considered_count == 2
+
+
+async def test_semantic_snapshots_memory_and_sqlite(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator
+
+    consolidator = ComplementaryLearningSemanticConsolidator(
+        allow_authoritative_single_episode=True
+    )
+    await _exercise_semantic_snapshots(Memory(semantic_consolidator=consolidator))
+    async with await EmbeddedMemory.open(
+        tmp_path / "semantic-history.db", semantic_consolidator=consolidator
+    ) as memory:
+        await _exercise_semantic_snapshots(memory)
+    async with await EmbeddedMemory.open(
+        tmp_path / "semantic-history.db", semantic_consolidator=consolidator
+    ) as memory:
+        inspection = await memory.inspect_recall(
+            "database PostgreSQL", tenant_id="historical-candidate", as_of=_T1
+        )
+        assert inspection.considered_count == 2
+
+
+async def test_semantic_history_fails_closed_when_reconciliation_is_backdated() -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator
+
+    memory = Memory(
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        )
+    )
+    await _exercise_semantic_snapshots(memory)
+    await memory.consolidate_semantics(tenant_id="historical-candidate", as_of=_T0)
+    inspection = await memory.inspect_recall(
+        "database PostgreSQL", tenant_id="historical-candidate", as_of=_T1
+    )
+    assert inspection.considered_count == 1
+
+
+async def test_semantic_snapshot_failure_rolls_back_sqlite_reconciliation(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator
+    from cogkura.exceptions import StorageError
+
+    fact = {
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    owner = await EmbeddedMemory.open(
+        tmp_path / "semantic-atomic.db",
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+    )
+    async with owner as memory:
+        await _observe(memory, "known", "Service database PostgreSQL.", _T0, semantic_facts=[fact])
+        await memory.consolidate_semantics(tenant_id="historical-candidate", as_of=_T0)
+        before = await memory.list_semantic_memories(tenant_id="historical-candidate")
+        await _observe(
+            memory, "later", "PostgreSQL remains the database.", _T2, semantic_facts=[fact]
+        )
+        await owner._storage._run(
+            lambda: owner._storage._conn().execute(
+                "CREATE TRIGGER fail_semantic_history BEFORE INSERT ON semantic_history "
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+            )
+        )
+        with pytest.raises(StorageError):
+            await memory.consolidate_semantics(tenant_id="historical-candidate", as_of=_T2)
+        assert await memory.list_semantic_memories(tenant_id="historical-candidate") == before
+
+
+@pytest.mark.postgres
+async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> None:
+    if not postgres_memory_url:
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from cogkura import ComplementaryLearningSemanticConsolidator
+    from cogkura.migrations import apply_migrations
+    from cogkura.storage.postgres import (
+        PostgresEpisodeStore,
+        PostgresObservationStore,
+        PostgresSemanticMemoryStore,
+    )
+
+    engine = create_async_engine(postgres_memory_url)
+    await apply_migrations(engine)
+    memory = Memory(
+        observation_store=PostgresObservationStore(engine),
+        episode_store=PostgresEpisodeStore(engine),
+        semantic_store=PostgresSemanticMemoryStore(engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+    )
+    try:
+        await memory.clear(tenant_id="historical-candidate")
+        await _exercise_semantic_snapshots(memory)
+    finally:
+        await memory.clear(tenant_id="historical-candidate")
+        await engine.dispose()

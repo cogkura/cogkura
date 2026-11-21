@@ -82,7 +82,9 @@ from cogkura.storage.base import (
 )
 from cogkura.storage.historical_snapshots import (
     encode_episode_snapshot_or_none,
+    encode_semantic_snapshot_or_none,
     select_episode_snapshot,
+    select_semantic_snapshot,
 )
 
 
@@ -1175,6 +1177,55 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
 
+    async def _record_history(self, conn: Any, memory_id: str, now: datetime) -> None:
+        memory = await self._load_semantic_from_connection(conn, memory_id)
+        await conn.execute(
+            text(
+                f"INSERT INTO {self._table('semantic_history')} "
+                "(tenant_id,memory_id,recorded_at,snapshot) "
+                "VALUES (:tenant,:id,:now,CAST(:snapshot AS jsonb))"
+            ),
+            {
+                "tenant": memory.tenant_id,
+                "id": memory_id,
+                "now": now,
+                "snapshot": encode_semantic_snapshot_or_none(memory),
+            },
+        )
+
+    async def historical_semantics(
+        self, *, tenant_id: str, memory_ids: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticMemory]:
+        if not memory_ids:
+            return {}
+        async with self._engine.connect() as conn:
+            rows = (
+                (
+                    await conn.execute(
+                        text(
+                            "SELECT memory_id,recorded_at,snapshot "
+                            f"FROM {self._table('semantic_history')} "
+                            "WHERE tenant_id=:tenant AND memory_id=ANY(CAST(:ids AS uuid[])) "
+                            "ORDER BY sequence"
+                        ),
+                        {"tenant": tenant_id, "ids": list(memory_ids)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+        for row in rows:
+            raw = row["snapshot"]
+            payload = json.dumps(raw) if raw is not None and not isinstance(raw, str) else raw
+            grouped.setdefault(str(row["memory_id"]), []).append((row["recorded_at"], payload))
+        result = {}
+        for memory_id, versions in grouped.items():
+            memory = select_semantic_snapshot(versions, as_of=as_of)
+            if memory is not None:
+                result[memory_id] = memory
+        return result
+
     async def upsert(
         self,
         memory: SemanticMemoryInput,
@@ -1222,68 +1273,73 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
 
     async def _load_semantic(self, memory_id: str) -> StoredSemanticMemory:
         async with self._engine.connect() as conn:
-            memory = await conn.execute(
-                text(
-                    f"""
-                    SELECT
-                        m.id, m.tenant_id, m.subject_id, m.memory_key, m.statement,
-                        m.confidence, m.importance, m.valid_from, m.valid_until,
-                        m.is_active, m.metadata, m.created_at, m.updated_at,
-                        c.slot_key, c.subject_entity_id, c.predicate, c.object_value,
-                        c.object_entity_id, c.polarity, c.cardinality, c.qualifiers,
-                        c.status, c.support_count, c.contradiction_count,
-                        c.first_supported_at, c.last_supported_at,
-                        c.current_revision_key,
-                        COALESCE(r.revision_number, 1) AS revision_number
-                    FROM {self._table("memories")} AS m
-                    JOIN {self._table("semantic_claims")} AS c
-                      ON c.memory_id = m.id
-                    LEFT JOIN {self._table("semantic_claim_revisions")} AS r
-                      ON r.revision_key = c.current_revision_key
-                    WHERE m.id = :id
-                    """
-                ),
-                {"id": memory_id},
-            )
-            memory_row = memory.mappings().first()
-            if memory_row is None:
-                raise StorageError(f"Semantic memory {memory_id} not found.")
+            return await self._load_semantic_from_connection(conn, memory_id)
 
-            derivation_result = await conn.execute(
-                text(
-                    f"""
-                    SELECT source_memory_id, relation, contribution_score
-                    FROM {self._table("memory_derivations")}
-                    WHERE target_memory_id = :memory_id
-                    ORDER BY source_memory_id, relation
-                    """
-                ),
-                {"memory_id": memory_id},
-            )
-            evidence_result = await conn.execute(
-                text(
-                    f"""
-                    SELECT
-                        observation_id, observation_revision,
-                        sequence_number, contribution_score
-                    FROM {self._table("memory_evidence")}
-                    WHERE memory_id = :memory_id
-                    ORDER BY sequence_number
-                    """
-                ),
-                {"memory_id": memory_id},
-            )
-            entity_result = await conn.execute(
-                text(
-                    f"""
-                    SELECT entity_id, entity_role
-                    FROM {self._table("memory_entities")}
-                    WHERE memory_id = :memory_id
-                    ORDER BY entity_id, entity_role
-                    """
-                ),
-                {"memory_id": memory_id},
-            )
+    async def _load_semantic_from_connection(
+        self, conn: Any, memory_id: str
+    ) -> StoredSemanticMemory:
+        memory = await conn.execute(
+            text(
+                f"""
+                SELECT
+                    m.id, m.tenant_id, m.subject_id, m.memory_key, m.statement,
+                    m.confidence, m.importance, m.valid_from, m.valid_until,
+                    m.is_active, m.metadata, m.created_at, m.updated_at,
+                    c.slot_key, c.subject_entity_id, c.predicate, c.object_value,
+                    c.object_entity_id, c.polarity, c.cardinality, c.qualifiers,
+                    c.status, c.support_count, c.contradiction_count,
+                    c.first_supported_at, c.last_supported_at,
+                    c.current_revision_key,
+                    COALESCE(r.revision_number, 1) AS revision_number
+                FROM {self._table("memories")} AS m
+                JOIN {self._table("semantic_claims")} AS c
+                  ON c.memory_id = m.id
+                LEFT JOIN {self._table("semantic_claim_revisions")} AS r
+                  ON r.revision_key = c.current_revision_key
+                WHERE m.id = :id
+                """
+            ),
+            {"id": memory_id},
+        )
+        memory_row = memory.mappings().first()
+        if memory_row is None:
+            raise StorageError(f"Semantic memory {memory_id} not found.")
+
+        derivation_result = await conn.execute(
+            text(
+                f"""
+                SELECT source_memory_id, relation, contribution_score
+                FROM {self._table("memory_derivations")}
+                WHERE target_memory_id = :memory_id
+                ORDER BY source_memory_id, relation
+                """
+            ),
+            {"memory_id": memory_id},
+        )
+        evidence_result = await conn.execute(
+            text(
+                f"""
+                SELECT
+                    observation_id, observation_revision,
+                    sequence_number, contribution_score
+                FROM {self._table("memory_evidence")}
+                WHERE memory_id = :memory_id
+                ORDER BY sequence_number
+                """
+            ),
+            {"memory_id": memory_id},
+        )
+        entity_result = await conn.execute(
+            text(
+                f"""
+                SELECT entity_id, entity_role
+                FROM {self._table("memory_entities")}
+                WHERE memory_id = :memory_id
+                ORDER BY entity_id, entity_role
+                """
+            ),
+            {"memory_id": memory_id},
+        )
         return self._to_stored(
             memory_row,
             derivation_result.mappings().all(),
@@ -1293,6 +1349,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
 
     async def _create(self, memory: SemanticMemoryInput, *, as_of: datetime | None = None) -> None:
         memory_id = str(uuid4())
+        now = as_of.astimezone(UTC) if as_of is not None else datetime.now(UTC)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -1310,7 +1367,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     )
                     """
                 ),
-                self._memory_params(memory_id, memory, as_of=as_of),
+                self._memory_params(memory_id, memory, as_of=now),
             )
             await self._upsert_claim(conn, memory_id, memory)
             await self._replace_derivations(
@@ -1322,6 +1379,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             )
             await self._replace_evidence(conn, memory_id, memory.observation_evidence)
             await self._replace_entities(conn, memory_id, memory.entities)
+            await self._record_history(conn, memory_id, now)
 
     async def _update(
         self,
@@ -1372,6 +1430,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
             )
             await self._replace_evidence(conn, memory_id, memory.observation_evidence)
             await self._replace_entities(conn, memory_id, memory.entities)
+            await self._record_history(conn, memory_id, now)
 
     async def _upsert_claim(
         self,
@@ -2098,6 +2157,10 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 if result.rowcount:
                     relations_written += 1
 
+            for memory in plan.current_memories:
+                memory_id = memory_ids[(memory.tenant_id, memory.memory_key)]
+                await self._record_history(conn, memory_id, now)
+
         return SemanticReconciliationWriteResult(
             created=created,
             updated=updated,
@@ -2247,6 +2310,7 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     ),
                     {"id": str(row["id"]), "now": now},
                 )
+                await self._record_history(conn, str(row["id"]), now)
             deactivated += 1
         return deactivated
 

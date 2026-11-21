@@ -629,6 +629,24 @@ class Memory:
             retracted=retracted_semantics,
             projection_bases=projection_bases,
         )
+        if valid_at is None:
+            semantic_memories, historical_semantics = await _project_reinforced_semantics(
+                semantic_memories,
+                revisions,
+                trace_episode_by_id,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                as_of=evaluation_time,
+            )
+            if historical_semantics:
+                all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
+                episode_support_index = build_episode_support_index(
+                    [*all_semantics, *retracted_semantics]
+                )
+                episode_slot_index = build_episode_slot_index(all_semantics)
+                episode_support_provenance_index = build_episode_support_provenance_index(
+                    all_semantics
+                )
         hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
@@ -860,6 +878,24 @@ class Memory:
             retracted=retracted_semantics,
             projection_bases=projection_bases,
         )
+        if valid_at is None:
+            semantic_memories, historical_semantics = await _project_reinforced_semantics(
+                semantic_memories,
+                revisions,
+                trace_episode_by_id,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                as_of=evaluation_time,
+            )
+            if historical_semantics:
+                all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
+                episode_support_index = build_episode_support_index(
+                    [*all_semantics, *retracted_semantics]
+                )
+                episode_slot_index = build_episode_slot_index(all_semantics)
+                episode_support_provenance_index = build_episode_support_provenance_index(
+                    all_semantics
+                )
         hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
@@ -2406,6 +2442,67 @@ def _memory_key_from_result(result: RecallResult) -> str:
     if isinstance(memory, StoredSemanticMemory):
         return memory.memory_key
     raise ValidationError("Unsupported memory type for access recording.")
+
+
+async def _project_reinforced_semantics(
+    memories: Sequence[StoredSemanticMemory],
+    revisions: Sequence[StoredSemanticRevision],
+    episode_by_id: Mapping[str, StoredEpisode],
+    *,
+    store: SemanticMemoryStore,
+    tenant_id: str,
+    as_of: datetime,
+) -> tuple[list[StoredSemanticMemory], dict[str, StoredSemanticMemory]]:
+    """Restore same-revision reinforcement only when all supporting state is known."""
+    read_history = getattr(store, "historical_semantics", None)
+    if read_history is None:
+        return list(memories), {}
+    by_key: dict[str, list[StoredSemanticRevision]] = {}
+    for revision in revisions:
+        by_key.setdefault(revision.memory_key, []).append(revision)
+    eligible = {}
+    for memory in memories:
+        history = by_key.get(memory.memory_key, [])
+        if (
+            memory.first_supported_at <= as_of < memory.last_supported_at
+            and memory.status is SemanticMemoryStatus.ACTIVE
+            and len(history) == 1
+            and history[0].revision_key == memory.revision_key
+            and history[0].snapshot.get("slot_key") == memory.slot_key
+            and not any(
+                other.memory_key != memory.memory_key
+                and other.snapshot.get("slot_key") == memory.slot_key
+                for other in revisions
+            )
+            and not any(
+                key in history[0].snapshot for key in ("correction", "withdrawal", "closed_by")
+            )
+        ):
+            eligible[memory.id] = memory
+    if not eligible:
+        return list(memories), {}
+    snapshots = await read_history(tenant_id=tenant_id, memory_ids=set(eligible), as_of=as_of)
+    restored = {}
+    for memory_id, snapshot in snapshots.items():
+        current = eligible.get(memory_id)
+        if (
+            current is None
+            or snapshot.revision_key != current.revision_key
+            or not snapshot.is_active
+            or snapshot.status is not SemanticMemoryStatus.ACTIVE
+        ):
+            continue
+        if snapshot.last_supported_at > as_of:
+            continue
+        if any(
+            item.episode_id not in episode_by_id
+            or episode_by_id[item.episode_id].ended_at > as_of
+            or episode_by_id[item.episode_id].updated_at > as_of
+            for item in snapshot.derivations
+        ):
+            continue
+        restored[memory_id] = snapshot
+    return [restored.get(memory.id, memory) for memory in memories], restored
 
 
 async def _project_mixed_time_episodes(

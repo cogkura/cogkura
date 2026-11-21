@@ -116,6 +116,8 @@ def _initialize(conn: sqlite3.Connection) -> None:
             )
         if "005_episode_history" in expected:
             required.add("episode_history")
+        if "006_semantic_history" in expected:
+            required.add("semantic_history")
         actual = {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
