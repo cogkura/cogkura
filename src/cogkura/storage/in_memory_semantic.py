@@ -23,7 +23,9 @@ from cogkura.models import (
 )
 from cogkura.storage.base import SemanticMemoryStore
 from cogkura.storage.historical_snapshots import (
+    encode_revision_snapshot_or_none,
     encode_semantic_snapshot_or_none,
+    select_revision_snapshot,
     select_semantic_snapshot,
 )
 
@@ -38,6 +40,27 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         self._revisions: dict[tuple[str, str], StoredSemanticRevision] = {}
         self._relations: dict[tuple[str, str, str, str], tuple[str, str, str, str | None]] = {}
         self._semantic_history: dict[tuple[str, str], list[tuple[datetime, str | None]]] = {}
+        self._revision_history: dict[tuple[str, str], list[tuple[datetime, str | None]]] = {}
+        self._relation_history: list[tuple[datetime, SemanticRevisionRelation]] = []
+
+    async def historical_revisions(
+        self, *, tenant_id: str, revision_keys: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticRevision]:
+        results = {}
+        for key in revision_keys:
+            versions = self._revision_history.get((tenant_id, key), [])
+            revision = select_revision_snapshot(versions, as_of=as_of)
+            if revision is not None:
+                results[key] = revision
+        return results
+
+    async def historical_relations(
+        self, *, tenant_id: str, as_of: datetime
+    ) -> list[SemanticRevisionRelation]:
+        entries = [(at, r) for at, r in self._relation_history if r.tenant_id == tenant_id]
+        if any(a[0] > b[0] for a, b in zip(entries, entries[1:], strict=False)):
+            return []
+        return [relation for at, relation in entries if at <= as_of]
 
     def _record_history(self, memory: StoredSemanticMemory, now: datetime) -> None:
         self._semantic_history.setdefault((memory.tenant_id, memory.id), []).append(
@@ -226,6 +249,7 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         revisions_created = 0
         revisions_updated = 0
         relations_written = 0
+        new_relations: list[SemanticRevisionRelation] = []
 
         for revision in plan.revisions:
             key = self._revision_key(revision.tenant_id, revision.revision_key)
@@ -284,6 +308,7 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
             )
             if rel_key not in relations:
                 relations_written += 1
+                new_relations.append(relation)
             relations[rel_key] = (
                 relation.left_revision_key,
                 relation.right_revision_key,
@@ -294,6 +319,12 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
         self._memories = memories
         self._revisions = revisions
         self._relations = relations
+        for revision in plan.revisions:
+            key = self._revision_key(revision.tenant_id, revision.revision_key)
+            self._revision_history.setdefault(key, []).append(
+                (now, encode_revision_snapshot_or_none(revisions[key]))
+            )
+        self._relation_history.extend((now, relation) for relation in new_relations)
         for memory in plan.current_memories:
             self._record_history(
                 memories[self._memory_key(memory.tenant_id, memory.memory_key)], now
@@ -439,6 +470,11 @@ class InMemorySemanticMemoryStore(SemanticMemoryStore):
             del self._relations[relation_key]
         for key in [key for key in self._semantic_history if key[0] == tenant_id]:
             del self._semantic_history[key]
+        for key in [key for key in self._revision_history if key[0] == tenant_id]:
+            del self._revision_history[key]
+        self._relation_history = [
+            (at, r) for at, r in self._relation_history if r.tenant_id != tenant_id
+        ]
 
 
 def _stored_from_input(

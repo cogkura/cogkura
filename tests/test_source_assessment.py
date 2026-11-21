@@ -693,8 +693,13 @@ async def test_unsupported_ordinary_history_exposes_no_present_status_or_false_c
 ):
     m = memory()
     await adopt(m)
-    # Reinforcement updates a revision without retaining all previous counter states.
+    # A retained earlier revision resolves the historical state.
     await m.process(tenant_id=TENANT, as_of=T0 + timedelta(days=2))
+    retained = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0 + timedelta(days=1))
+    assert retained.state is SemanticKnowledgeState.KNOWN
+    # Legacy databases without version records must remain indeterminate.
+    assert isinstance(m._semantic_store, InMemorySemanticMemoryStore)
+    m._semantic_store._revision_history.clear()
     report = await m.inspect_semantic_slot(SLOT, tenant_id=TENANT, as_of=T0 + timedelta(days=1))
     assert report.state is SemanticKnowledgeState.INDETERMINATE
     assert report.conflict.state is SourceConflictState.INDETERMINATE

@@ -33,7 +33,7 @@ from cogkura.models import (
     StoredSemanticMemory,
     StoredSemanticRevision,
 )
-from cogkura.storage.historical_snapshots import select_semantic_snapshot
+from cogkura.storage.historical_snapshots import select_revision_snapshot, select_semantic_snapshot
 from cogkura.storage.in_memory_semantic import InMemorySemanticMemoryStore
 from cogkura.storage.sqlite import SQLiteStorage, _datetime, _time
 
@@ -386,11 +386,103 @@ class SQLiteSemanticMemoryStore:
                             "VALUES (?,?,?,?)",
                             [(tenant, memory_id, _time(at), payload) for at, payload in versions],
                         )
+                if conn.execute(
+                    "SELECT 1 FROM schema_migrations WHERE version='007_revision_history'"
+                ).fetchone():
+                    for (tenant, key), versions in after._revision_history.items():
+                        conn.executemany(
+                            "INSERT INTO semantic_revision_history "
+                            "(tenant_id,revision_key,recorded_at,snapshot) VALUES (?,?,?,?)",
+                            [(tenant, key, _time(at), payload) for at, payload in versions],
+                        )
+                    conn.executemany(
+                        "INSERT INTO semantic_relation_history "
+                        "(tenant_id,left_revision_key,right_revision_key,"
+                        "relation,effective_at,recorded_at) "
+                        "VALUES (?,?,?,?,?,?)",
+                        [
+                            (
+                                r.tenant_id,
+                                r.left_revision_key,
+                                r.right_revision_key,
+                                r.relation.value,
+                                _time(r.effective_at) if r.effective_at else None,
+                                _time(at),
+                            )
+                            for at, r in after._relation_history
+                        ],
+                    )
                 conn.commit()
                 return result
             except BaseException:
                 conn.rollback()
                 raise
+
+        return await self._storage._run(work)
+
+    async def historical_revisions(
+        self, *, tenant_id: str, revision_keys: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticRevision]:
+        def work() -> dict[str, StoredSemanticRevision]:
+            conn = self._storage._conn()
+            result: dict[str, StoredSemanticRevision] = {}
+            conn.execute("BEGIN")
+            try:
+                exists = conn.execute(
+                    "SELECT 1 FROM schema_migrations WHERE version='007_revision_history'"
+                ).fetchone()
+                keys = sorted(revision_keys) if exists else []
+                for i in range(0, len(keys), 500):
+                    chunk = keys[i : i + 500]
+                    marks = ",".join("?" for _ in chunk)
+                    grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+                    for row in conn.execute(
+                        f"SELECT revision_key,recorded_at,snapshot FROM semantic_revision_history "
+                        f"WHERE tenant_id=? AND revision_key IN ({marks}) ORDER BY sequence",
+                        (tenant_id, *chunk),
+                    ):
+                        at = _datetime(row["recorded_at"])
+                        assert at is not None
+                        grouped.setdefault(row["revision_key"], []).append((at, row["snapshot"]))
+                    for key, versions in grouped.items():
+                        revision = select_revision_snapshot(versions, as_of=as_of)
+                        if revision is not None:
+                            result[key] = revision
+                conn.commit()
+                return result
+            except BaseException:
+                conn.rollback()
+                raise
+
+        return await self._storage._run(work)
+
+    async def historical_relations(
+        self, *, tenant_id: str, as_of: datetime
+    ) -> list[SemanticRevisionRelation]:
+        def work() -> list[SemanticRevisionRelation]:
+            conn = self._storage._conn()
+            if not conn.execute(
+                "SELECT 1 FROM schema_migrations WHERE version='007_revision_history'"
+            ).fetchone():
+                return []
+            rows = conn.execute(
+                "SELECT * FROM semantic_relation_history WHERE tenant_id=? ORDER BY sequence",
+                (tenant_id,),
+            ).fetchall()
+            times = [_datetime(row["recorded_at"]) for row in rows]
+            if any(a is None or b is None or a > b for a, b in zip(times, times[1:], strict=False)):
+                return []
+            return [
+                SemanticRevisionRelation(
+                    tenant_id=tenant_id,
+                    left_revision_key=row["left_revision_key"],
+                    right_revision_key=row["right_revision_key"],
+                    relation=SemanticUpdateRelation(row["relation"]),
+                    effective_at=_datetime(row["effective_at"]),
+                )
+                for row in rows
+                if (at := _datetime(row["recorded_at"])) is not None and at <= as_of
+            ]
 
         return await self._storage._run(work)
 

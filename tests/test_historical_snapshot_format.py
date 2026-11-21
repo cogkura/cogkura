@@ -7,7 +7,12 @@ import pytest
 
 from cogkura import ComplementaryLearningSemanticConsolidator, Memory, ObservationInput
 from cogkura.exceptions import StorageError
-from cogkura.storage.historical_snapshots import decode_memory_snapshot, encode_memory_snapshot
+from cogkura.storage.historical_snapshots import (
+    decode_memory_snapshot,
+    encode_memory_snapshot,
+    encode_revision_snapshot_or_none,
+    select_revision_snapshot,
+)
 
 
 async def test_round_trip_derived_memories() -> None:
@@ -42,10 +47,16 @@ async def test_round_trip_derived_memories() -> None:
     await memory.consolidate_semantics(tenant_id="tenant", as_of=at)
     episodes = await memory.list_episodes(tenant_id="tenant")
     semantics = await memory.list_semantic_memories(tenant_id="tenant")
+    revisions = await memory.list_semantic_revisions(tenant_id="tenant")
     assert len(episodes) == len(semantics) == 1
     assert episodes[0].evidence and semantics[0].derivations
     for original in (*episodes, *semantics):
         assert decode_memory_snapshot(encode_memory_snapshot(original)) == original
+    assert len(revisions) == 1
+    payload = encode_revision_snapshot_or_none(revisions[0])
+    assert payload is not None
+    assert select_revision_snapshot([(at, payload)], as_of=at) == revisions[0]
+    assert select_revision_snapshot([(at, "invalid")], as_of=at) is None
 
     nested = {"values": ["before"]}
     captured = encode_memory_snapshot(replace(episodes[0], metadata=nested))

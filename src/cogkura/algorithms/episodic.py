@@ -153,7 +153,13 @@ def _partition_observations(
             grouping.group_value,
         )
         partitions.setdefault(partition_key, []).append(observation)
-    return [partitions[key] for key in sorted(partitions)]
+    return [
+        partitions[key]
+        for key in sorted(
+            partitions,
+            key=lambda key: (key[0], key[1], key[2], key[3] or "", key[4] or ""),
+        )
+    ]
 
 
 def _segment_partition(

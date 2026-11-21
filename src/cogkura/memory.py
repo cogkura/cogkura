@@ -32,6 +32,7 @@ from cogkura.algorithms.context_matching import (
 from cogkura.algorithms.corrections import (
     apply_explicit_semantic_edits,
     hidden_current_episode_ids,
+    memory_from_revision_snapshot,
     project_known_semantics,
     qualify_explicit_corrections,
     recover_closed_correction_links,
@@ -53,6 +54,7 @@ from cogkura.algorithms.metamemory import DeterministicMemoryMonitor, MemoryMoni
 from cogkura.algorithms.reconsolidation import (
     DeterministicSemanticReconciler,
     SemanticReconciler,
+    revision_valid_at,
 )
 from cogkura.algorithms.semantic import (
     ComplementaryLearningSemanticConsolidator,
@@ -560,15 +562,23 @@ class Memory:
             self._episode_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
-                include_inactive=False,
+                include_inactive=True,
             ),
             self._semantic_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
-                include_inactive=False,
+                include_inactive=valid_at is None,
                 valid_at=valid_at,
             ),
         )
+        if valid_at is not None:
+            semantic_memories = await _filter_inactive_factual_semantics(
+                semantic_memories,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                as_of=evaluation_time,
+            )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
         retracted_semantics: Sequence[StoredSemanticMemory] = ()
         projection_bases: Sequence[StoredSemanticMemory] = ()
@@ -600,11 +610,12 @@ class Memory:
                     status=SemanticMemoryStatus.RETRACTED,
                 ),
             ]
-        all_semantics = [*semantic_memories, *superseded_semantics]
+        all_semantics = [*(m for m in semantic_memories if m.is_active), *superseded_semantics]
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
-        trace_episode_by_id = {episode.id: episode for episode in episodes}
+        loaded_episode_by_id = {episode.id: episode for episode in episodes}
+        trace_episode_by_id = {episode.id: episode for episode in episodes if episode.is_active}
         episodes = await _project_mixed_time_episodes(
             episodes,
             [*all_semantics, *retracted_semantics, *projection_bases],
@@ -620,33 +631,79 @@ class Memory:
                 subject_id=subject_id,
             )
         )
+        (
+            projection_revisions,
+            revision_snapshots,
+            unavailable_revisions,
+        ) = await _historical_projection_revisions(
+            revisions, store=self._semantic_store, tenant_id=tenant_id, as_of=evaluation_time
+        )
         semantic_memories = project_known_semantics(
             semantic_memories,
             superseded_semantics,
-            revisions,
+            projection_revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
             retracted=retracted_semantics,
             projection_bases=projection_bases,
         )
-        if valid_at is None:
-            semantic_memories, historical_semantics = await _project_reinforced_semantics(
-                semantic_memories,
-                revisions,
-                trace_episode_by_id,
-                store=self._semantic_store,
-                tenant_id=tenant_id,
-                as_of=evaluation_time,
+        if unavailable_revisions:
+            semantic_memories = [
+                m for m in semantic_memories if m.revision_key not in unavailable_revisions
+            ]
+            all_semantics = [
+                m for m in all_semantics if m.revision_key not in unavailable_revisions
+            ]
+        if revision_snapshots or unavailable_revisions:
+            semantic_memories = _restore_historical_revision_memories(
+                semantic_memories, projection_revisions, revision_snapshots, valid_at=valid_at
             )
-            if historical_semantics:
-                all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
-                episode_support_index = build_episode_support_index(
-                    [*all_semantics, *retracted_semantics]
-                )
-                episode_slot_index = build_episode_slot_index(all_semantics)
-                episode_support_provenance_index = build_episode_support_provenance_index(
-                    all_semantics
-                )
+            projected = {m.id: m for m in semantic_memories if m.revision_key in revision_snapshots}
+            all_semantics = [projected.get(m.id, m) for m in all_semantics]
+            episode_support_index = build_episode_support_index(
+                [*all_semantics, *retracted_semantics]
+            )
+            episode_slot_index = build_episode_slot_index(all_semantics)
+            episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        (
+            semantic_memories,
+            historical_semantics,
+            historical_episodes,
+        ) = await _project_reinforced_semantics(
+            semantic_memories,
+            projection_revisions,
+            loaded_episode_by_id,
+            [*all_semantics, *retracted_semantics, *projection_bases],
+            store=self._semantic_store,
+            episode_store=self._episode_store,
+            tenant_id=tenant_id,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
+        if historical_semantics:
+            episodes = [historical_episodes.get(e.id, e) for e in episodes]
+            if valid_at is not None:
+                episodes = [
+                    episode for episode in episodes if _episode_visible_at(episode, valid_at)
+                ]
+            present = {episode.id for episode in episodes}
+            episodes.extend(
+                e
+                for e in historical_episodes.values()
+                if e.id not in present and (valid_at is None or _episode_visible_at(e, valid_at))
+            )
+            trace_episode_by_id.update(historical_episodes)
+            all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
+            present_semantics = {memory.id for memory in all_semantics}
+            all_semantics.extend(
+                m for m in historical_semantics.values() if m.id not in present_semantics
+            )
+            episode_support_index = build_episode_support_index(
+                [*all_semantics, *retracted_semantics]
+            )
+            episode_slot_index = build_episode_slot_index(all_semantics)
+            episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        semantic_memories = [memory for memory in semantic_memories if memory.is_active]
         hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
@@ -809,15 +866,23 @@ class Memory:
             self._episode_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
-                include_inactive=False,
+                include_inactive=True,
             ),
             self._semantic_store.list(
                 tenant_id=tenant_id,
                 subject_id=subject_id,
-                include_inactive=False,
+                include_inactive=valid_at is None,
                 valid_at=valid_at,
             ),
         )
+        if valid_at is not None:
+            semantic_memories = await _filter_inactive_factual_semantics(
+                semantic_memories,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                as_of=evaluation_time,
+            )
         superseded_semantics: Sequence[StoredSemanticMemory] = ()
         retracted_semantics: Sequence[StoredSemanticMemory] = ()
         projection_bases: Sequence[StoredSemanticMemory] = ()
@@ -849,11 +914,12 @@ class Memory:
                     status=SemanticMemoryStatus.RETRACTED,
                 ),
             ]
-        all_semantics = [*semantic_memories, *superseded_semantics]
+        all_semantics = [*(m for m in semantic_memories if m.is_active), *superseded_semantics]
         episode_support_index = build_episode_support_index([*all_semantics, *retracted_semantics])
         episode_slot_index = build_episode_slot_index(all_semantics)
         episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
-        trace_episode_by_id = {episode.id: episode for episode in episodes}
+        loaded_episode_by_id = {episode.id: episode for episode in episodes}
+        trace_episode_by_id = {episode.id: episode for episode in episodes if episode.is_active}
         episodes = await _project_mixed_time_episodes(
             episodes,
             [*all_semantics, *retracted_semantics, *projection_bases],
@@ -869,33 +935,79 @@ class Memory:
                 subject_id=subject_id,
             )
         )
+        (
+            projection_revisions,
+            revision_snapshots,
+            unavailable_revisions,
+        ) = await _historical_projection_revisions(
+            revisions, store=self._semantic_store, tenant_id=tenant_id, as_of=evaluation_time
+        )
         semantic_memories = project_known_semantics(
             semantic_memories,
             superseded_semantics,
-            revisions,
+            projection_revisions,
             as_of=evaluation_time,
             valid_at=valid_at,
             retracted=retracted_semantics,
             projection_bases=projection_bases,
         )
-        if valid_at is None:
-            semantic_memories, historical_semantics = await _project_reinforced_semantics(
-                semantic_memories,
-                revisions,
-                trace_episode_by_id,
-                store=self._semantic_store,
-                tenant_id=tenant_id,
-                as_of=evaluation_time,
+        if unavailable_revisions:
+            semantic_memories = [
+                m for m in semantic_memories if m.revision_key not in unavailable_revisions
+            ]
+            all_semantics = [
+                m for m in all_semantics if m.revision_key not in unavailable_revisions
+            ]
+        if revision_snapshots or unavailable_revisions:
+            semantic_memories = _restore_historical_revision_memories(
+                semantic_memories, projection_revisions, revision_snapshots, valid_at=valid_at
             )
-            if historical_semantics:
-                all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
-                episode_support_index = build_episode_support_index(
-                    [*all_semantics, *retracted_semantics]
-                )
-                episode_slot_index = build_episode_slot_index(all_semantics)
-                episode_support_provenance_index = build_episode_support_provenance_index(
-                    all_semantics
-                )
+            projected = {m.id: m for m in semantic_memories if m.revision_key in revision_snapshots}
+            all_semantics = [projected.get(m.id, m) for m in all_semantics]
+            episode_support_index = build_episode_support_index(
+                [*all_semantics, *retracted_semantics]
+            )
+            episode_slot_index = build_episode_slot_index(all_semantics)
+            episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        (
+            semantic_memories,
+            historical_semantics,
+            historical_episodes,
+        ) = await _project_reinforced_semantics(
+            semantic_memories,
+            projection_revisions,
+            loaded_episode_by_id,
+            [*all_semantics, *retracted_semantics, *projection_bases],
+            store=self._semantic_store,
+            episode_store=self._episode_store,
+            tenant_id=tenant_id,
+            as_of=evaluation_time,
+            valid_at=valid_at,
+        )
+        if historical_semantics:
+            episodes = [historical_episodes.get(e.id, e) for e in episodes]
+            if valid_at is not None:
+                episodes = [
+                    episode for episode in episodes if _episode_visible_at(episode, valid_at)
+                ]
+            present = {episode.id for episode in episodes}
+            episodes.extend(
+                e
+                for e in historical_episodes.values()
+                if e.id not in present and (valid_at is None or _episode_visible_at(e, valid_at))
+            )
+            trace_episode_by_id.update(historical_episodes)
+            all_semantics = [historical_semantics.get(m.id, m) for m in all_semantics]
+            present_semantics = {memory.id for memory in all_semantics}
+            all_semantics.extend(
+                m for m in historical_semantics.values() if m.id not in present_semantics
+            )
+            episode_support_index = build_episode_support_index(
+                [*all_semantics, *retracted_semantics]
+            )
+            episode_slot_index = build_episode_slot_index(all_semantics)
+            episode_support_provenance_index = build_episode_support_provenance_index(all_semantics)
+        semantic_memories = [memory for memory in semantic_memories if memory.is_active]
         hidden_episodes = unknown_correction_episode_ids(revisions, as_of=evaluation_time)
         if valid_at is None:
             hidden_episodes.update(hidden_current_episode_ids(revisions, as_of=evaluation_time))
@@ -1239,6 +1351,55 @@ class Memory:
             if self._semantic_inspection_store is not None
             else None
         )
+        if (
+            as_of is not None
+            and records is not None
+            and records.is_complete
+            and id(self._semantic_inspection_store) == id(self._semantic_store)
+        ):
+            current_revisions = recover_closed_correction_links(records.revisions)
+            projected_revisions, _, unavailable_revisions = await _historical_projection_revisions(
+                current_revisions,
+                store=self._semantic_store,
+                tenant_id=tenant_id,
+                as_of=evaluation_time,
+            )
+            relations = records.relations
+            unavailable_relations = False
+            read_relations = getattr(self._semantic_store, "historical_relations", None)
+            if read_relations is None and relations:
+                relations = ()
+                unavailable_relations = True
+            if read_relations is not None and relations:
+                all_recorded = await read_relations(
+                    tenant_id=tenant_id, as_of=datetime.max.replace(tzinfo=UTC)
+                )
+                current_keys = {
+                    (r.left_revision_key, r.right_revision_key, r.relation, r.effective_at)
+                    for r in relations
+                }
+                recorded_keys = {
+                    (r.left_revision_key, r.right_revision_key, r.relation, r.effective_at)
+                    for r in all_recorded
+                }
+                if current_keys <= recorded_keys:
+                    known = await read_relations(tenant_id=tenant_id, as_of=evaluation_time)
+                    relations = tuple(
+                        r
+                        for r in known
+                        if (r.left_revision_key, r.right_revision_key, r.relation, r.effective_at)
+                        in current_keys
+                    )
+                else:
+                    relations = ()
+                    unavailable_relations = True
+            records = replace(
+                records,
+                revisions=tuple(projected_revisions),
+                relations=relations,
+                revisions_overflow=records.revisions_overflow or bool(unavailable_revisions),
+                relations_overflow=records.relations_overflow or unavailable_relations,
+            )
         return await inspect_slot_sources(
             records,
             tenant_id=tenant_id,
@@ -2444,33 +2605,141 @@ def _memory_key_from_result(result: RecallResult) -> str:
     raise ValidationError("Unsupported memory type for access recording.")
 
 
-async def _project_reinforced_semantics(
+async def _filter_inactive_factual_semantics(
+    memories: Sequence[StoredSemanticMemory],
+    *,
+    store: SemanticMemoryStore,
+    tenant_id: str,
+    subject_id: str | None,
+    as_of: datetime,
+) -> list[StoredSemanticMemory]:
+    """Respect cognitive deactivation when the store projects factual revisions."""
+    if not memories:
+        return []
+    groups = await asyncio.gather(
+        store.list(tenant_id=tenant_id, subject_id=subject_id, include_inactive=True),
+        store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=True,
+            status=SemanticMemoryStatus.SUPERSEDED,
+        ),
+        store.list(
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            include_inactive=True,
+            status=SemanticMemoryStatus.RETRACTED,
+        ),
+    )
+    current = {memory.id: memory for group in groups for memory in group}
+    inactive = {
+        memory.id
+        for memory in memories
+        if memory.id in current and not current[memory.id].is_active
+    }
+    if not inactive:
+        return list(memories)
+    read_history = getattr(store, "historical_semantics", None)
+    snapshots = (
+        await read_history(tenant_id=tenant_id, memory_ids=inactive, as_of=as_of)
+        if read_history is not None
+        else {}
+    )
+    return [
+        memory
+        for memory in memories
+        if memory.id not in inactive
+        or (
+            memory.id in snapshots
+            and snapshots[memory.id].is_active
+            and snapshots[memory.id].revision_key == memory.revision_key
+        )
+    ]
+
+
+def _restore_historical_revision_memories(
     memories: Sequence[StoredSemanticMemory],
     revisions: Sequence[StoredSemanticRevision],
-    episode_by_id: Mapping[str, StoredEpisode],
+    snapshot_keys: set[str],
+    *,
+    valid_at: datetime | None,
+) -> list[StoredSemanticMemory]:
+    by_key = {revision.revision_key: revision for revision in revisions}
+    result = []
+    for memory in memories:
+        if memory.revision_key not in snapshot_keys:
+            result.append(memory)
+            continue
+        revision = by_key[memory.revision_key]
+        if valid_at is not None and not revision_valid_at(revision, valid_at):
+            continue
+        restored = memory_from_revision_snapshot(memory, revision)
+        if restored is not None:
+            result.append(restored)
+    return result
+
+
+async def _historical_projection_revisions(
+    revisions: Sequence[StoredSemanticRevision],
     *,
     store: SemanticMemoryStore,
     tenant_id: str,
     as_of: datetime,
-) -> tuple[list[StoredSemanticMemory], dict[str, StoredSemanticMemory]]:
+) -> tuple[list[StoredSemanticRevision], set[str], set[str]]:
+    """Use retained earlier revision state while keeping later transitions visible to projection."""
+    read_history = getattr(store, "historical_revisions", None)
+    keys = {r.revision_key for r in revisions if r.created_at <= as_of < r.updated_at}
+    if not keys or read_history is None:
+        return list(revisions), set(), keys
+    snapshots = await read_history(tenant_id=tenant_id, revision_keys=keys, as_of=as_of)
+    return (
+        [snapshots.get(r.revision_key, r) for r in revisions],
+        set(snapshots),
+        keys - set(snapshots),
+    )
+
+
+async def _project_reinforced_semantics(
+    memories: Sequence[StoredSemanticMemory],
+    revisions: Sequence[StoredSemanticRevision],
+    episode_by_id: Mapping[str, StoredEpisode],
+    all_semantics: Sequence[StoredSemanticMemory],
+    *,
+    store: SemanticMemoryStore,
+    episode_store: EpisodeStore,
+    tenant_id: str,
+    as_of: datetime,
+    valid_at: datetime | None,
+) -> tuple[list[StoredSemanticMemory], dict[str, StoredSemanticMemory], dict[str, StoredEpisode]]:
     """Restore same-revision reinforcement only when all supporting state is known."""
     read_history = getattr(store, "historical_semantics", None)
     if read_history is None:
-        return list(memories), {}
+        return list(memories), {}, {}
     by_key: dict[str, list[StoredSemanticRevision]] = {}
     for revision in revisions:
-        by_key.setdefault(revision.memory_key, []).append(revision)
+        if revision.created_at <= as_of:
+            by_key.setdefault(revision.memory_key, []).append(revision)
     eligible = {}
     for memory in memories:
         history = by_key.get(memory.memory_key, [])
         if (
-            memory.first_supported_at <= as_of < memory.last_supported_at
+            memory.first_supported_at <= as_of
+            and (
+                as_of < memory.last_supported_at
+                or as_of < memory.updated_at
+                or any(
+                    item.episode_id in episode_by_id
+                    and episode_by_id[item.episode_id].updated_at > as_of
+                    for item in memory.derivations
+                )
+            )
             and memory.status is SemanticMemoryStatus.ACTIVE
             and len(history) == 1
             and history[0].revision_key == memory.revision_key
             and history[0].snapshot.get("slot_key") == memory.slot_key
             and not any(
                 other.memory_key != memory.memory_key
+                and other.created_at <= as_of
                 and other.snapshot.get("slot_key") == memory.slot_key
                 for other in revisions
             )
@@ -2480,9 +2749,22 @@ async def _project_reinforced_semantics(
         ):
             eligible[memory.id] = memory
     if not eligible:
-        return list(memories), {}
+        return list(memories), {}, {}
     snapshots = await read_history(tenant_id=tenant_id, memory_ids=set(eligible), as_of=as_of)
+    needs_history = {
+        item.episode_id
+        for snapshot in snapshots.values()
+        for item in snapshot.derivations
+        if item.episode_id in episode_by_id and episode_by_id[item.episode_id].updated_at > as_of
+    }
+    read_episodes = getattr(episode_store, "historical_episodes", None)
+    prior_episodes = (
+        await read_episodes(tenant_id=tenant_id, episode_ids=needs_history, as_of=as_of)
+        if needs_history and read_episodes is not None
+        else {}
+    )
     restored = {}
+    restored_episodes = {}
     for memory_id, snapshot in snapshots.items():
         current = eligible.get(memory_id)
         if (
@@ -2494,15 +2776,48 @@ async def _project_reinforced_semantics(
             continue
         if snapshot.last_supported_at > as_of:
             continue
-        if any(
-            item.episode_id not in episode_by_id
-            or episode_by_id[item.episode_id].ended_at > as_of
-            or episode_by_id[item.episode_id].updated_at > as_of
-            for item in snapshot.derivations
+        if valid_at is not None and (
+            (snapshot.valid_from is not None and valid_at < snapshot.valid_from)
+            or (snapshot.valid_until is not None and valid_at >= snapshot.valid_until)
         ):
             continue
-        restored[memory_id] = snapshot
-    return [restored.get(memory.id, memory) for memory in memories], restored
+        support = []
+        for item in snapshot.derivations:
+            episode = prior_episodes.get(item.episode_id, episode_by_id.get(item.episode_id))
+            if (
+                episode is None
+                or not episode.is_active
+                or episode.ended_at > as_of
+                or episode.updated_at > as_of
+                or (
+                    item.episode_id in prior_episodes
+                    and any(
+                        other.id != memory_id
+                        and other.created_at <= as_of
+                        and any(d.episode_id == item.episode_id for d in other.derivations)
+                        for other in all_semantics
+                    )
+                )
+            ):
+                break
+            support.append(episode)
+        else:
+            evidence = {
+                (e.observation_id, e.observation_revision)
+                for episode in support
+                for e in episode.evidence
+            }
+            if any(
+                (e.observation_id, e.observation_revision) not in evidence
+                for e in snapshot.observation_evidence
+            ):
+                continue
+            if valid_at is not None and current.updated_at > as_of:
+                continue
+            restored[memory_id] = current if valid_at is not None else snapshot
+            restored_episodes.update({e.id: e for e in support if e.id in prior_episodes})
+            continue
+    return [restored.get(memory.id, memory) for memory in memories], restored, restored_episodes
 
 
 async def _project_mixed_time_episodes(
@@ -2513,22 +2828,27 @@ async def _project_mixed_time_episodes(
     tenant_id: str,
     as_of: datetime,
 ) -> list[StoredEpisode]:
-    """Use complete snapshots for mixed episodes with no semantic derivations.
+    """Restore unlinked mixed or inactive episodes from complete snapshots.
 
     Semantic provenance is not yet versioned, so episodes referenced by a
     semantic memory remain fail-closed until its history is also available.
     """
     read_history = getattr(store, "historical_episodes", None)
     if read_history is None:
-        return list(episodes)
+        return [episode for episode in episodes if episode.is_active]
     linked = {item.episode_id for memory in semantics for item in memory.derivations}
     ids = {
         episode.id
         for episode in episodes
-        if episode.id not in linked and episode.started_at <= as_of < episode.ended_at
+        if episode.id not in linked
+        and episode.started_at <= as_of
+        and (
+            (episode.is_active and as_of < episode.ended_at)
+            or (not episode.is_active and as_of < episode.updated_at)
+        )
     }
     if not ids:
-        return list(episodes)
+        return [episode for episode in episodes if episode.is_active]
     history = await read_history(tenant_id=tenant_id, episode_ids=ids, as_of=as_of)
     return [
         historical

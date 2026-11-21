@@ -1,7 +1,7 @@
-"""Versioned representations of derived memories for future historical storage.
+"""Versioned representations of derived memories and semantic revisions.
 
-This module does not persist snapshots or change recall behavior. Snapshot data
-can contain retained source content and must follow the store's retention policy.
+Snapshot data can contain retained source content and must follow the store's
+retention policy.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Any
 
-from cogkura.exceptions import StorageError
+from cogkura.exceptions import StorageError, ValidationError
 from cogkura.models import (
     EpisodeEntity,
     EpisodeEvidenceInput,
@@ -27,6 +27,7 @@ from cogkura.models import (
     SemanticPolarity,
     StoredEpisode,
     StoredSemanticMemory,
+    StoredSemanticRevision,
 )
 
 _VERSION = 1
@@ -109,7 +110,7 @@ def decode_memory_snapshot(payload: str) -> StoredEpisode | StoredSemanticMemory
             )
             return StoredSemanticMemory(**value)
         raise ValueError("Unknown snapshot kind")
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, TypeError, ValueError, ValidationError) as exc:
         raise StorageError("Invalid or unsupported historical memory snapshot") from exc
 
 
@@ -162,6 +163,57 @@ def encode_semantic_snapshot_or_none(memory: StoredSemanticMemory) -> str | None
     try:
         return encode_memory_snapshot(memory)
     except (TypeError, ValueError):
+        return None
+
+
+def encode_revision_snapshot_or_none(revision: StoredSemanticRevision) -> str | None:
+    """Capture a full revision, marking unrepresentable state unavailable."""
+    try:
+        _validate_json_value(revision.snapshot)
+        return json.dumps(
+            {"version": _VERSION, "kind": "semantic_revision", "revision": revision},
+            default=_json_default,
+            sort_keys=True,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def select_revision_snapshot(
+    versions: list[tuple[datetime, str | None]], *, as_of: datetime
+) -> StoredSemanticRevision | None:
+    """Select the last complete revision, failing closed on ambiguous history."""
+    if any(earlier[0] > later[0] for earlier, later in zip(versions, versions[1:], strict=False)):
+        return None
+    matches = [payload for at, payload in versions if at <= as_of]
+    if not matches or matches[-1] is None:
+        return None
+    try:
+        data = json.loads(matches[-1])
+        if (
+            not isinstance(data, dict)
+            or type(data.get("version")) is not int
+            or data["version"] != _VERSION
+            or data.get("kind") != "semantic_revision"
+        ):
+            return None
+        value = data["revision"]
+        for name in ("created_at", "updated_at", "first_supported_at", "last_supported_at"):
+            value[name] = _timestamp(value[name])
+        for name in ("valid_from", "valid_until"):
+            value[name] = _timestamp(value[name]) if value[name] is not None else None
+        value["status"] = SemanticMemoryStatus(value["status"])
+        value["derivations"] = tuple(
+            SemanticDerivationInput(
+                episode_id=item["episode_id"],
+                relation=SemanticDerivationRelation(item["relation"]),
+                contribution_score=item["contribution_score"],
+            )
+            for item in value["derivations"]
+        )
+        return StoredSemanticRevision(**value)
+    except (KeyError, TypeError, ValueError, ValidationError):
         return None
 
 

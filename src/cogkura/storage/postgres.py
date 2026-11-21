@@ -82,8 +82,10 @@ from cogkura.storage.base import (
 )
 from cogkura.storage.historical_snapshots import (
     encode_episode_snapshot_or_none,
+    encode_revision_snapshot_or_none,
     encode_semantic_snapshot_or_none,
     select_episode_snapshot,
+    select_revision_snapshot,
     select_semantic_snapshot,
 )
 
@@ -1177,6 +1179,70 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
     def _table(self, name: str) -> str:
         return f"{self._schema}.{name}"
 
+    async def historical_revisions(
+        self, *, tenant_id: str, revision_keys: set[str], as_of: datetime
+    ) -> dict[str, StoredSemanticRevision]:
+        if not revision_keys:
+            return {}
+        async with self._engine.connect() as conn:
+            rows = (
+                (
+                    await conn.execute(
+                        text(
+                            "SELECT revision_key,recorded_at,snapshot "
+                            f"FROM {self._table('semantic_revision_history')} "
+                            "WHERE tenant_id=:tenant AND revision_key=ANY(CAST(:keys AS text[])) "
+                            "ORDER BY sequence"
+                        ),
+                        {"tenant": tenant_id, "keys": list(revision_keys)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        grouped: dict[str, list[tuple[datetime, str | None]]] = {}
+        for row in rows:
+            raw = row["snapshot"]
+            payload = json.dumps(raw) if raw is not None and not isinstance(raw, str) else raw
+            grouped.setdefault(row["revision_key"], []).append((row["recorded_at"], payload))
+        result = {}
+        for key, versions in grouped.items():
+            revision = select_revision_snapshot(versions, as_of=as_of)
+            if revision is not None:
+                result[key] = revision
+        return result
+
+    async def historical_relations(
+        self, *, tenant_id: str, as_of: datetime
+    ) -> list[SemanticRevisionRelation]:
+        async with self._engine.connect() as conn:
+            rows = (
+                (
+                    await conn.execute(
+                        text(
+                            f"SELECT * FROM {self._table('semantic_relation_history')} "
+                            "WHERE tenant_id=:tenant ORDER BY sequence"
+                        ),
+                        {"tenant": tenant_id},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        if any(a["recorded_at"] > b["recorded_at"] for a, b in zip(rows, rows[1:], strict=False)):
+            return []
+        return [
+            SemanticRevisionRelation(
+                tenant_id=tenant_id,
+                left_revision_key=row["left_revision_key"],
+                right_revision_key=row["right_revision_key"],
+                relation=SemanticUpdateRelation(row["relation"]),
+                effective_at=row["effective_at"],
+            )
+            for row in rows
+            if row["recorded_at"] <= as_of
+        ]
+
     async def _record_history(self, conn: Any, memory_id: str, now: datetime) -> None:
         memory = await self._load_semantic_from_connection(conn, memory_id)
         await conn.execute(
@@ -2064,14 +2130,15 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 existing_revision = await conn.execute(
                     text(
                         f"""
-                        SELECT revision_key
+                        SELECT revision_key, created_at
                         FROM {self._table("semantic_claim_revisions")}
                         WHERE revision_key = :revision_key
                         """
                     ),
                     {"revision_key": revision.revision_key},
                 )
-                if existing_revision.first() is None:
+                existing_revision_row = existing_revision.mappings().first()
+                if existing_revision_row is None:
                     revisions_created += 1
                 else:
                     revisions_updated += 1
@@ -2131,6 +2198,40 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                     revision.revision_key,
                     revision.derivations,
                 )
+                stored_revision = StoredSemanticRevision(
+                    revision_key=revision.revision_key,
+                    memory_key=revision.memory_key,
+                    tenant_id=revision.tenant_id,
+                    revision_number=revision.revision_number,
+                    status=revision.status,
+                    valid_from=revision.valid_from,
+                    valid_until=revision.valid_until,
+                    confidence=revision.confidence,
+                    importance=revision.importance,
+                    support_count=revision.support_count,
+                    contradiction_count=revision.contradiction_count,
+                    first_supported_at=revision.first_supported_at,
+                    last_supported_at=revision.last_supported_at,
+                    derivations=revision.derivations,
+                    created_at=existing_revision_row["created_at"]
+                    if existing_revision_row
+                    else now,
+                    updated_at=now,
+                    snapshot=revision.snapshot,
+                )
+                await conn.execute(
+                    text(
+                        f"INSERT INTO {self._table('semantic_revision_history')} "
+                        "(tenant_id,revision_key,recorded_at,snapshot) "
+                        "VALUES (:tenant,:key,:now,CAST(:snapshot AS jsonb))"
+                    ),
+                    {
+                        "tenant": revision.tenant_id,
+                        "key": revision.revision_key,
+                        "now": now,
+                        "snapshot": encode_revision_snapshot_or_none(stored_revision),
+                    },
+                )
 
             for relation in plan.relations:
                 result = await conn.execute(
@@ -2156,6 +2257,22 @@ class PostgresSemanticMemoryStore(SemanticMemoryStore):
                 )
                 if result.rowcount:
                     relations_written += 1
+                    await conn.execute(
+                        text(
+                            f"INSERT INTO {self._table('semantic_relation_history')} "
+                            "(tenant_id,left_revision_key,right_revision_key,"
+                            "relation,effective_at,recorded_at) "
+                            "VALUES (:tenant,:left,:right,:relation,:effective,:now)"
+                        ),
+                        {
+                            "tenant": relation.tenant_id,
+                            "left": relation.left_revision_key,
+                            "right": relation.right_revision_key,
+                            "relation": relation.relation.value,
+                            "effective": relation.effective_at,
+                            "now": now,
+                        },
+                    )
 
             for memory in plan.current_memories:
                 memory_id = memory_ids[(memory.tenant_id, memory.memory_key)]
