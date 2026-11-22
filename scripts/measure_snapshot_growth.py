@@ -13,6 +13,7 @@ import platform
 import sqlite3
 import tempfile
 import time
+from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -105,7 +106,7 @@ async def measure(
         finally:
             await owner.close()
         backup = Path(directory) / "backup.db"
-        with sqlite3.connect(path) as connection:
+        with closing(sqlite3.connect(path)) as connection:
             rows = {}
             for table, key in _TABLES.items():
                 total, available, payload_bytes = connection.execute(
@@ -143,7 +144,7 @@ async def measure(
                 )
             except sqlite3.OperationalError:
                 physical = None
-            with sqlite3.connect(backup) as destination:
+            with closing(sqlite3.connect(backup)) as destination:
                 connection.backup(destination)
         return {
             "fixture": {

@@ -16,7 +16,6 @@ def test_snapshot_growth_report(tmp_path: Path) -> None:
     subprocess.run(
         [sys.executable, str(script), "--observations", "2", "--output", str(report)],
         check=True,
-        capture_output=True,
         text=True,
     )
     result = json.loads(report.read_text())
@@ -47,7 +46,6 @@ def test_reinforcement_growth_reports_actual_semantic_reinforcement(
             str(report),
         ],
         check=True,
-        capture_output=True,
         text=True,
     )
     result = json.loads(report.read_text())
