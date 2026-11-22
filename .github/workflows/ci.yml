@@ -72,7 +72,7 @@ jobs:
       COGKURA_POSTGRES_SOURCE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
       COGKURA_POSTGRES_SAME_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
       COGKURA_POSTGRES_UPGRADE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
-      COGKURA_RELEASE_WHEEL_DIRECTORY: ${{ runner.temp }}/cogkura-release-wheels
+      COGKURA_RELEASE_WHEEL_DIRECTORY: /tmp/cogkura-release-wheels
     steps:
       - uses: actions/checkout@v4
         with:
