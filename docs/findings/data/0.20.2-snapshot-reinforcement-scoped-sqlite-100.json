@@ -1,0 +1,195 @@
+{
+  "backup_bytes": 3633152,
+  "database_bytes": 3633152,
+  "dbstat_object_bytes": {
+    "activation_lookup": 4096,
+    "activation_references": 4096,
+    "activation_request": 4096,
+    "connector_checkpoints": 4096,
+    "entity_relationship_lookup": 4096,
+    "entity_relationships": 4096,
+    "episode_entities": 12288,
+    "episode_evidence": 16384,
+    "episode_history": 233472,
+    "episode_history_lookup_idx": 12288,
+    "episodes": 155648,
+    "episodes_tenant_subject_idx": 4096,
+    "history_order": 4096,
+    "inhibition_lookup": 4096,
+    "inhibition_request": 4096,
+    "inhibition_traces": 4096,
+    "learned_associations": 4096,
+    "learning_events": 4096,
+    "learning_feedback": 4096,
+    "learning_state": 4096,
+    "memory_dynamics": 4096,
+    "observation_revisions": 356352,
+    "observations": 98304,
+    "observations_tenant_subject_idx": 4096,
+    "schema_migrations": 4096,
+    "semantic_derivations": 45056,
+    "semantic_entities": 16384,
+    "semantic_evidence": 24576,
+    "semantic_history": 856064,
+    "semantic_history_lookup_idx": 16384,
+    "semantic_memories": 147456,
+    "semantic_memories_tenant_slot": 16384,
+    "semantic_relation_history": 4096,
+    "semantic_relation_history_lookup": 4096,
+    "semantic_relations": 4096,
+    "semantic_revision_history": 868352,
+    "semantic_revision_history_lookup": 24576,
+    "semantic_revisions": 249856,
+    "sqlite_autoindex_connector_checkpoints_1": 4096,
+    "sqlite_autoindex_entity_relationships_1": 4096,
+    "sqlite_autoindex_episode_entities_1": 12288,
+    "sqlite_autoindex_episode_evidence_1": 16384,
+    "sqlite_autoindex_episode_evidence_2": 12288,
+    "sqlite_autoindex_episodes_1": 12288,
+    "sqlite_autoindex_episodes_2": 16384,
+    "sqlite_autoindex_episodes_3": 12288,
+    "sqlite_autoindex_history_order_1": 4096,
+    "sqlite_autoindex_inhibition_traces_1": 4096,
+    "sqlite_autoindex_learned_associations_1": 4096,
+    "sqlite_autoindex_learning_events_1": 4096,
+    "sqlite_autoindex_learning_feedback_1": 4096,
+    "sqlite_autoindex_learning_state_1": 4096,
+    "sqlite_autoindex_memory_dynamics_1": 4096,
+    "sqlite_autoindex_observation_revisions_1": 28672,
+    "sqlite_autoindex_observation_revisions_2": 32768,
+    "sqlite_autoindex_observations_1": 12288,
+    "sqlite_autoindex_observations_2": 12288,
+    "sqlite_autoindex_schema_migrations_1": 4096,
+    "sqlite_autoindex_semantic_derivations_1": 45056,
+    "sqlite_autoindex_semantic_entities_1": 16384,
+    "sqlite_autoindex_semantic_evidence_1": 20480,
+    "sqlite_autoindex_semantic_memories_1": 12288,
+    "sqlite_autoindex_semantic_memories_2": 16384,
+    "sqlite_autoindex_semantic_memories_3": 12288,
+    "sqlite_autoindex_semantic_relations_1": 4096,
+    "sqlite_autoindex_semantic_revisions_1": 16384,
+    "sqlite_autoindex_semantic_revisions_2": 16384,
+    "sqlite_schema": 24576,
+    "sqlite_sequence": 4096
+  },
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "fixture": {
+    "counts": {
+      "episodes": 106,
+      "observation_revisions": 506,
+      "observations": 106,
+      "semantic_memories": 97,
+      "semantic_revisions": 106
+    },
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "observations": 100,
+    "revisions": 5
+  },
+  "history_counts_before_reinforcement": {
+    "episode_history": 106,
+    "semantic_history": 203,
+    "semantic_revision_history": 206
+  },
+  "note": "Snapshot payload totals exclude indexes, pages, WAL and backup overhead.",
+  "page_count": 887,
+  "page_size": 4096,
+  "reinforcement_samples": [
+    {
+      "history_counts": {
+        "episode_history": 107,
+        "semantic_history": 204,
+        "semantic_revision_history": 207
+      },
+      "observe_and_process_seconds": 0.1101792369991017,
+      "semantic_reinforced": 1,
+      "semantic_updated": 1
+    },
+    {
+      "history_counts": {
+        "episode_history": 108,
+        "semantic_history": 205,
+        "semantic_revision_history": 208
+      },
+      "observe_and_process_seconds": 0.10776004400031525,
+      "semantic_reinforced": 1,
+      "semantic_updated": 1
+    },
+    {
+      "history_counts": {
+        "episode_history": 109,
+        "semantic_history": 206,
+        "semantic_revision_history": 209
+      },
+      "observe_and_process_seconds": 0.10882927199781989,
+      "semantic_reinforced": 1,
+      "semantic_updated": 1
+    },
+    {
+      "history_counts": {
+        "episode_history": 110,
+        "semantic_history": 207,
+        "semantic_revision_history": 210
+      },
+      "observe_and_process_seconds": 0.11472445899926242,
+      "semantic_reinforced": 1,
+      "semantic_updated": 1
+    },
+    {
+      "history_counts": {
+        "episode_history": 111,
+        "semantic_history": 208,
+        "semantic_revision_history": 211
+      },
+      "observe_and_process_seconds": 0.11274994500126923,
+      "semantic_reinforced": 1,
+      "semantic_updated": 1
+    }
+  ],
+  "reinforcement_scope": "subject",
+  "semantic_relation_history_rows": 6,
+  "snapshots": {
+    "episode_history": {
+      "available_snapshots": 111,
+      "mean_payload_bytes": 1738.2522522522522,
+      "payload_bytes": 192946,
+      "records_per_identity": {
+        "count": 111,
+        "max": 1,
+        "mean": 1.0,
+        "min": 1
+      },
+      "rows": 111
+    },
+    "semantic_history": {
+      "available_snapshots": 208,
+      "mean_payload_bytes": 2172.9471153846152,
+      "payload_bytes": 451973,
+      "records_per_identity": {
+        "count": 103,
+        "max": 7,
+        "mean": 2.0194174757281553,
+        "min": 1
+      },
+      "rows": 208
+    },
+    "semantic_revision_history": {
+      "available_snapshots": 211,
+      "mean_payload_bytes": 2439.0568720379147,
+      "payload_bytes": 514641,
+      "records_per_identity": {
+        "count": 106,
+        "max": 7,
+        "mean": 1.990566037735849,
+        "min": 1
+      },
+      "rows": 211
+    }
+  }
+}

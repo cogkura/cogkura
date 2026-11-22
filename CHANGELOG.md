@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Validation in progress
+
+- Add retrieval and context measurement tools, historical snapshot and
+  concurrency regressions, and prior-release SQLite and PostgreSQL upgrade
+  checks for the 0.20.2 hardening work.
+- Document the supported and unsupported historical reconstruction boundaries.
+  The [hardening findings](docs/findings/0.20.2-historical-integrity.md) and
+  [upgrade findings](docs/findings/0.20.2-storage-upgrade-and-snapshots.md)
+  remain in progress; no 0.20.2 release acceptance is implied.
+
 ## [0.20.1] - 2026-11-21 — Retrieval performance and historical reconstruction
 
 ### Changed

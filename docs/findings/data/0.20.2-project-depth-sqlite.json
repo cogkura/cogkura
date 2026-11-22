@@ -1,0 +1,1627 @@
+{
+  "corrections_applied": 10,
+  "diagnostic": {
+    "probe_sha256": "8c4d3eca61ef7d1efbc8040049236f7c5f355d34d7c6a2843a71cd9ef13e8b0b",
+    "result_limit": 1000,
+    "subject_scope": null
+  },
+  "entity_relationships": 50,
+  "environment": {
+    "activation_source_sha256": "ba364716286b30e379c1c212c43d309b616a3c86639b347d36010e15851eaf3b",
+    "commit": "a62196b8ec37ca07f36900ea6173514083ae7d40",
+    "core_distribution_version": "0.20.2",
+    "core_runtime_version": "0.20.2",
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1",
+    "workload_source_sha256": "452c65d9526997ed18d3cd944c9174dcc4a1e9efcf59fb506af407c011b04dc4"
+  },
+  "episodes": 90,
+  "queries": [
+    {
+      "expected_evidence": "project-000 storage engine sqlite_local_postgres_hosted",
+      "expected_rank": 1,
+      "name": "current_architecture",
+      "process_cpu_seconds": 0.17842799999999992,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99962325
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99957016
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99957555
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99902619
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99902239
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99888906
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99890713
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99893323
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99871218
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99862338
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99870716
+        ],
+        [
+          "semantic",
+          "project-004 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-008 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-003 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-007 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-009 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-006 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-002 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-005 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "semantic",
+          "project-001 tenant isolation tenant_scoped",
+          0.99853089
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99861802
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99846115
+        ],
+        [
+          "semantic",
+          "project-001 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-009 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-004 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-006 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-007 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-005 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-003 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-002 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "semantic",
+          "project-008 incident action connection_health_checks",
+          0.99842962
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99853431
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99845515
+        ],
+        [
+          "episode",
+          "project-009: An idle worker retained expired database sessions and failed rollout readiness checks.",
+          0.99832802
+        ],
+        [
+          "episode",
+          "project-008: A database failover left a worker pool using closed connections until restart.",
+          0.99832802
+        ],
+        [
+          "episode",
+          "project-001: A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+          0.99832802
+        ],
+        [
+          "episode",
+          "project-002: A network partition left stale pool connections, delaying the agent's first recall.",
+          0.99832802
+        ],
+        [
+          "semantic",
+          "project-004 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-009 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-005 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-008 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-003 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-007 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-001 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-002 migration strategy deployment_pipeline",
+          0.99824458
+        ],
+        [
+          "semantic",
+          "project-006 migration strategy deployment_pipeline",
+          0.99824458
+        ]
+      ],
+      "returned_count": 62,
+      "valid_at": null,
+      "wall_seconds": 0.18042835400046897
+    },
+    {
+      "expected_evidence": "project-000 storage engine postgres_primary",
+      "expected_rank": 12,
+      "name": "historical_architecture",
+      "process_cpu_seconds": 0.2041550000000001,
+      "query": "project-000 storage engine architecture",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99933452
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99923737
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99911984
+        ],
+        [
+          "semantic",
+          "project-000 storage engine postgres_primary",
+          0.99914305
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99905912
+        ],
+        [
+          "semantic",
+          "project-004 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-008 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-003 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-007 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-009 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-006 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-002 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-005 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-001 tenant isolation tenant_scoped",
+          0.99899138
+        ],
+        [
+          "semantic",
+          "project-006 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-004 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-008 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-005 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-001 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-002 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-003 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-009 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-007 storage engine postgres_primary",
+          0.99901797
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99894819
+        ],
+        [
+          "semantic",
+          "project-001 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-009 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-004 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-006 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-007 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-005 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-003 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-002 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-008 incident action connection_health_checks",
+          0.99892181
+        ],
+        [
+          "semantic",
+          "project-004 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-009 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-005 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-008 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-003 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-007 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-001 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-002 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "semantic",
+          "project-006 migration strategy deployment_pipeline",
+          0.99879471
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99871489
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99862629
+        ],
+        [
+          "episode",
+          "project-000: Architecture decision: use PostgreSQL as the primary project memory store.",
+          0.99859971
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99846439
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99893679
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99854308
+        ],
+        [
+          "episode",
+          "project-009: An idle worker retained expired database sessions and failed rollout readiness checks.",
+          0.99833058
+        ],
+        [
+          "episode",
+          "project-008: A database failover left a worker pool using closed connections until restart.",
+          0.99833058
+        ],
+        [
+          "episode",
+          "project-001: A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+          0.99833058
+        ],
+        [
+          "episode",
+          "project-002: A network partition left stale pool connections, delaying the agent's first recall.",
+          0.99833058
+        ]
+      ],
+      "returned_count": 60,
+      "valid_at": "2026-02-06T00:00:00+00:00",
+      "wall_seconds": 0.20688042700203368
+    },
+    {
+      "expected_evidence": "project-000: An expired database connection pool",
+      "expected_rank": 26,
+      "name": "incident",
+      "process_cpu_seconds": 0.16421799999999998,
+      "query": "project-000 recall deployment incident database connection failures",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99947874
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99947671
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99943527
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99901096
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99895803
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99887118
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99889747
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99878895
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99871399
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99894446
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99870898
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99862207
+        ],
+        [
+          "semantic",
+          "project-001 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-009 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-004 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-006 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-007 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-005 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-003 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-002 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "semantic",
+          "project-008 incident action connection_health_checks",
+          0.99860682
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.9986167
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99852637
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99844755
+        ],
+        [
+          "semantic",
+          "project-004 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-008 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-003 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-007 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-009 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-006 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-002 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-005 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "semantic",
+          "project-001 tenant isolation tenant_scoped",
+          0.99850725
+        ],
+        [
+          "episode",
+          "project-001: A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+          0.99855644
+        ],
+        [
+          "episode",
+          "project-002: A network partition left stale pool connections, delaying the agent's first recall.",
+          0.99845842
+        ],
+        [
+          "episode",
+          "project-009: An idle worker retained expired database sessions and failed rollout readiness checks.",
+          0.99839363
+        ],
+        [
+          "episode",
+          "project-008: A database failover left a worker pool using closed connections until restart.",
+          0.99839363
+        ],
+        [
+          "semantic",
+          "project-004 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-009 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-005 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-008 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-003 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-007 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-001 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-002 migration strategy deployment_pipeline",
+          0.99831822
+        ],
+        [
+          "semantic",
+          "project-006 migration strategy deployment_pipeline",
+          0.99831822
+        ]
+      ],
+      "returned_count": 62,
+      "valid_at": null,
+      "wall_seconds": 0.1650613079982577
+    },
+    {
+      "expected_evidence": "project-000: Database migrations run in the deployment pipeline",
+      "expected_rank": 27,
+      "name": "migration",
+      "process_cpu_seconds": 0.16776100000000005,
+      "query": "project-000 migration rollout deployment pipeline",
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99951158
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99950968
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99944388
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99926628
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99902365
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99901984
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99888837
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99884673
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99891171
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99870881
+        ],
+        [
+          "episode",
+          "project-000: Database migrations run in the deployment pipeline before API rollout.",
+          0.99885601
+        ],
+        [
+          "semantic",
+          "project-004 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-009 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-005 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-008 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-003 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-007 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-001 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-002 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-006 migration strategy deployment_pipeline",
+          0.99868698
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.99861979
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99870378
+        ],
+        [
+          "semantic",
+          "project-004 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-008 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-003 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-007 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-009 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-006 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-002 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-005 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "semantic",
+          "project-001 tenant isolation tenant_scoped",
+          0.99852999
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99861441
+        ],
+        [
+          "episode",
+          "project-000: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99866411
+        ],
+        [
+          "semantic",
+          "project-001 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-009 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-004 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-006 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-007 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-005 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-003 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-002 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "semantic",
+          "project-008 incident action connection_health_checks",
+          0.99842865
+        ],
+        [
+          "episode",
+          "project-009: An idle worker retained expired database sessions and failed rollout readiness checks.",
+          0.99850095
+        ],
+        [
+          "episode",
+          "project-008: A database failover left a worker pool using closed connections until restart.",
+          0.99832699
+        ],
+        [
+          "episode",
+          "project-001: A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+          0.99832699
+        ],
+        [
+          "episode",
+          "project-002: A network partition left stale pool connections, delaying the agent's first recall.",
+          0.99832699
+        ]
+      ],
+      "returned_count": 62,
+      "valid_at": null,
+      "wall_seconds": 0.16988869199849432
+    },
+    {
+      "name": "broad",
+      "process_cpu_seconds": 0.1660839999999999,
+      "query": "agent local memory architecture database integration",
+      "ranked_outputs": [
+        [
+          "episode",
+          "project-002: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99959889
+        ],
+        [
+          "semantic",
+          "project-006 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-004 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-002 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-003 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-001 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-005 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-009 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-007 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-008 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99943672
+        ],
+        [
+          "episode",
+          "project-007: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99931828
+        ],
+        [
+          "semantic",
+          "project-009 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-003 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-004 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-007 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-005 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-001 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-002 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-008 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-006 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99896981
+        ],
+        [
+          "episode",
+          "project-006: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99892358
+        ],
+        [
+          "episode",
+          "project-005: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99890445
+        ],
+        [
+          "episode",
+          "project-008: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99886243
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99863882
+        ],
+        [
+          "episode",
+          "project-002: A network partition left stale pool connections, delaying the agent's first recall.",
+          0.99867909
+        ],
+        [
+          "episode",
+          "project-009: An idle worker retained expired database sessions and failed rollout readiness checks.",
+          0.99865856
+        ],
+        [
+          "episode",
+          "project-008: A database failover left a worker pool using closed connections until restart.",
+          0.99865856
+        ],
+        [
+          "episode",
+          "project-005: An expired database connection pool caused intermittent recall failures during deployment; restarting workers restored service.",
+          0.99865856
+        ],
+        [
+          "episode",
+          "project-005: Database migrations run in the deployment pipeline before API rollout.",
+          0.99858611
+        ],
+        [
+          "episode",
+          "project-001: A connection pool exhausted its sessions after an import; worker restarts restored recall.",
+          0.99855637
+        ],
+        [
+          "semantic",
+          "project-004 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-008 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-003 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-007 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-009 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-006 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-002 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-005 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-001 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99840298
+        ],
+        [
+          "semantic",
+          "project-001 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-009 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-004 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-006 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-000 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-007 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-005 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-003 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-002 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-008 incident action connection_health_checks",
+          0.9982929
+        ],
+        [
+          "semantic",
+          "project-004 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-009 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-000 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-005 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-008 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-003 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-007 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-001 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-002 migration strategy deployment_pipeline",
+          0.99809179
+        ],
+        [
+          "semantic",
+          "project-006 migration strategy deployment_pipeline",
+          0.99809179
+        ]
+      ],
+      "returned_count": 62,
+      "valid_at": null,
+      "wall_seconds": 0.16826445300102932
+    }
+  ],
+  "semantic_revisions": 60,
+  "workload": {
+    "backend": "sqlite",
+    "heterogeneous": true,
+    "projects": 10,
+    "relationships_per_project": 5
+  }
+}

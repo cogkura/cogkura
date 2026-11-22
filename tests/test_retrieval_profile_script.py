@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import subprocess
@@ -9,6 +10,91 @@ import sys
 from pathlib import Path
 
 import pytest
+
+
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+def test_cognitive_audit_checks_state_without_claiming_benchmark_timings(
+    tmp_path: Path, backend: str
+) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "profile_retrieval.py"
+    output = tmp_path / "audit.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--observations",
+            "3",
+            "--revisions",
+            "2",
+            "--recalls",
+            "2",
+            "--backend",
+            backend,
+            "--uninstrumented",
+            "--cognitive-state-audit",
+            "--output",
+            str(output),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+    )
+    report = json.loads(output.read_text())
+    assert report["workload"]["cognitive_state_audit"] is True
+    assert report["cognitive_state_audit_matches"] is True
+
+
+@pytest.mark.asyncio
+async def test_cognitive_audit_detects_recorded_access(monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    profile = importlib.import_module("profile_retrieval")
+    from types import MappingProxyType
+
+    nested = {"metadata": {"items": [1]}}
+    frozen = profile.freeze_state(MappingProxyType(nested))
+    nested["metadata"]["items"].append(2)
+    assert frozen != profile.freeze_state(MappingProxyType(nested))
+    workload = importlib.import_module("run_sqlite_workload")
+    from datetime import timedelta
+
+    from cogkura import Memory
+
+    memory = Memory()
+    await memory.observe(workload._observation(0, 1))
+    await memory.process(tenant_id="benchmark", as_of=workload._T + timedelta(days=1))
+    before = await profile.cognitive_state(memory, 1)
+    results = await memory.recall(
+        "service-0000 deployment environment",
+        tenant_id="benchmark",
+        as_of=workload._T + timedelta(days=2),
+    )
+    assert results
+    await memory.record_access(
+        results, tenant_id="benchmark", referenced_at=workload._T + timedelta(days=2)
+    )
+    after = await profile.cognitive_state(memory, 1)
+    assert before["activation"] != after["activation"]
+
+
+@pytest.mark.asyncio
+async def test_cognitive_audit_rejects_a_mutating_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    profile = importlib.import_module("profile_retrieval")
+    from cogkura import Memory
+
+    original = Memory.recall
+
+    async def mutating_recall(self: Memory, *args: object, **kwargs: object) -> object:
+        results = await original(self, *args, **kwargs)
+        await self.record_access(results, tenant_id="benchmark", referenced_at=kwargs["as_of"])
+        return results
+
+    monkeypatch.setattr(Memory, "recall", mutating_recall)
+    with pytest.raises(RuntimeError, match="Cognitive state changed during recall.*activation"):
+        await profile.run(2, 2, 1, profile=False, cognitive_state_audit=True)
 
 
 def test_profile_runner_backend_and_measurement_modes(tmp_path: Path) -> None:
@@ -51,6 +137,8 @@ def test_profile_runner_backend_and_measurement_modes(tmp_path: Path) -> None:
         }
     )
     assert memory["recall_outputs"] == sqlite["recall_outputs"]
+    assert memory["recorded_fixture_state_after_matches"] is True
+    assert sqlite["recorded_fixture_state_after_matches"] is True
     assert len(memory["profiles"]) == len(sqlite["profiles"]) == 2
     assert all(sample["functions"] for sample in memory["profiles"])
     assert all(sample["functions"] is None for sample in sqlite["profiles"])

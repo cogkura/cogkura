@@ -13,6 +13,7 @@ import gc
 import hashlib
 import importlib.metadata
 import json
+import os
 import platform
 import pstats
 import sqlite3
@@ -20,7 +21,10 @@ import subprocess
 import tempfile
 import time
 import tracemalloc
+from collections.abc import Mapping
 from contextlib import ExitStack, nullcontext
+from dataclasses import fields, is_dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -34,8 +38,111 @@ from cogkura import (
     ComplementaryLearningSemanticConsolidator,
     EmbeddedMemory,
     Memory,
+    MemoryIdentity,
+    MemoryKind,
+    ObservationRevisionIdentity,
     SemanticCorrectionConfig,
 )
+
+
+async def fixture_state(memory: Memory, revisions: int) -> dict[str, Any]:
+    """Read the same derived and revision state collected by the mixed fixture."""
+    tenant = "benchmark"
+    episodes = await memory.list_episodes(tenant_id=tenant)
+    semantics = await memory.list_semantic_memories(tenant_id=tenant)
+    semantic_revisions = await memory.list_semantic_revisions(tenant_id=tenant)
+    observations = await memory._observation_store.list(tenant_id=tenant)
+    references = [
+        ObservationRevisionIdentity(item.id, number)
+        for item in observations
+        for number in range(1, revisions + 1)
+    ]
+    historical = await memory._observation_store.get_revisions_many(
+        tenant_id=tenant, references=references
+    )
+    return {
+        "counts": {
+            "observations": len(observations),
+            "observation_revisions": len(historical),
+            "episodes": len(episodes),
+            "semantic_memories": len(semantics),
+            "semantic_revisions": len(semantic_revisions),
+        },
+        "semantic_values": sorted(
+            (item.subject_id, item.predicate, item.object_value, item.status.value)
+            for item in semantics
+        ),
+        "historical_values": sorted(
+            (value.source_record_id, value.identity.observation_revision, value.source_version)
+            for value in historical.values()
+        ),
+    }
+
+
+async def cognitive_state(memory: Memory, revisions: int) -> dict[str, Any]:
+    """Capture current fixture state for an untimed before/after audit.
+
+    Context-specific learning outside the fixture's global context and storage
+    history tables are not covered by the store APIs used here.
+    """
+    tenant = "benchmark"
+    episodes = await memory.list_episodes(tenant_id=tenant)
+    semantics = await memory.list_semantic_memories(tenant_id=tenant)
+    observations = await memory._observation_store.list(tenant_id=tenant)
+    identities = [
+        *(MemoryIdentity(MemoryKind.EPISODE, item.memory_key) for item in episodes),
+        *(MemoryIdentity(MemoryKind.SEMANTIC, item.memory_key) for item in semantics),
+    ]
+    references = [
+        ObservationRevisionIdentity(item.id, number)
+        for item in observations
+        for number in range(1, revisions + 1)
+    ]
+    through = datetime(2100, 1, 1, tzinfo=UTC)
+    return {
+        "episodes": episodes,
+        "semantics": semantics,
+        "semantic_revisions": await memory.list_semantic_revisions(tenant_id=tenant),
+        "observations": observations,
+        "observation_revisions": await memory._observation_store.get_revisions_many(
+            tenant_id=tenant, references=references
+        ),
+        "relationships": await memory.list_entity_relationships(tenant_id=tenant),
+        "activation": await memory._activation_store.list_reference_traces(
+            tenant_id=tenant, identities=identities, before_or_at=through
+        ),
+        "dynamics": await memory._dynamics_store.get_many(tenant_id=tenant, identities=identities),
+        "learning": await memory._learning_store.list_states(
+            tenant_id=tenant, identities=identities, context_keys=("global",)
+        ),
+        "associations": await memory._learning_store.list_associations(
+            tenant_id=tenant, identities=identities
+        ),
+        "learning_reinforcement": await memory._learning_store.list_reinforcement_traces(
+            tenant_id=tenant, identities=identities, before_or_at=through
+        ),
+        "inhibition": await memory._inhibition_store.list_for_memories(
+            tenant_id=tenant, identities=identities, before_or_at=through
+        ),
+    }
+
+
+def freeze_state(value: Any) -> Any:
+    """Detach nested store values, including read-only mapping proxies."""
+    if is_dataclass(value) and not isinstance(value, type):
+        return (
+            type(value).__qualname__,
+            tuple((f.name, freeze_state(getattr(value, f.name))) for f in fields(value)),
+        )
+    if isinstance(value, Mapping):
+        return tuple(
+            sorted(((freeze_state(k), freeze_state(v)) for k, v in value.items()), key=repr)
+        )
+    if isinstance(value, (tuple, list)):
+        return tuple(freeze_state(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return tuple(sorted((freeze_state(item) for item in value), key=repr))
+    return value
 
 
 def profile_rows(profile: cProfile.Profile) -> list[dict[str, Any]]:
@@ -70,6 +177,7 @@ async def run(
     diagnostic: str | None = None,
     postgres_url: str | None = None,
     context: bool = False,
+    cognitive_state_audit: bool = False,
 ) -> dict[str, Any]:
     profiler_path = Path(__file__)
     diagnostics_path = profiler_path.with_name("retrieval_diagnostics.py")
@@ -91,11 +199,24 @@ async def run(
         return commit, hashlib.sha256(patch_bytes).hexdigest()
 
     identity = source_identity()
+    try:
+        load_before = os.getloadavg()
+    except (AttributeError, OSError):
+        load_before = None
     workload_path = profiler_path.with_name("run_sqlite_workload.py")
     measured_paths = (profiler_path, diagnostics_path, activation_path, workload_path)
     source_hashes = tuple(hashlib.sha256(path.read_bytes()).hexdigest() for path in measured_paths)
     profiles: list[dict[str, Any]] = []
     context_profiles: list[dict[str, Any]] = []
+    before_cognitive_state: dict[str, Any] | None = None
+
+    async def capture_before(memory: Memory) -> None:
+        nonlocal before_cognitive_state
+        before_cognitive_state = {
+            key: freeze_state(value)
+            for key, value in (await cognitive_state(memory, revisions)).items()
+        }
+
     original = Memory.recall
     original_context = Memory.prepare_context
 
@@ -237,8 +358,31 @@ async def run(
                 if context:
                     stack.enter_context(patch.object(Memory, "prepare_context", measured_context))
                 result = await _run(
-                    memory, count, revisions, recalls, mixed=True, trace_sql=False, extended=context
+                    memory,
+                    count,
+                    revisions,
+                    recalls,
+                    mixed=True,
+                    trace_sql=False,
+                    extended=context,
+                    before_recalls=capture_before if cognitive_state_audit else None,
                 )
+            after_state = await fixture_state(memory, revisions)
+            if any(after_state[key] != result[key] for key in after_state):
+                raise RuntimeError("Recorded fixture state changed during the workload")
+            if cognitive_state_audit:
+                after_cognitive_state = {
+                    key: freeze_state(value)
+                    for key, value in (await cognitive_state(memory, revisions)).items()
+                }
+                if before_cognitive_state != after_cognitive_state:
+                    changed = [
+                        key
+                        for key in after_cognitive_state
+                        if before_cognitive_state is None
+                        or before_cognitive_state[key] != after_cognitive_state[key]
+                    ]
+                    raise RuntimeError(f"Cognitive state changed during recall: {changed}")
         finally:
             if owner is not None:
                 await owner.close()
@@ -264,6 +408,8 @@ async def run(
         "method": ("cProfile" if profile else diagnostic or "uninstrumented")
         + "; per-recall timing, diagnostic modes include instrumentation overhead",
         "environment": {
+            "pid": os.getpid(),
+            "host_load_average_before_fixture": load_before,
             "commit": identity[0],
             "core_source_diff_sha256": identity[1],
             "python": platform.python_version(),
@@ -284,10 +430,15 @@ async def run(
             "profiled": profile,
             "diagnostic": diagnostic,
             "context": context,
+            "cognitive_state_audit": cognitive_state_audit,
         },
         "counts": result["counts"],
         "process_peak_rss": {"value": peak_rss, "unit": rss_unit, "includes_fixture": True},
         "mixed_operations": result["mixed_operations"],
+        "semantic_values": result["semantic_values"],
+        "historical_values": result["historical_values"],
+        "recorded_fixture_state_after_matches": True,
+        "cognitive_state_audit_matches": True if cognitive_state_audit else None,
         "recall_outputs": result["recall_outputs"],
         "profiles": profiles,
         "context_profiles": context_profiles,
@@ -301,6 +452,11 @@ def main() -> None:
     parser.add_argument("--recalls", type=int, default=1)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--context", action="store_true", help="also time context preparation")
+    parser.add_argument(
+        "--cognitive-state-audit",
+        action="store_true",
+        help="compare cognitive state before and after; timings are not benchmark results",
+    )
     parser.add_argument("--backend", choices=("memory", "sqlite", "postgres"), default="memory")
     parser.add_argument(
         "--postgres-url", help="disposable PostgreSQL database; tenant benchmark is cleared"
@@ -319,6 +475,8 @@ def main() -> None:
         parser.error("--backend postgres requires --postgres-url for a disposable database")
     if args.postgres_url and args.backend != "postgres":
         parser.error("--postgres-url requires --backend postgres")
+    if args.cognitive_state_audit and args.context:
+        parser.error("--cognitive-state-audit requires recall-only mode")
     diagnostic = (
         "stages"
         if args.stage_diagnostics
@@ -338,6 +496,7 @@ def main() -> None:
             diagnostic=diagnostic,
             postgres_url=args.postgres_url,
             context=args.context,
+            cognitive_state_audit=args.cognitive_state_audit,
         )
     )
     output = json.dumps(report, indent=2, sort_keys=True) + "\n"

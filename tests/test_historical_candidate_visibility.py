@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -96,6 +97,138 @@ async def test_episode_spanning_as_of_memory_and_sqlite(tmp_path: Path) -> None:
         assert "future secret" not in restored[0].memory.statement
 
 
+async def _exercise_write_between_history_check_and_read(
+    reader: Memory, writer: Memory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tenant = "historical-candidate"
+    await _observe(writer, "first", "migration known", _T0, session_id="shared")
+    expected = await reader.recall("migration", tenant_id=tenant, as_of=_T1)
+    assert len(expected) == 1
+    checked = asyncio.Event()
+    resume = asyncio.Event()
+    original = reader._check_history_order
+
+    async def pause_after_check(*, tenant_id: str, as_of: datetime | None) -> None:
+        await original(tenant_id=tenant_id, as_of=as_of)
+        checked.set()
+        await resume.wait()
+
+    monkeypatch.setattr(reader, "_check_history_order", pause_after_check)
+    pending = asyncio.create_task(reader.recall("migration", tenant_id=tenant, as_of=_T1))
+    try:
+        await asyncio.wait_for(checked.wait(), timeout=5)
+        await _observe(writer, "second", "migration future secret", _T2, session_id="shared")
+    finally:
+        resume.set()
+    result = await asyncio.wait_for(pending, timeout=5)
+    assert result == expected
+    assert "future secret" not in repr(result)
+
+
+async def test_forward_write_between_history_check_and_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = ActivationConfig(retrieval_threshold=-10)
+    memory = Memory(activation_config=config)
+    await _exercise_write_between_history_check_and_read(memory, memory, monkeypatch)
+    path = tmp_path / "concurrent-history.db"
+    async with await EmbeddedMemory.open(path, activation_config=config) as reader:
+        async with await EmbeddedMemory.open(path, activation_config=config) as writer:
+            await _exercise_write_between_history_check_and_read(reader, writer, monkeypatch)
+
+
+async def _exercise_backdated_write_after_history_check(
+    reader: Memory, writer: Memory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cogkura import HistoricalStateUnavailableError
+
+    tenant = "historical-candidate"
+    await _observe(writer, "first", "migration known", _T0, session_id="shared")
+    await _observe(writer, "later", "migration later", _T2, session_id="shared")
+    checked, resume = asyncio.Event(), asyncio.Event()
+    original = reader._check_history_order
+
+    async def pause_after_check(*, tenant_id: str, as_of: datetime | None) -> None:
+        await original(tenant_id=tenant_id, as_of=as_of)
+        checked.set()
+        await resume.wait()
+
+    monkeypatch.setattr(reader, "_check_history_order", pause_after_check)
+    pending = asyncio.create_task(reader.recall("migration", tenant_id=tenant, as_of=_T1))
+    try:
+        await asyncio.wait_for(checked.wait(), timeout=5)
+        await _observe(
+            writer,
+            "backdated",
+            "migration backdated",
+            _T0 + timedelta(hours=12),
+            session_id="shared",
+        )
+        with pytest.raises(HistoricalStateUnavailableError):
+            await original(tenant_id=tenant, as_of=_T1)
+    finally:
+        resume.set()
+    try:
+        await asyncio.wait_for(pending, timeout=5)
+    except HistoricalStateUnavailableError:
+        # A stricter implementation may reject the already-started read too.
+        pass
+    monkeypatch.setattr(reader, "_check_history_order", original)
+    with pytest.raises(HistoricalStateUnavailableError):
+        await reader.recall("migration", tenant_id=tenant, as_of=_T1)
+
+
+async def test_backdated_write_after_history_check_marks_later_reads_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = ActivationConfig(retrieval_threshold=-10)
+    memory = Memory(activation_config=config)
+    await _exercise_backdated_write_after_history_check(memory, memory, monkeypatch)
+    path = tmp_path / "concurrent-backdated-history.db"
+    async with await EmbeddedMemory.open(path, activation_config=config) as reader:
+        async with await EmbeddedMemory.open(path, activation_config=config) as writer:
+            await _exercise_backdated_write_after_history_check(reader, writer, monkeypatch)
+
+
+@pytest.mark.postgres
+async def test_postgres_write_between_history_check_and_read(
+    postgres_memory_url: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if not postgres_memory_url:
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from cogkura.migrations import apply_migrations
+    from cogkura.storage.postgres import (
+        PostgresEpisodeStore,
+        PostgresObservationStore,
+        PostgresSemanticMemoryStore,
+    )
+
+    engine = create_async_engine(postgres_memory_url)
+    await apply_migrations(engine)
+
+    def make_memory() -> Memory:
+        return Memory(
+            observation_store=PostgresObservationStore(engine),
+            episode_store=PostgresEpisodeStore(engine),
+            semantic_store=PostgresSemanticMemoryStore(engine),
+            activation_config=ActivationConfig(retrieval_threshold=-10),
+        )
+
+    reader, writer = make_memory(), make_memory()
+    try:
+        await writer.clear(tenant_id="historical-candidate")
+        await _exercise_write_between_history_check_and_read(reader, writer, monkeypatch)
+        await writer.clear(tenant_id="historical-candidate")
+        # Use a fresh reader so the previous pause wrapper is not retained.
+        reader = make_memory()
+        await _exercise_backdated_write_after_history_check(reader, writer, monkeypatch)
+    finally:
+        await writer.clear(tenant_id="historical-candidate")
+        await engine.dispose()
+
+
 async def _exercise_inactive_episode(memory: Memory) -> None:
     tenant = "historical-candidate"
     await _observe(memory, "removed", "migration known", _T0, session_id="inactive")
@@ -177,6 +310,77 @@ async def test_episode_snapshot_failure_rolls_back_sqlite_write(tmp_path: Path) 
         assert await memory.list_episodes(tenant_id="historical-candidate") == before
 
 
+@pytest.mark.postgres
+async def test_episode_snapshot_failure_rolls_back_postgres_write(
+    postgres_memory_url: str | None,
+) -> None:
+    if not postgres_memory_url:
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from cogkura.migrations import apply_migrations
+    from cogkura.storage.postgres import (
+        PostgresEpisodeStore,
+        PostgresObservationStore,
+        PostgresSemanticMemoryStore,
+    )
+
+    tenant = "historical-candidate"
+    engine = create_async_engine(postgres_memory_url)
+    await apply_migrations(engine)
+    memory = Memory(
+        observation_store=PostgresObservationStore(engine),
+        episode_store=PostgresEpisodeStore(engine),
+        semantic_store=PostgresSemanticMemoryStore(engine),
+        activation_config=ActivationConfig(retrieval_threshold=-10),
+    )
+    try:
+        await memory.clear(tenant_id=tenant)
+        await _observe(memory, "first", "migration known", _T0, session_id="shared")
+        before = await memory.list_episodes(tenant_id=tenant)
+        order_before = await memory._episode_store.historical_order_status(tenant_id=tenant)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "CREATE FUNCTION cogkura.test_fail_episode_history() "
+                    "RETURNS trigger LANGUAGE plpgsql AS $$ "
+                    "BEGIN RAISE EXCEPTION 'injected failure'; END; $$"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE TRIGGER test_fail_episode_history BEFORE INSERT "
+                    "ON cogkura.episode_history FOR EACH ROW "
+                    "EXECUTE FUNCTION cogkura.test_fail_episode_history()"
+                )
+            )
+        with pytest.raises(SQLAlchemyError):
+            await _observe(memory, "second", "migration future", _T2, session_id="shared")
+        assert await memory.list_episodes(tenant_id=tenant) == before
+        assert await memory._episode_store.historical_order_status(tenant_id=tenant) == order_before
+        # Observation ingestion is a separate committed stage, not part of the failed episode write.
+        assert len(await memory._observation_store.list(tenant_id=tenant)) == 2
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("DROP TRIGGER test_fail_episode_history ON cogkura.episode_history")
+            )
+            await conn.execute(text("DROP FUNCTION cogkura.test_fail_episode_history()"))
+        await memory.encode_episodes(tenant_id=tenant, as_of=_T2)
+        assert any(
+            "future" in item.statement for item in await memory.list_episodes(tenant_id=tenant)
+        )
+    finally:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("DROP TRIGGER IF EXISTS test_fail_episode_history ON cogkura.episode_history")
+            )
+            await conn.execute(text("DROP FUNCTION IF EXISTS cogkura.test_fail_episode_history()"))
+        await memory.clear(tenant_id=tenant)
+        await engine.dispose()
+
+
 async def test_episode_history_equal_times_and_tenant_scope() -> None:
     from dataclasses import replace
 
@@ -201,6 +405,110 @@ async def test_episode_history_equal_times_and_tenant_scope() -> None:
         await store.historical_episodes(tenant_id="other", episode_ids={original.id}, as_of=_T0)
         == {}
     )
+
+
+async def _exercise_clear_history_tenant_scope(memory: Memory) -> None:
+    tenants = ("history-clear-alpha", "history-clear-beta")
+    for tenant in tenants:
+        await memory.observe(
+            ObservationInput(
+                tenant_id=tenant,
+                subject_id="service",
+                source_namespace="history-clear",
+                source_record_id="first",
+                content="Database is PostgreSQL.",
+                observed_at=_T0,
+                metadata={
+                    "semantic_facts": [
+                        {
+                            "predicate": "database",
+                            "object_value": "postgresql",
+                            "cardinality": "one",
+                            "authority": {"basis": "application_asserted"},
+                        }
+                    ]
+                },
+            )
+        )
+        await memory.process(tenant_id=tenant, as_of=_T0)
+
+    identities = {}
+    for tenant in tenants:
+        episodes = await memory.list_episodes(tenant_id=tenant)
+        semantics = await memory.list_semantic_memories(tenant_id=tenant)
+        revisions = await memory.list_semantic_revisions(tenant_id=tenant)
+        assert len(episodes) == len(semantics) == len(revisions) == 1
+        identities[tenant] = (episodes[0].id, semantics[0].id, revisions[0].revision_key)
+
+    async def history(tenant: str) -> tuple[object, object, object]:
+        episode_id, semantic_id, revision_key = identities[tenant]
+        return (
+            await memory._episode_store.historical_episodes(
+                tenant_id=tenant, episode_ids={episode_id}, as_of=_T1
+            ),
+            await memory._semantic_store.historical_semantics(
+                tenant_id=tenant, memory_ids={semantic_id}, as_of=_T1
+            ),
+            await memory._semantic_store.historical_revisions(
+                tenant_id=tenant, revision_keys={revision_key}, as_of=_T1
+            ),
+        )
+
+    assert all(await history(tenants[0]))
+    beta_before = await history(tenants[1])
+    assert all(beta_before)
+    await memory.clear(tenant_id=tenants[0])
+    assert not any(await history(tenants[0]))
+    assert await history(tenants[1]) == beta_before
+    assert not await memory.list_episodes(tenant_id=tenants[0])
+    assert await memory.list_episodes(tenant_id=tenants[1])
+
+
+async def test_clear_history_is_tenant_scoped_memory_and_sqlite(tmp_path: Path) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator
+
+    options = {
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        )
+    }
+    await _exercise_clear_history_tenant_scope(Memory(**options))
+    async with await EmbeddedMemory.open(tmp_path / "clear-history.db", **options) as memory:
+        await _exercise_clear_history_tenant_scope(memory)
+
+
+@pytest.mark.postgres
+async def test_clear_history_is_tenant_scoped_postgres(postgres_memory_url: str | None) -> None:
+    if not postgres_memory_url:
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from cogkura import ComplementaryLearningSemanticConsolidator
+    from cogkura.migrations import apply_migrations
+    from cogkura.storage.postgres import (
+        PostgresEpisodeStore,
+        PostgresObservationStore,
+        PostgresSemanticMemoryStore,
+    )
+
+    engine = create_async_engine(postgres_memory_url)
+    await apply_migrations(engine)
+    memory = Memory(
+        observation_store=PostgresObservationStore(engine),
+        episode_store=PostgresEpisodeStore(engine),
+        semantic_store=PostgresSemanticMemoryStore(engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+    )
+    try:
+        for tenant in ("history-clear-alpha", "history-clear-beta"):
+            await memory.clear(tenant_id=tenant)
+        await _exercise_clear_history_tenant_scope(memory)
+    finally:
+        for tenant in ("history-clear-alpha", "history-clear-beta"):
+            await memory.clear(tenant_id=tenant)
+        await engine.dispose()
 
 
 @pytest.mark.postgres
@@ -792,6 +1100,243 @@ async def test_semantic_snapshot_failure_rolls_back_sqlite_reconciliation(tmp_pa
         assert await memory.list_semantic_memories(tenant_id="historical-candidate") == before
 
 
+@pytest.mark.parametrize(
+    ("action", "history_table"),
+    [
+        ("correction", "semantic_history"),
+        ("correction", "semantic_revision_history"),
+        ("correction", "semantic_relation_history"),
+        ("withdrawal", "semantic_history"),
+        ("withdrawal", "semantic_revision_history"),
+    ],
+)
+async def test_transition_history_failure_rolls_back_sqlite_semantic_transaction(
+    tmp_path: Path, action: str, history_table: str
+) -> None:
+    from cogkura import ComplementaryLearningSemanticConsolidator, SemanticCorrectionConfig
+    from cogkura.exceptions import StorageError
+
+    tenant = "historical-candidate"
+    fact = {
+        "predicate": "database",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    owner = await EmbeddedMemory.open(
+        tmp_path / "correction-atomic.db",
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+        semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+    )
+    async with owner as memory:
+        await _observe(memory, "original", "database PostgreSQL", _T0, semantic_facts=[fact])
+        await memory.consolidate_semantics(tenant_id=tenant, as_of=_T0)
+        original = (await memory.list_semantic_revisions(tenant_id=tenant))[0]
+        if action == "correction":
+            correction = {
+                **fact,
+                "object_value": "mysql",
+                "correction": {
+                    "replaces_revision_key": original.revision_key,
+                    "effective_at": _T2.isoformat(),
+                },
+            }
+            await _observe(memory, "correction", "database MySQL", _T2, semantic_facts=[correction])
+        else:
+            await _observe(
+                memory,
+                "withdrawal",
+                "database guidance withdrawn",
+                _T2,
+                semantic_withdrawals=[
+                    {
+                        "target_revision_key": original.revision_key,
+                        "effective_at": _T2.isoformat(),
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+            )
+        tables = (
+            "semantic_memories",
+            "semantic_revisions",
+            "semantic_relations",
+            "semantic_derivations",
+            "semantic_evidence",
+            "semantic_entities",
+            "semantic_history",
+            "semantic_revision_history",
+            "semantic_relation_history",
+            "history_order",
+        )
+
+        def snapshot() -> dict[str, list[tuple]]:
+            conn = owner._storage._conn()
+            return {
+                name: [tuple(row) for row in conn.execute(f"SELECT * FROM {name}")]
+                for name in tables
+            }
+
+        before = await owner._storage._run(snapshot)
+        await owner._storage._run(
+            lambda: owner._storage._conn().execute(
+                f"CREATE TRIGGER fail_history BEFORE INSERT ON {history_table} "
+                "BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+            )
+        )
+        with pytest.raises(StorageError):
+            await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+        assert await owner._storage._run(snapshot) == before
+        await owner._storage._run(
+            lambda: owner._storage._conn().execute("DROP TRIGGER fail_history")
+        )
+        result = await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+        if action == "correction":
+            assert result.authoritative_corrections_applied == 1
+        else:
+            assert result.authoritative_withdrawals_applied == 1
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize(
+    ("action", "history_table"),
+    [
+        ("correction", "semantic_history"),
+        ("correction", "semantic_revision_history"),
+        ("correction", "semantic_relation_history"),
+        ("withdrawal", "semantic_history"),
+        ("withdrawal", "semantic_revision_history"),
+    ],
+)
+async def test_transition_history_failure_rolls_back_postgres_semantic_transaction(
+    postgres_memory_url: str | None, action: str, history_table: str
+) -> None:
+    if not postgres_memory_url:
+        pytest.skip("COGKURA_POSTGRES_MEMORY_URL is not set")
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from cogkura import ComplementaryLearningSemanticConsolidator, SemanticCorrectionConfig
+    from cogkura.migrations import apply_migrations
+    from cogkura.storage.postgres import (
+        PostgresEpisodeStore,
+        PostgresObservationStore,
+        PostgresSemanticMemoryStore,
+    )
+
+    tenant = "historical-candidate"
+    engine = create_async_engine(postgres_memory_url)
+    await apply_migrations(engine)
+    memory = Memory(
+        observation_store=PostgresObservationStore(engine),
+        episode_store=PostgresEpisodeStore(engine),
+        semantic_store=PostgresSemanticMemoryStore(engine),
+        semantic_consolidator=ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+        semantic_correction_config=SemanticCorrectionConfig(enabled=True),
+    )
+    tables = (
+        "memories",
+        "semantic_claims",
+        "memory_derivations",
+        "semantic_claim_revisions",
+        "semantic_revision_relations",
+        "semantic_history",
+        "semantic_revision_history",
+        "semantic_relation_history",
+        "history_order",
+    )
+
+    async def snapshot() -> dict[str, list[str]]:
+        async with engine.connect() as conn:
+            return {
+                name: sorted(
+                    map(
+                        repr,
+                        (
+                            await conn.execute(
+                                text(f"SELECT * FROM cogkura.{name} WHERE tenant_id=:tenant"),
+                                {"tenant": tenant},
+                            )
+                        ).fetchall(),
+                    )
+                )
+                for name in tables
+            }
+
+    try:
+        await memory.clear(tenant_id=tenant)
+        fact = {
+            "predicate": "database",
+            "object_value": "postgresql",
+            "cardinality": "one",
+            "authority": {"basis": "application_asserted"},
+        }
+        await _observe(memory, "original", "database PostgreSQL", _T0, semantic_facts=[fact])
+        await memory.consolidate_semantics(tenant_id=tenant, as_of=_T0)
+        original = (await memory.list_semantic_revisions(tenant_id=tenant))[0]
+        if action == "correction":
+            correction = {
+                **fact,
+                "object_value": "mysql",
+                "correction": {
+                    "replaces_revision_key": original.revision_key,
+                    "effective_at": _T2.isoformat(),
+                },
+            }
+            await _observe(memory, "correction", "database MySQL", _T2, semantic_facts=[correction])
+        else:
+            await _observe(
+                memory,
+                "withdrawal",
+                "database guidance withdrawn",
+                _T2,
+                semantic_withdrawals=[
+                    {
+                        "target_revision_key": original.revision_key,
+                        "effective_at": _T2.isoformat(),
+                        "authority": {"basis": "application_asserted"},
+                    }
+                ],
+            )
+        before = await snapshot()
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "CREATE FUNCTION cogkura.test_fail_history() RETURNS trigger LANGUAGE plpgsql "
+                    "AS $$ BEGIN RAISE EXCEPTION 'injected failure'; END; $$"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"CREATE TRIGGER test_fail_history BEFORE INSERT ON cogkura.{history_table} "
+                    "FOR EACH ROW EXECUTE FUNCTION cogkura.test_fail_history()"
+                )
+            )
+        with pytest.raises(SQLAlchemyError):
+            await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+        assert await snapshot() == before
+        async with engine.begin() as conn:
+            await conn.execute(text(f"DROP TRIGGER test_fail_history ON cogkura.{history_table}"))
+            await conn.execute(text("DROP FUNCTION cogkura.test_fail_history()"))
+        result = await memory.consolidate_semantics(tenant_id=tenant, as_of=_T2)
+        if action == "correction":
+            assert result.authoritative_corrections_applied == 1
+        else:
+            assert result.authoritative_withdrawals_applied == 1
+    finally:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(f"DROP TRIGGER IF EXISTS test_fail_history ON cogkura.{history_table}")
+            )
+            await conn.execute(text("DROP FUNCTION IF EXISTS cogkura.test_fail_history()"))
+        await memory.clear(tenant_id=tenant)
+        await engine.dispose()
+
+
 @pytest.mark.postgres
 async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> None:
     if not postgres_memory_url:
@@ -845,6 +1390,10 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
         await _exercise_contested_revision_snapshot(correction_memory)
         await correction_memory.clear(tenant_id="historical-candidate")
         await _exercise_shared_contested_history(correction_memory)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_shared_contested_history(correction_memory, remove_snapshot=True)
+        await correction_memory.clear(tenant_id="historical-candidate")
+        await _exercise_shared_contested_history(correction_memory, corrupt_snapshot=True)
         await correction_memory.clear(tenant_id="historical-candidate")
         await _exercise_mixed_episode_after_correction(correction_memory)
         await correction_memory.clear(tenant_id="historical-candidate")
@@ -1040,7 +1589,11 @@ async def test_contested_revision_snapshots_memory_and_sqlite(tmp_path: Path) ->
 
 
 async def _exercise_shared_contested_history(
-    memory: Memory, *, remove_snapshot: bool = False
+    memory: Memory,
+    *,
+    remove_snapshot: bool = False,
+    corrupt_snapshot: bool = False,
+    snapshot_payload: str = '{"version": 999}',
 ) -> None:
     from cogkura import SemanticKnowledgeState, SemanticSlotQuery
 
@@ -1085,10 +1638,58 @@ async def _exercise_shared_contested_history(
     assert all(result.considered_count == 4 for result in before.values())
     await observe("future secret", _T2, "shared")
     await memory.process(tenant_id=tenant, as_of=_T2)
-    if remove_snapshot:
+    if remove_snapshot or corrupt_snapshot:
         semantics = await memory.list_semantic_memories(tenant_id=tenant)
-        history = memory._semantic_store._semantic_history
-        history.pop((tenant, semantics[0].id))
+        if hasattr(memory._semantic_store, "_storage"):
+            storage = memory._semantic_store._storage
+
+            def remove_sqlite_history() -> None:
+                conn = storage._conn()
+                if corrupt_snapshot:
+                    conn.execute(
+                        "UPDATE semantic_history SET snapshot=? WHERE tenant_id=? AND memory_id=?",
+                        (snapshot_payload, tenant, semantics[0].id),
+                    )
+                else:
+                    conn.execute(
+                        "DELETE FROM semantic_history WHERE tenant_id=? AND memory_id=?",
+                        (tenant, semantics[0].id),
+                    )
+                conn.commit()
+
+            await storage._run(remove_sqlite_history)
+        elif hasattr(memory._semantic_store, "_engine"):
+            from sqlalchemy import text
+
+            engine = memory._semantic_store._engine
+            async with engine.begin() as conn:
+                if corrupt_snapshot:
+                    await conn.execute(
+                        text(
+                            "UPDATE cogkura.semantic_history SET snapshot=CAST(:snapshot AS jsonb) "
+                            "WHERE tenant_id=:tenant AND memory_id=CAST(:memory_id AS uuid)"
+                        ),
+                        {
+                            "snapshot": snapshot_payload,
+                            "tenant": tenant,
+                            "memory_id": semantics[0].id,
+                        },
+                    )
+                else:
+                    await conn.execute(
+                        text(
+                            "DELETE FROM cogkura.semantic_history "
+                            "WHERE tenant_id=:tenant AND memory_id=CAST(:memory_id AS uuid)"
+                        ),
+                        {"tenant": tenant, "memory_id": semantics[0].id},
+                    )
+        else:
+            history = memory._semantic_store._semantic_history
+            key = (tenant, semantics[0].id)
+            if corrupt_snapshot:
+                history[key] = [(at, snapshot_payload) for at, _ in history[key]]
+            else:
+                history.pop(key)
         result = await memory.inspect_recall("deployment policy", tenant_id=tenant, as_of=_T1)
         candidates = (*result.returned, *result.rejected)
         assert all("future secret" not in candidate.memory.statement for candidate in candidates)
@@ -1108,8 +1709,20 @@ async def test_shared_contested_history_memory_and_sqlite(tmp_path: Path) -> Non
     kwargs = {"activation_config": ActivationConfig(retrieval_threshold=-10)}
     await _exercise_shared_contested_history(Memory(**kwargs))
     await _exercise_shared_contested_history(Memory(**kwargs), remove_snapshot=True)
+    await _exercise_shared_contested_history(Memory(**kwargs), corrupt_snapshot=True)
+    await _exercise_shared_contested_history(
+        Memory(**kwargs), corrupt_snapshot=True, snapshot_payload="not-json"
+    )
     async with await EmbeddedMemory.open(tmp_path / "shared-contested.db", **kwargs) as memory:
         await _exercise_shared_contested_history(memory)
+    async with await EmbeddedMemory.open(tmp_path / "missing-shared.db", **kwargs) as memory:
+        await _exercise_shared_contested_history(memory, remove_snapshot=True)
+    async with await EmbeddedMemory.open(tmp_path / "corrupt-shared.db", **kwargs) as memory:
+        await _exercise_shared_contested_history(memory, corrupt_snapshot=True)
+    async with await EmbeddedMemory.open(tmp_path / "invalid-shared.db", **kwargs) as memory:
+        await _exercise_shared_contested_history(
+            memory, corrupt_snapshot=True, snapshot_payload="not-json"
+        )
 
 
 async def _exercise_mixed_episode_after_correction(memory: Memory) -> None:

@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import tracemalloc
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -75,6 +76,7 @@ async def _run(
     trace_sql: bool = True,
     extended: bool = False,
     mixed: bool = False,
+    before_recalls: Callable[[Memory], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     ingest = []
     observe_latencies = []
@@ -165,6 +167,8 @@ async def _run(
         (value.source_record_id, value.identity.observation_revision, value.source_version)
         for value in historical.values()
     )
+    if before_recalls is not None:
+        await before_recalls(memory)
     latencies = []
     outputs = []
     statements: list[str] = []

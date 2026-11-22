@@ -88,6 +88,11 @@ Typed models: `ObservationInput`, `ObservationContext`, `MemoryContextSignature`
 
 - `recall()` ranks episodic + semantic memories by activation; soft admission bypasses threshold only.
 - `valid_at` selects semantic validity time; `as_of` is cognitive evaluation time.
+- Historical reconstruction uses retained derived-memory snapshots where compatible
+  evidence is available. Detected ambiguous backdating raises
+  `HistoricalStateUnavailableError` for affected historical times, but missing
+  snapshots and custom or legacy stores can limit detection. Historical retrieval
+  is not a consistent cross-store read transaction during concurrent writes.
 - `prepare_context()` runs recall once, selects bounded working-memory chunks, and returns metamemory assessment.
 - Chunks are ephemeral; SUPPORT derivations provide provenance; ASSOCIATION paths are recall-time bridges only.
 

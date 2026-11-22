@@ -50,6 +50,17 @@ Opening creates a new database or migrates a supported SQLite schema; it rejects
 
 Activation references, forgetting state, learning, inhibition and entity relationships survive restart when the SQLite stores shown above are injected. Any stores omitted from the constructor still default to in-memory storage. Working-memory snapshots remain transient.
 
+Derived episode and semantic snapshots can retain historical content and metadata in
+the database and its backups. Switching to hash-only retention applies to new
+observations; it does not retroactively erase old snapshots, and hash-only mode
+retains supplied metadata and context. Upgrading an older database does not create snapshots
+of states that were never recorded. Historical reconstruction is therefore bounded
+by the evidence available: some incomplete shared states are omitted, and detected
+ambiguous backdated histories raise `HistoricalStateUnavailableError`. Neither
+behavior detects every missing or unsupported history. Historical retrieval performs
+multiple reads and does not promise a transactionally consistent snapshot while
+another writer changes the memory. See the [historical reconstruction boundaries](findings/0.20.1-historical-reconstruction-design.md).
+
 SQLite work runs on a dedicated worker thread. Each observation and its revision commit together; connector checkpoints commit separately after a successful ingestion batch. A failed or interrupted batch can leave earlier observations committed while its checkpoint remains unchanged; replay is expected. Cancellation of an awaiting write does not establish whether it committed. Retry using the same source identity and version after checking the result.
 
 Semantic reads and writes materialize the tenant's semantic inventory in memory; some cognitive-state operations also scan tenant-scoped records. Batched semantic child reads reduce SQL statement counts, but large histories can still have substantial latency and memory costs. Slot inspection limits its inventory queries. See the [0.19.4 workload findings](findings/0.19.4-embedded-reliability.md) and [0.19.6 performance observations](findings/0.19.6-embedded-stabilisation.md#candidate-validation-and-scaling-observation) for measured workloads and limits.

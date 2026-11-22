@@ -358,11 +358,19 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
 - The [release preparation findings](findings/0.20.0-release-preparation.md)
   record evidence and open acceptance decisions.
 
-## 0.20.1 — Retrieval optimization (candidate)
+## 0.20.1 — Retrieval optimization (released)
 
-- Implement measured retrieval optimizations and the historical correction and
-  withdrawal fix. The [development findings](findings/0.20.1-scoped-sqlite-read.md)
-  record performance evidence and outstanding candidate-specific validation.
+- Measured retrieval optimizations and historical reconstruction improvements.
+  The [release findings](findings/0.20.1-release.md) identify the published
+  artifacts, validation and remaining limitations.
+
+## 0.20.2 — Retrieval and historical memory hardening (in progress)
+
+- Repeat the released retrieval measurements, assess context preparation, and
+  validate historical integrity, upgrades, snapshot safety and backend parity.
+- The [design](design-retrieval-hardening-0.20.2.md) defines the release gates;
+  [performance findings](findings/0.20.2-performance-repeatability.md) track
+  the initial baseline work. Release acceptance remains open.
 
 ## Later
 

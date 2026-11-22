@@ -36,9 +36,16 @@ def check_distribution(expected_version: str) -> dict[str, str]:
         "002_episodes.sql",
         "003_semantic.sql",
         "004_cognitive_state.sql",
+        "005_episode_history.sql",
+        "006_semantic_history.sql",
+        "007_revision_history.sql",
+        "008_history_order.sql",
     }
     if not expected.issubset({p.name for p in migrations.iterdir()}):
         raise RuntimeError("The wheel does not contain all expected SQLite migrations")
+    postgres_migrations = importlib.resources.files("cogkura").joinpath("migrations", "postgres")
+    if "015_history_order.sql" not in {p.name for p in postgres_migrations.iterdir()}:
+        raise RuntimeError("The wheel does not contain the PostgreSQL history-order migration")
     return {
         "module": str(module),
         "version": distribution.version,

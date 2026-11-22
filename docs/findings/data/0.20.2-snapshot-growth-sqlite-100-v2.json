@@ -1,0 +1,137 @@
+{
+  "backup_bytes": 3563520,
+  "database_bytes": 3563520,
+  "dbstat_object_bytes": {
+    "activation_lookup": 4096,
+    "activation_references": 4096,
+    "activation_request": 4096,
+    "connector_checkpoints": 4096,
+    "entity_relationship_lookup": 4096,
+    "entity_relationships": 4096,
+    "episode_entities": 12288,
+    "episode_evidence": 16384,
+    "episode_history": 221184,
+    "episode_history_lookup_idx": 12288,
+    "episodes": 151552,
+    "episodes_tenant_subject_idx": 4096,
+    "history_order": 4096,
+    "inhibition_lookup": 4096,
+    "inhibition_request": 4096,
+    "inhibition_traces": 4096,
+    "learned_associations": 4096,
+    "learning_events": 4096,
+    "learning_feedback": 4096,
+    "learning_state": 4096,
+    "memory_dynamics": 4096,
+    "observation_revisions": 352256,
+    "observations": 94208,
+    "observations_tenant_subject_idx": 4096,
+    "schema_migrations": 4096,
+    "semantic_derivations": 45056,
+    "semantic_entities": 20480,
+    "semantic_evidence": 24576,
+    "semantic_history": 835584,
+    "semantic_history_lookup_idx": 16384,
+    "semantic_memories": 147456,
+    "semantic_memories_tenant_slot": 16384,
+    "semantic_relation_history": 4096,
+    "semantic_relation_history_lookup": 4096,
+    "semantic_relations": 4096,
+    "semantic_revision_history": 847872,
+    "semantic_revision_history_lookup": 24576,
+    "semantic_revisions": 249856,
+    "sqlite_autoindex_connector_checkpoints_1": 4096,
+    "sqlite_autoindex_entity_relationships_1": 4096,
+    "sqlite_autoindex_episode_entities_1": 12288,
+    "sqlite_autoindex_episode_evidence_1": 16384,
+    "sqlite_autoindex_episode_evidence_2": 12288,
+    "sqlite_autoindex_episodes_1": 12288,
+    "sqlite_autoindex_episodes_2": 16384,
+    "sqlite_autoindex_episodes_3": 12288,
+    "sqlite_autoindex_history_order_1": 4096,
+    "sqlite_autoindex_inhibition_traces_1": 4096,
+    "sqlite_autoindex_learned_associations_1": 4096,
+    "sqlite_autoindex_learning_events_1": 4096,
+    "sqlite_autoindex_learning_feedback_1": 4096,
+    "sqlite_autoindex_learning_state_1": 4096,
+    "sqlite_autoindex_memory_dynamics_1": 4096,
+    "sqlite_autoindex_observation_revisions_1": 32768,
+    "sqlite_autoindex_observation_revisions_2": 32768,
+    "sqlite_autoindex_observations_1": 12288,
+    "sqlite_autoindex_observations_2": 4096,
+    "sqlite_autoindex_schema_migrations_1": 4096,
+    "sqlite_autoindex_semantic_derivations_1": 40960,
+    "sqlite_autoindex_semantic_entities_1": 16384,
+    "sqlite_autoindex_semantic_evidence_1": 20480,
+    "sqlite_autoindex_semantic_memories_1": 12288,
+    "sqlite_autoindex_semantic_memories_2": 16384,
+    "sqlite_autoindex_semantic_memories_3": 12288,
+    "sqlite_autoindex_semantic_relations_1": 4096,
+    "sqlite_autoindex_semantic_revisions_1": 16384,
+    "sqlite_autoindex_semantic_revisions_2": 16384,
+    "sqlite_schema": 24576,
+    "sqlite_sequence": 4096
+  },
+  "environment": {
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "fixture": {
+    "counts": {
+      "episodes": 106,
+      "observation_revisions": 506,
+      "observations": 106,
+      "semantic_memories": 97,
+      "semantic_revisions": 106
+    },
+    "mixed_operations": {
+      "corrections": 3,
+      "withdrawals": 3
+    },
+    "observations": 100,
+    "revisions": 5
+  },
+  "note": "Snapshot payload totals exclude indexes, pages, WAL and backup overhead.",
+  "page_count": 870,
+  "page_size": 4096,
+  "semantic_relation_history_rows": 6,
+  "snapshots": {
+    "episode_history": {
+      "available_snapshots": 106,
+      "mean_payload_bytes": 1737.132075471698,
+      "payload_bytes": 184136,
+      "records_per_identity": {
+        "count": 106,
+        "max": 1,
+        "mean": 1.0,
+        "min": 1
+      },
+      "rows": 106
+    },
+    "semantic_history": {
+      "available_snapshots": 203,
+      "mean_payload_bytes": 2154.669950738916,
+      "payload_bytes": 437398,
+      "records_per_identity": {
+        "count": 103,
+        "max": 2,
+        "mean": 1.970873786407767,
+        "min": 1
+      },
+      "rows": 203
+    },
+    "semantic_revision_history": {
+      "available_snapshots": 206,
+      "mean_payload_bytes": 2431.9223300970875,
+      "payload_bytes": 500976,
+      "records_per_identity": {
+        "count": 106,
+        "max": 2,
+        "mean": 1.9433962264150944,
+        "min": 1
+      },
+      "rows": 206
+    }
+  }
+}
