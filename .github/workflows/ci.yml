@@ -71,11 +71,22 @@ jobs:
       COGKURA_POSTGRES_SOURCE_URL: postgresql+asyncpg://cogkura_reader:cogkura_reader@localhost:5432/cogkura_source
       COGKURA_POSTGRES_SOURCE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
       COGKURA_POSTGRES_SAME_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cogkura_source
+      COGKURA_POSTGRES_UPGRADE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+      COGKURA_RELEASE_WHEEL_DIRECTORY: ${{ runner.temp }}/cogkura-release-wheels
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
       - name: Install dependencies
         run: uv sync --all-extras --dev --locked --python ${{ matrix.python-version }} --managed-python
+      - name: Prepare released and candidate wheels
+        run: |
+          uv run python scripts/fetch_0202_release_wheels.py --output "$COGKURA_RELEASE_WHEEL_DIRECTORY"
+          uv build --wheel --out-dir "$RUNNER_TEMP/cogkura-candidate-wheel"
+          wheel_path=$(find "$RUNNER_TEMP/cogkura-candidate-wheel" -name 'cogkura-*.whl' -print -quit)
+          test -n "$wheel_path"
+          printf 'COGKURA_CANDIDATE_WHEEL=%s\n' "$wheel_path" >> "$GITHUB_ENV"
       - name: Prepare source and memory databases
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f examples/postgres_datasource/init/001-databases.sql
