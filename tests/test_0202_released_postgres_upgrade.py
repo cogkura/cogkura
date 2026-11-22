@@ -114,6 +114,10 @@ async def test_upgrade_postgres_from_released_source(
             text=True,
         )
         package_dir = old_env
+        old_site = subprocess.check_output(
+            [interpreter, "-I", "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+            text=True,
+        ).strip()
     else:
         if shutil.which("git") is None:
             pytest.skip("released-source upgrade fixture requires Git and release tags")
@@ -146,7 +150,7 @@ async def test_upgrade_postgres_from_released_source(
         created = True
         url = make_url(admin_url).set(database=database).render_as_string(hide_password=False)
         pythonpath = (
-            sysconfig.get_paths()["purelib"]
+            os.pathsep.join((old_site, sysconfig.get_paths()["purelib"]))
             if fixture_kind == "published-wheel"
             else str(package_dir)
         )
