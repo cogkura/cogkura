@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,12 @@ def _event(record: str, day: int, content: str, **metadata: Any) -> ObservationI
     )
 
 
-async def _project_lifecycle(memory: Memory) -> dict[str, Any]:
+async def _project_lifecycle(memory: Memory, *, scoped: bool = False) -> dict[str, Any]:
+    async def process(at: datetime) -> Any:
+        return await memory.process(
+            tenant_id=_TENANT, subject_id=_SUBJECT if scoped else None, as_of=at
+        )
+
     fact = {
         "subject_entity_id": _SUBJECT,
         "predicate": "storage_engine",
@@ -46,7 +52,7 @@ async def _project_lifecycle(memory: Memory) -> dict[str, Any]:
     await memory.observe(
         _event("adr-original", 0, "Storage engine is PostgreSQL.", semantic_facts=[fact])
     )
-    await memory.process(tenant_id=_TENANT, as_of=_T0)
+    await process(_T0)
     predecessor = (await memory.list_semantic_revisions(tenant_id=_TENANT))[0]
     await memory.observe(
         _event(
@@ -55,7 +61,7 @@ async def _project_lifecycle(memory: Memory) -> dict[str, Any]:
             "Deployment incident: restart workers after database connection failures.",
         )
     )
-    await memory.process(tenant_id=_TENANT, as_of=_T0 + timedelta(days=1))
+    await process(_T0 + timedelta(days=1))
     correction = {
         **fact,
         "object_value": "sqlite",
@@ -67,7 +73,7 @@ async def _project_lifecycle(memory: Memory) -> dict[str, Any]:
     await memory.observe(
         _event("adr-correction", 2, "Storage will use SQLite.", semantic_facts=[correction])
     )
-    applied = await memory.process(tenant_id=_TENANT, as_of=_T0 + timedelta(days=2))
+    applied = await process(_T0 + timedelta(days=2))
     assert applied.semantics.authoritative_corrections_applied == 1
     successor = next(
         revision
@@ -88,7 +94,7 @@ async def _project_lifecycle(memory: Memory) -> dict[str, Any]:
             ],
         )
     )
-    withdrawn = await memory.process(tenant_id=_TENANT, as_of=_T0 + timedelta(days=4))
+    withdrawn = await process(_T0 + timedelta(days=4))
     assert withdrawn.semantics.authoritative_withdrawals_applied == 1
     results = {}
     for name, at, valid_at in (
@@ -162,8 +168,11 @@ async def test_project_lifecycle_history_and_provenance_match_sqlite(tmp_path: P
         "semantic_correction_config": SemanticCorrectionConfig(enabled=True),
     }
     expected = await _project_lifecycle(Memory(**options))
+    assert await _project_lifecycle(Memory(**options), scoped=True) == expected
     async with await EmbeddedMemory.open(tmp_path / "project-lifecycle.db", **options) as memory:
         assert await _project_lifecycle(memory) == expected
+    async with await EmbeddedMemory.open(tmp_path / "project-scoped.db", **options) as memory:
+        assert await _project_lifecycle(memory, scoped=True) == expected
     async with await EmbeddedMemory.open(tmp_path / "project-lifecycle.db", **options) as memory:
         at = _T0 + timedelta(days=3, hours=12)
         result = await memory.recall(
@@ -177,6 +186,77 @@ async def test_project_lifecycle_history_and_provenance_match_sqlite(tmp_path: P
         assert [
             item.memory.object_value for item in result if item.memory_kind is MemoryKind.SEMANTIC
         ] == ["sqlite"]
+
+
+@pytest.mark.asyncio
+async def test_scoped_update_preserves_other_subject_sqlite_history(tmp_path: Path) -> None:
+    path = tmp_path / "scoped-history.db"
+    options = {
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        )
+    }
+
+    def histories() -> tuple[list[Any], ...]:
+        with sqlite3.connect(path) as connection:
+            return tuple(
+                connection.execute(query, (_TENANT, "other-project")).fetchall()
+                for query in (
+                    "SELECT h.* FROM episode_history h JOIN episodes e "
+                    "ON e.tenant_id=h.tenant_id AND e.id=h.episode_id "
+                    "WHERE e.tenant_id=? AND e.subject_id=? ORDER BY h.sequence",
+                    "SELECT h.* FROM semantic_history h JOIN semantic_memories m "
+                    "ON m.tenant_id=h.tenant_id AND m.id=h.memory_id "
+                    "WHERE m.tenant_id=? AND m.subject_id=? ORDER BY h.sequence",
+                    "SELECT h.* FROM semantic_revision_history h JOIN semantic_revisions r "
+                    "ON r.tenant_id=h.tenant_id AND r.revision_key=h.revision_key "
+                    "JOIN semantic_memories m ON m.tenant_id=r.tenant_id "
+                    "AND m.memory_key=r.memory_key "
+                    "WHERE m.tenant_id=? AND m.subject_id=? ORDER BY h.sequence",
+                )
+            )
+
+    async with await EmbeddedMemory.open(path, **options) as memory:
+        for subject in (_SUBJECT, "other-project"):
+            await memory.observe(
+                ObservationInput(
+                    tenant_id=_TENANT,
+                    subject_id=subject,
+                    source_namespace="projects",
+                    source_record_id=subject,
+                    content=f"{subject} uses PostgreSQL.",
+                    observed_at=_T0,
+                    metadata={
+                        "semantic_facts": [
+                            {
+                                "subject_entity_id": subject,
+                                "predicate": "storage_engine",
+                                "object_value": "postgresql",
+                                "cardinality": "one",
+                                "authority": {"basis": "application_asserted"},
+                            }
+                        ]
+                    },
+                )
+            )
+        await memory.process(tenant_id=_TENANT, as_of=_T0)
+        before = histories()
+        assert all(before), "the unaffected subject must have all three kinds of history"
+        episodes = await memory.list_episodes(tenant_id=_TENANT, subject_id="other-project")
+        revisions = await memory.list_semantic_revisions(
+            tenant_id=_TENANT, subject_id="other-project"
+        )
+        await memory.observe(_event("new-incident", 1, "A new deployment incident occurred."))
+        result = await memory.process(
+            tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T0 + timedelta(days=1)
+        )
+        assert result.episodes.observations == 2
+        assert histories() == before
+        assert await memory.list_episodes(tenant_id=_TENANT, subject_id="other-project") == episodes
+        assert (
+            await memory.list_semantic_revisions(tenant_id=_TENANT, subject_id="other-project")
+            == revisions
+        )
 
 
 @pytest.mark.postgres
