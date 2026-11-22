@@ -1,0 +1,102 @@
+{
+  "environment": {
+    "commit": "aa4861066e209665e613cfff835c3fc9c11c9b48",
+    "core_source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fixture_sha256": "7328ec2eb9ef302e914951a0f17463a7226df64b0549b8007063765a11742830",
+    "harness_sha256": "b0f227eb0925478ae3bdc1396f0d17bfe3f348178bed70f457b65b5b31f7ccb3",
+    "host_load_average_before_fixture": [
+      2.17626953125,
+      1.9638671875,
+      2.04052734375
+    ],
+    "pid": 24833,
+    "platform": "macOS-15.8.1-x86_64-i386-64bit",
+    "python": "3.11.15",
+    "sqlite": "3.53.1"
+  },
+  "fixture_counts": {
+    "episodes": 106,
+    "observation_revisions": 506,
+    "observations": 106,
+    "semantic_memories": 97,
+    "semantic_revisions": 106
+  },
+  "mixed_operations": {
+    "corrections": 3,
+    "withdrawals": 3
+  },
+  "note": "Use samples mutate state and follow all fixed-state read samples.",
+  "rendered_sha256": "adc863eb09c32f993830e180dbb8b783860e1553fadfce453a2e95bcecaf10ce",
+  "repeated_contexts_equal": true,
+  "selected_recall_count": 8,
+  "timings": {
+    "assess_memory": {
+      "median_seconds": 0.09152455200091936,
+      "p95_seconds": 0.09704169400356477,
+      "samples_seconds": [
+        0.09152455200091936,
+        0.08389225499558961,
+        0.09704169400356477,
+        0.09177504300168948,
+        0.08892717599519528
+      ]
+    },
+    "prepare_context": {
+      "median_seconds": 0.09725162699760403,
+      "p95_seconds": 0.10008774900052231,
+      "samples_seconds": [
+        0.09482510700036073,
+        0.09910109300108161,
+        0.10008774900052231,
+        0.09611952599516371,
+        0.09725162699760403
+      ]
+    },
+    "recall": {
+      "median_seconds": 0.0688253319967771,
+      "p95_seconds": 0.07162606799829518,
+      "samples_seconds": [
+        0.06540833599865437,
+        0.07162606799829518,
+        0.06908889699843712,
+        0.0688253319967771,
+        0.06852014199830592
+      ]
+    },
+    "record_context_use": {
+      "median_seconds": 4.741199518321082e-05,
+      "p95_seconds": 8.705200161784887e-05,
+      "samples_seconds": [
+        8.705200161784887e-05,
+        4.741199518321082e-05,
+        4.4578999222721905e-05,
+        4.6604996896348894e-05,
+        4.895000165561214e-05
+      ]
+    },
+    "select_working_memory": {
+      "median_seconds": 0.08995938699808903,
+      "p95_seconds": 0.10036415799550014,
+      "samples_seconds": [
+        0.10036415799550014,
+        0.08628581000084523,
+        0.09276508499897318,
+        0.08959763500024565,
+        0.08995938699808903
+      ]
+    }
+  },
+  "workload": {
+    "backend": "memory",
+    "budget": 2048,
+    "learning": true,
+    "observations": 100,
+    "output": "/Users/georgepaterson/GitHub/cogkura/cogkura/docs/findings/data/0.20.2-context-exact-442b5d2-small-irrelevant-memory.json",
+    "pool": 20,
+    "prepare_only": false,
+    "previous": false,
+    "query": "irrelevant",
+    "repetitions": 5,
+    "structured": true
+  }
+}
