@@ -104,7 +104,9 @@ def test_review_tracks_post_measurement_state(tmp_path: Path) -> None:
         _MODULE.review(paths)
 
 
-@pytest.mark.parametrize("mode", ["cognitive_state_audit", "sqlite_state_clone"])
+@pytest.mark.parametrize(
+    "mode", ["cognitive_state_audit", "sqlite_state_clone", "memory_state_fork"]
+)
 def test_review_rejects_experimental_timings(tmp_path: Path, mode: str) -> None:
     paths = _reports(tmp_path)
     for path in paths:

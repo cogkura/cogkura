@@ -122,6 +122,31 @@ async def test_sqlite_clone_audit_detects_mutating_recall(monkeypatch: pytest.Mo
         await profile.run(2, 2, 1, backend="sqlite", profile=False, sqlite_state_clone=True)
 
 
+@pytest.mark.asyncio
+async def test_memory_fork_audit_detects_mutating_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    profile = importlib.import_module("profile_retrieval")
+    from cogkura import Memory
+
+    if sys.platform != "darwin":
+        with pytest.raises(RuntimeError, match="requires macOS fork"):
+            await profile.run(2, 2, 1, profile=False, memory_state_fork=True)
+        return
+    clean = await profile.run(2, 2, 1, profile=False, memory_state_fork=True)
+    assert clean["memory_state_fork_matches"] is True
+    original = Memory.recall
+
+    async def mutating_recall(self: Memory, *args: object, **kwargs: object) -> object:
+        results = await original(self, *args, **kwargs)
+        await self.record_access(results, tenant_id="benchmark", referenced_at=kwargs["as_of"])
+        return results
+
+    monkeypatch.setattr(Memory, "recall", mutating_recall)
+    with pytest.raises(RuntimeError, match="In-memory state changed.*activation"):
+        await profile.run(2, 2, 1, profile=False, memory_state_fork=True)
+
+
 def test_profile_runner_backend_and_measurement_modes(tmp_path: Path) -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "profile_retrieval.py"
     reports = []
