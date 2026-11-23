@@ -16,6 +16,7 @@ from cogkura import (
     LearningConfig,
     Memory,
     MemoryAssessmentFlag,
+    ObservationInput,
     RetrievalContext,
     RetrievalCue,
     SemanticCorrectionConfig,
@@ -108,3 +109,47 @@ async def test_mixed_fixture_context_outputs_match_sqlite(tmp_path: Path, learni
     expected = await _outputs(Memory(**options))
     async with await EmbeddedMemory.open(tmp_path / "context-output.db", **options) as embedded:
         assert await _outputs(embedded) == expected
+
+
+async def _unrelated_population(memory: Memory) -> tuple[Any, ...]:
+    for index in range(20):
+        await memory.observe(
+            ObservationInput(
+                tenant_id="astronomy",
+                subject_id=f"planet-{index}",
+                source_namespace="astronomy",
+                source_record_id=str(index),
+                content=f"Planet {index} has orbiting moons and volcanic terrain.",
+                observed_at=_T,
+            )
+        )
+    await memory.process(tenant_id="astronomy", as_of=_T)
+    query = RetrievalCue(
+        text="What is the primary production database?",
+        entity_ids=("billing-service",),
+        predicate="primary_database",
+    )
+    kwargs = {
+        "tenant_id": "astronomy",
+        "as_of": _T + timedelta(days=1),
+        "prompt_budget_tokens": 256,
+    }
+    context = await memory.prepare_context(query, **kwargs)
+    assert await memory.prepare_context(query, **kwargs) == context
+    assert MemoryAssessmentFlag.MISSING_KNOWLEDGE in context.assessment.flags
+    assert all("database" not in item.memory.statement.lower() for item in context.recall_results)
+    return (
+        context.assessment.flags,
+        context.assessment.signals,
+        context.assessment.retrieved_count,
+        context.working_memory.selected_count,
+    )
+
+
+@pytest.mark.asyncio
+async def test_unrelated_population_reports_missing_knowledge_across_backends(
+    tmp_path: Path,
+) -> None:
+    expected = await _unrelated_population(Memory())
+    async with await EmbeddedMemory.open(tmp_path / "unrelated.db") as embedded:
+        assert await _unrelated_population(embedded) == expected
