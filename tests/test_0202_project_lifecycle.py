@@ -158,6 +158,60 @@ async def _project_lifecycle(memory: Memory, *, scoped: bool = False) -> dict[st
     return results
 
 
+async def _return_to_earlier_claim(memory: Memory) -> None:
+    fact = {
+        "subject_entity_id": _SUBJECT,
+        "predicate": "storage_engine",
+        "object_value": "postgresql",
+        "cardinality": "one",
+        "authority": {"basis": "application_asserted"},
+    }
+    previous = None
+    keys = []
+    for day, value in enumerate(("postgresql", "sqlite", "postgresql")):
+        claim = {**fact, "object_value": value}
+        if previous is not None:
+            claim["correction"] = {
+                "replaces_revision_key": previous,
+                "effective_at": (_T0 + timedelta(days=day)).isoformat(),
+            }
+        await memory.observe(
+            _event(f"return-{day}", day, f"Storage engine is {value}.", semantic_facts=[claim])
+        )
+        result = await memory.process(
+            tenant_id=_TENANT, subject_id=_SUBJECT, as_of=_T0 + timedelta(days=day)
+        )
+        if day:
+            assert result.semantics.authoritative_corrections_applied == 1
+        revisions = await memory.list_semantic_revisions(tenant_id=_TENANT, subject_id=_SUBJECT)
+        current = next(revision for revision in revisions if revision.revision_key not in keys)
+        previous = current.revision_key
+        keys.append(previous)
+    assert len(set(keys)) == 3
+    for day, value in enumerate(("postgresql", "sqlite", "postgresql")):
+        at = _T0 + timedelta(days=day, hours=12)
+        recalled = await memory.recall(
+            "storage engine", tenant_id=_TENANT, subject_id=_SUBJECT, as_of=at, valid_at=at
+        )
+        assert [
+            item.memory.object_value for item in recalled if item.memory_kind is MemoryKind.SEMANTIC
+        ] == [value]
+
+
+@pytest.mark.asyncio
+async def test_return_to_earlier_claim_memory_and_sqlite(tmp_path: Path) -> None:
+    options = {
+        "activation_config": ActivationConfig(retrieval_threshold=-10),
+        "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
+            allow_authoritative_single_episode=True
+        ),
+        "semantic_correction_config": SemanticCorrectionConfig(enabled=True),
+    }
+    await _return_to_earlier_claim(Memory(**options))
+    async with await EmbeddedMemory.open(tmp_path / "return-to-claim.db", **options) as memory:
+        await _return_to_earlier_claim(memory)
+
+
 @pytest.mark.asyncio
 async def test_project_lifecycle_history_and_provenance_match_sqlite(tmp_path: Path) -> None:
     options = {
@@ -310,6 +364,8 @@ async def test_project_lifecycle_history_and_provenance_match_postgres(
         assert await _project_lifecycle(memory) == expected
         await memory.clear(tenant_id=_TENANT)
         assert await _project_lifecycle(memory, scoped=True) == expected
+        await memory.clear(tenant_id=_TENANT)
+        await _return_to_earlier_claim(memory)
     finally:
         await memory.clear(tenant_id=_TENANT)
         await engine.dispose()
