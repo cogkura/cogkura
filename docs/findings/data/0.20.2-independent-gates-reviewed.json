@@ -1,0 +1,494 @@
+{
+  "candidate": "64f85f78acd2046cafe0212c84b45c1d221affd4",
+  "groups": [
+    {
+      "backend": "memory",
+      "independent_state_runs_passed": 3,
+      "observations": 100,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-100-run1.json.gz",
+          "first_seconds": 0.0733917420002399,
+          "host_load_average_before_fixture": [
+            3.42041015625,
+            2.82177734375,
+            2.58349609375
+          ],
+          "p95_including_first_seconds": 0.08072180700401077,
+          "passes_target": true,
+          "pid": 23747,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 38297600
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.07292176950068097
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-100-run2.json.gz",
+          "first_seconds": 0.07564290900336346,
+          "host_load_average_before_fixture": [
+            3.70703125,
+            2.89111328125,
+            2.60888671875
+          ],
+          "p95_including_first_seconds": 0.08573201399849495,
+          "passes_target": true,
+          "pid": 23756,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 37969920
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.07284422150041792
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-100-run3.json.gz",
+          "first_seconds": 0.07948580500669777,
+          "host_load_average_before_fixture": [
+            3.5244140625,
+            2.8779296875,
+            2.60693359375
+          ],
+          "p95_including_first_seconds": 0.08277056299994001,
+          "passes_target": true,
+          "pid": 23769,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 38219776
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.07356377000178327
+        }
+      ],
+      "snapshot_pids": [
+        3909,
+        3919,
+        3929
+      ],
+      "snapshot_report_sha256": [
+        "e0f23f158b85d7455781ff5f6e2abc4bd1d7675a113a80d772d9d9f8967c959f",
+        "90f1c203ea53f5bdf8b4a3d91d2dfe7cd2999f183d8382b347370b5d7c168b48",
+        "991d4b90de6d7e783a592cf2033cb737db1715e7886db1bc0ca2b77cc092c70c"
+      ],
+      "timing_report_sha256": [
+        "432027a4c142432288eb31b0c4902e4460dc4d16ca74fb77cc8a48b593bdb7f5",
+        "3e39abfac06e57b0014402c43e58758b71fa3a1f43a2b1c700dcb542417c2237",
+        "79012c2ce2b8b048ee098571aad87688c822cdc5ccc062390e902ad77a6c0ac2"
+      ]
+    },
+    {
+      "backend": "memory",
+      "independent_state_runs_passed": 3,
+      "observations": 250,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-250-run1.json.gz",
+          "first_seconds": 0.19194375599909108,
+          "host_load_average_before_fixture": [
+            3.2158203125,
+            2.83251953125,
+            2.59326171875
+          ],
+          "p95_including_first_seconds": 0.20942271500098286,
+          "passes_target": true,
+          "pid": 23780,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 45436928
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.19067534650457674
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-250-run2.json.gz",
+          "first_seconds": 0.19386357499752194,
+          "host_load_average_before_fixture": [
+            2.6484375,
+            2.72900390625,
+            2.56103515625
+          ],
+          "p95_including_first_seconds": 0.2117363259967533,
+          "passes_target": true,
+          "pid": 23797,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 45289472
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.19129685850202804
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-250-run3.json.gz",
+          "first_seconds": 0.1842424900023616,
+          "host_load_average_before_fixture": [
+            2.54248046875,
+            2.69775390625,
+            2.55322265625
+          ],
+          "p95_including_first_seconds": 0.20868199699907564,
+          "passes_target": true,
+          "pid": 23812,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 45334528
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.1896478635026142
+        }
+      ],
+      "snapshot_pids": [
+        3983,
+        3995,
+        4005
+      ],
+      "snapshot_report_sha256": [
+        "98b00c2a7e7c7df3b039883881df0b335533ad72bf3ed1dbbf255aec6fc05ef3",
+        "6dc26fdc1114ae989d30243cdba373243cb5d78242abd847892fdc5582af1b04",
+        "9767620271f7b52902a0319cf1fa5243b02517edb8edeaada24678043b3e6a73"
+      ],
+      "timing_report_sha256": [
+        "97b30d30d07b189aef0a8c330a455182ca7524b7dd6d2dda60e6c41588de413e",
+        "e4cf767395f899ebb8192bdd65850d07fc84f68843f3f6c95517efc6988b92c7",
+        "c2e17e37c35a635f2132bd5151c9c21e3c9926beae3a291ca68c77784c09ba6a"
+      ]
+    },
+    {
+      "backend": "memory",
+      "independent_state_runs_passed": 3,
+      "observations": 1000,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-1000-run1.json.gz",
+          "first_seconds": 1.0754006349961855,
+          "host_load_average_before_fixture": [
+            2.466796875,
+            2.66845703125,
+            2.54541015625
+          ],
+          "p95_including_first_seconds": 1.123086706000322,
+          "passes_target": true,
+          "pid": 23823,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 81068032
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.064152153005125
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-1000-run2.json.gz",
+          "first_seconds": 1.0894434150031884,
+          "host_load_average_before_fixture": [
+            2.59619140625,
+            2.66357421875,
+            2.5556640625
+          ],
+          "p95_including_first_seconds": 1.1146698789962102,
+          "passes_target": true,
+          "pid": 23857,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 80670720
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.0703433150047204
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-memory-1000-run3.json.gz",
+          "first_seconds": 1.068367539002793,
+          "host_load_average_before_fixture": [
+            1.93896484375,
+            2.478515625,
+            2.498046875
+          ],
+          "p95_including_first_seconds": 1.086121648993867,
+          "passes_target": true,
+          "pid": 23900,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 80441344
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.0594611920023453
+        }
+      ],
+      "snapshot_pids": [
+        4015,
+        4027,
+        4052
+      ],
+      "snapshot_report_sha256": [
+        "321db4f0bcdd7185904964b884cff013d932c5da3a80eeeebd3691c5c8c5648f",
+        "0e6f285e0421edfa2d0de9dbb8ec7cc0091f679bd9e125c3f3366c77ede77038",
+        "439e237dfa23e3883902b49852ed1f61028d2adecc7102d90450b79367fda64d"
+      ],
+      "timing_report_sha256": [
+        "c3cd101a1dd665676a663dd1e7cca872b932be76b9e6d4b8946c4971479e07ec",
+        "647ac024ebab94a25f0d243da700328c7f71594878f3cf601025e3473339be00",
+        "bb41a52150fba0bf27cbc2f4d26e9529a134e695fdf5632c4bc5698e659787f8"
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "independent_state_runs_passed": 3,
+      "observations": 100,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-100-run1.json.gz",
+          "first_seconds": 0.11391718599770684,
+          "host_load_average_before_fixture": [
+            2.591796875,
+            2.51123046875,
+            2.50537109375
+          ],
+          "p95_including_first_seconds": 0.12365830199996708,
+          "passes_target": true,
+          "pid": 23925,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 45936640
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.11059388149806182
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-100-run2.json.gz",
+          "first_seconds": 0.1095704699982889,
+          "host_load_average_before_fixture": [
+            2.453125,
+            2.47802734375,
+            2.49267578125
+          ],
+          "p95_including_first_seconds": 0.12607357399974717,
+          "passes_target": true,
+          "pid": 23941,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 45940736
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.10970311550045153
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-100-run3.json.gz",
+          "first_seconds": 0.12013665099948412,
+          "host_load_average_before_fixture": [
+            2.189453125,
+            2.4072265625,
+            2.46630859375
+          ],
+          "p95_including_first_seconds": 0.12554242799524218,
+          "passes_target": true,
+          "pid": 23956,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 46383104
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.11019490150283673
+        }
+      ],
+      "snapshot_pids": [
+        4512,
+        4522,
+        4545
+      ],
+      "snapshot_report_sha256": [
+        "270382117df566648f6703b22fd5b0555edaa39c8d1016ceb406e9012e583308",
+        "fa0ee0093d37ed93c0edb4ec7f320e000e1c3f5c1777ca94bf772ffef3828895",
+        "96ce8776cbd54d551c52c21ee5ddef06f8cf1051583e75e89c7814beb65805ee"
+      ],
+      "timing_report_sha256": [
+        "8fdaac10246dc7fb9ed5722285c1369d58fe9744ccd9fce5ab16ffcca840feda",
+        "edac584cb5cf1ef7afdc3293b5b9b2150c95ac033a1073bc3a87a6d0fde9c0aa",
+        "b8d1f53c94c68ed9a720c78180ceb4e41f44012daf82a871475778e4bcc1d1ec"
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "independent_state_runs_passed": 3,
+      "observations": 250,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-250-run1.json.gz",
+          "first_seconds": 0.33624575700378045,
+          "host_load_average_before_fixture": [
+            2.07861328125,
+            2.37109375,
+            2.45166015625
+          ],
+          "p95_including_first_seconds": 0.3359767779984395,
+          "passes_target": true,
+          "pid": 23971,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 59707392
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.2883190009997634
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-250-run2.json.gz",
+          "first_seconds": 0.30588170899864053,
+          "host_load_average_before_fixture": [
+            2.2412109375,
+            2.3447265625,
+            2.43115234375
+          ],
+          "p95_including_first_seconds": 0.30588170899864053,
+          "passes_target": true,
+          "pid": 24024,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 59453440
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.28079139099645545
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-250-run3.json.gz",
+          "first_seconds": 0.2996304549960769,
+          "host_load_average_before_fixture": [
+            2.513671875,
+            2.42236328125,
+            2.4521484375
+          ],
+          "p95_including_first_seconds": 0.35867912200046703,
+          "passes_target": true,
+          "pid": 24052,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 59125760
+          },
+          "target_seconds": 1.0,
+          "warm_median_seconds": 0.3020101940019231
+        }
+      ],
+      "snapshot_pids": [
+        3563,
+        3585,
+        3608
+      ],
+      "snapshot_report_sha256": [
+        "23881237d172c876546a93c8fd9beb4334347da5cb99e681f58bcec675acf3e1",
+        "e9b5af32032f499e9cdcc1070b801a45b4b40ac35d742229ca8e8ffafd85e878",
+        "27d3d8748b9a40fe3aef5dee405ee6ac9206ca41ab0fc8cfffb6a41df9e3d6db"
+      ],
+      "timing_report_sha256": [
+        "7fb167d55249ece06683d29bbd28d4450ebd9b0f460de9a13034632eb91c614d",
+        "f13358eebc679fb2bdb960336bdb82763e33590d8829dfbf64f06f01fcb68da6",
+        "ea979de77304133d9ed1149e2bf87dd936ab23a17fca4a2b8816d91a7545882b"
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "independent_state_runs_passed": 3,
+      "observations": 1000,
+      "original_timing_passed": true,
+      "original_timing_samples": [
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-1000-run1.json.gz",
+          "first_seconds": 1.6836061510039144,
+          "host_load_average_before_fixture": [
+            2.193359375,
+            2.31982421875,
+            2.40771484375
+          ],
+          "p95_including_first_seconds": 1.7506440979996114,
+          "passes_target": true,
+          "pid": 24080,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 112140288
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.6790430270048091
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-1000-run2.json.gz",
+          "first_seconds": 1.675784171995474,
+          "host_load_average_before_fixture": [
+            2.1572265625,
+            2.25146484375,
+            2.349609375
+          ],
+          "p95_including_first_seconds": 1.742579047997424,
+          "passes_target": true,
+          "pid": 24168,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 115453952
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.6751002580058412
+        },
+        {
+          "file": "docs/findings/data/0.20.2-exact-442b5d2-sqlite-1000-run3.json.gz",
+          "first_seconds": 1.6169363100052578,
+          "host_load_average_before_fixture": [
+            2.84912109375,
+            2.439453125,
+            2.37890625
+          ],
+          "p95_including_first_seconds": 1.6151377290007076,
+          "passes_target": true,
+          "pid": 24250,
+          "process_peak_rss": {
+            "includes_fixture": true,
+            "unit": "bytes",
+            "value": 111509504
+          },
+          "target_seconds": 2.0,
+          "warm_median_seconds": 1.5809917139995378
+        }
+      ],
+      "snapshot_pids": [
+        3630,
+        3678,
+        3693
+      ],
+      "snapshot_report_sha256": [
+        "ec0bc02a661ea5d515a65c8b193114d5173cc5c58ee221a8aa4896d5544178db",
+        "f9be69c0dd1ec43da0680ef714e8e5fe086a7e32d52ccbddd17b2862568205f7",
+        "1b931e502e95975816c488a77f0cc7a885adfbd5db76f0b02c99d929aeb88ca2"
+      ],
+      "timing_report_sha256": [
+        "cb377467e8e278ae658599b162d81b3d7fd28adb3af10be097b1d96fefb4e10f",
+        "daf7c574abe788998b829826f1d2f3cf3c7c81622ddb1d43454973092a0eb5ad",
+        "72f5b89d339e43cd9cbb7fe9d4db4e08e055f806ef91417281b8877d61f561b4"
+      ]
+    }
+  ],
+  "original_runs_contained_complete_per_run_state_checks": false,
+  "original_timing_commit": "442b5d251beaa8682fcba1a9bc83af8e82742e4d",
+  "snapshot_timings_used_as_original_protocol": false,
+  "timing_and_integrity_gates_passed": true,
+  "waiver": {
+    "date": "2026-11-23",
+    "decision": "The user explicitly waived complete cognitive-state verification within each individual timed run, replacing it with separate timing and state-integrity gates.",
+    "scope": "Core 0.20.2"
+  }
+}
