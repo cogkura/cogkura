@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.20.2] - Release pending — Retrieval and historical memory hardening
+## [0.20.2] — Retrieval and historical memory hardening
 
 ### Validation
 
@@ -39,8 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   memories. The Agent warning, broader scoped-processing validation and review
   of the proposed context-preparation latency target remain follow-up work before
   the 0.20.3 freeze.
-
-This entry is pending release approval; no 0.20.2 tag or publication is implied.
 
 ## [0.20.1] - 2026-11-21 — Retrieval performance and historical reconstruction
 
