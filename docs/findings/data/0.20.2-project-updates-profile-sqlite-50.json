@@ -1,0 +1,596 @@
+{
+  "diagnostics_source_sha256": "ec908aa5d25f4ede4ff1f63546e3f4b205e391f6dfb041b2a5a58cf2460b222a",
+  "note": "Instrumented overlapping stages; not benchmark timings.",
+  "profile_source_sha256": "49e061c76fa4332bba497d146722d1c2dcef5dfe998d6349a3eb221f35f2623b",
+  "stages": [
+    {
+      "activation_trace_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0006390060007106513
+      },
+      "candidate_construction": {
+        "calls": 1,
+        "returned_items": 15,
+        "wall_seconds": 0.0002613560000099824
+      },
+      "candidate_scoring": {
+        "calls": 15,
+        "returned_items": 30,
+        "wall_seconds": 0.0013569819993790588
+      },
+      "competition_and_inhibition": {
+        "accepted_pairs": 0,
+        "calls": 1,
+        "competition_enabled": true,
+        "evaluated_pairs": 210,
+        "potential_pairs": 210,
+        "returned_items": 3,
+        "wall_seconds": 0.0017631880000408273
+      },
+      "duplicate_collapse": {
+        "calls": 1,
+        "returned_items": 10,
+        "wall_seconds": 0.0013491689996953937
+      },
+      "episode_loading": {
+        "calls": 1,
+        "returned_items": 12,
+        "wall_seconds": 0.001434978999895975
+      },
+      "forgetting_eligibility": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 15,
+        "wall_seconds": 0.00020461100029933732
+      },
+      "historical_projection": {
+        "calls": 1,
+        "input_revisions": 9,
+        "returned_items": 6,
+        "wall_seconds": 3.9226999433594756e-05
+      },
+      "learned_association_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0003021559996341239
+      },
+      "recall_pipeline": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.1623683269999674
+      },
+      "relationship_loading": {
+        "calls": 1,
+        "returned_items": 250,
+        "wall_seconds": 0.001741664999826753
+      },
+      "revision_loading": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.028660458999183902
+      },
+      "scoring_and_ranking": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 0,
+        "wall_seconds": 0.008934125999985554
+      },
+      "semantic_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 6.736700015608221e-05
+      },
+      "semantic_loading": {
+        "calls": 6,
+        "returned_items": 17,
+        "wall_seconds": 0.17481425699861575
+      },
+      "semantic_relevance": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.002734144999521959
+      },
+      "slot_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 8.603999958722852e-06
+      },
+      "spreading_activation": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 0,
+        "wall_seconds": 2.7596999643719755e-05
+      },
+      "stale_episode_filtering": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.0011001570001099026
+      }
+    },
+    {
+      "activation_trace_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0006703130002279067
+      },
+      "candidate_construction": {
+        "calls": 1,
+        "returned_items": 15,
+        "wall_seconds": 0.00023043600049277302
+      },
+      "candidate_scoring": {
+        "calls": 15,
+        "returned_items": 30,
+        "wall_seconds": 0.0012385869995341636
+      },
+      "competition_and_inhibition": {
+        "accepted_pairs": 0,
+        "calls": 1,
+        "competition_enabled": true,
+        "evaluated_pairs": 210,
+        "potential_pairs": 210,
+        "returned_items": 3,
+        "wall_seconds": 0.00153866399978142
+      },
+      "duplicate_collapse": {
+        "calls": 1,
+        "returned_items": 10,
+        "wall_seconds": 0.0015355189998444985
+      },
+      "episode_loading": {
+        "calls": 1,
+        "returned_items": 12,
+        "wall_seconds": 0.0018951820002257591
+      },
+      "forgetting_eligibility": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 15,
+        "wall_seconds": 0.00024924300032580504
+      },
+      "historical_projection": {
+        "calls": 1,
+        "input_revisions": 9,
+        "returned_items": 6,
+        "wall_seconds": 3.5416000173427165e-05
+      },
+      "learned_association_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0005638100001306157
+      },
+      "recall_pipeline": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.17254414499984705
+      },
+      "relationship_loading": {
+        "calls": 1,
+        "returned_items": 250,
+        "wall_seconds": 0.0016663779997543315
+      },
+      "revision_loading": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.029623071999594686
+      },
+      "scoring_and_ranking": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 0,
+        "wall_seconds": 0.008730947000003653
+      },
+      "semantic_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 7.627699960721657e-05
+      },
+      "semantic_loading": {
+        "calls": 6,
+        "returned_items": 17,
+        "wall_seconds": 0.18078971999966598
+      },
+      "semantic_relevance": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0028830580004068906
+      },
+      "slot_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 7.277999429788906e-06
+      },
+      "spreading_activation": {
+        "calls": 1,
+        "input_candidates": 15,
+        "returned_items": 0,
+        "wall_seconds": 2.75249994956539e-05
+      },
+      "stale_episode_filtering": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.0008865829995556851
+      }
+    },
+    {
+      "activation_trace_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0009903149993988336
+      },
+      "candidate_construction": {
+        "calls": 1,
+        "returned_items": 14,
+        "wall_seconds": 0.00024463999943691306
+      },
+      "candidate_scoring": {
+        "calls": 14,
+        "returned_items": 28,
+        "wall_seconds": 0.0011725049989763647
+      },
+      "competition_and_inhibition": {
+        "accepted_pairs": 0,
+        "calls": 1,
+        "competition_enabled": true,
+        "evaluated_pairs": 182,
+        "potential_pairs": 182,
+        "returned_items": 3,
+        "wall_seconds": 0.0014322300003186683
+      },
+      "duplicate_collapse": {
+        "calls": 1,
+        "returned_items": 10,
+        "wall_seconds": 0.0013756540001850226
+      },
+      "episode_loading": {
+        "calls": 1,
+        "returned_items": 12,
+        "wall_seconds": 0.002121682000506553
+      },
+      "forgetting_eligibility": {
+        "calls": 1,
+        "input_candidates": 14,
+        "returned_items": 14,
+        "wall_seconds": 0.00046939600088080624
+      },
+      "historical_projection": {
+        "calls": 1,
+        "input_revisions": 9,
+        "returned_items": 5,
+        "wall_seconds": 3.874499998346437e-05
+      },
+      "learned_association_loading": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0004881069999100873
+      },
+      "recall_pipeline": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.16171825599940348
+      },
+      "relationship_loading": {
+        "calls": 1,
+        "returned_items": 250,
+        "wall_seconds": 0.001767720999851008
+      },
+      "revision_loading": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.02973226300036913
+      },
+      "scoring_and_ranking": {
+        "calls": 1,
+        "input_candidates": 14,
+        "returned_items": 0,
+        "wall_seconds": 0.008682999000484415
+      },
+      "semantic_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.0001475790004406008
+      },
+      "semantic_loading": {
+        "calls": 6,
+        "returned_items": 16,
+        "wall_seconds": 0.16862958199999412
+      },
+      "semantic_relevance": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 0.003062876000512915
+      },
+      "slot_admission": {
+        "calls": 1,
+        "returned_items": 0,
+        "wall_seconds": 7.541999366367236e-06
+      },
+      "spreading_activation": {
+        "calls": 1,
+        "input_candidates": 14,
+        "returned_items": 0,
+        "wall_seconds": 3.215799915778916e-05
+      },
+      "stale_episode_filtering": {
+        "calls": 1,
+        "returned_items": 9,
+        "wall_seconds": 0.0010054849999505677
+      }
+    }
+  ],
+  "workload": {
+    "backend": "sqlite",
+    "before": {
+      "episodes": 450,
+      "observations": 450,
+      "relationships": 250,
+      "semantic_memories": 250,
+      "semantic_revisions": 300,
+      "sqlite_episode_history_rows": 450,
+      "sqlite_logical_bytes": 10842112,
+      "sqlite_revision_history_rows": 550,
+      "sqlite_semantic_history_rows": 550
+    },
+    "direct_url": {
+      "url": "https://github.com/cogkura/cogkura.git",
+      "vcs_info": {
+        "commit_id": "64f85f78acd2046cafe0212c84b45c1d221affd4",
+        "requested_revision": "64f85f78acd2046cafe0212c84b45c1d221affd4",
+        "vcs": "git"
+      }
+    },
+    "driver_sha256": "28dbdc96fdd7a39fb160bd769100b9f7a1e789cb60a9eb3944916ccb965e37a4",
+    "fixture_sha256": "452c65d9526997ed18d3cd944c9174dcc4a1e9efcf59fb506af407c011b04dc4",
+    "module": "/private/tmp/cogkura-0202-official-module/cogkura/__init__.py",
+    "projects": 50,
+    "python": "3.11.15",
+    "queries": [
+      {
+        "assessment_flags": [],
+        "configuration_text_count": 1,
+        "considered_count": 15,
+        "day": 11,
+        "expected": "workers_4",
+        "other_text_count": 9,
+        "ranked_outputs": [
+          [
+            "semantic",
+            "project-000 worker configuration workers_4",
+            0.99989192
+          ],
+          [
+            "episode",
+            "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+            0.99959379
+          ],
+          [
+            "semantic",
+            "project-000 storage engine sqlite_local_postgres_hosted",
+            0.99959379
+          ],
+          [
+            "episode",
+            "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+            0.99929664
+          ],
+          [
+            "semantic",
+            "project-000 agent requirement embedded_local_and_hosted",
+            0.99929664
+          ],
+          [
+            "episode",
+            "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+            0.99922246
+          ],
+          [
+            "episode",
+            "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+            0.99915478
+          ],
+          [
+            "episode",
+            "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+            0.99909215
+          ],
+          [
+            "semantic",
+            "project-000 tenant isolation tenant_scoped",
+            0.99909215
+          ],
+          [
+            "episode",
+            "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+            0.99919958
+          ]
+        ],
+        "returned_count": 10,
+        "semantic_values": [
+          "workers_4"
+        ],
+        "wall_seconds": 0.16293567100001383
+      },
+      {
+        "assessment_flags": [],
+        "configuration_text_count": 1,
+        "considered_count": 15,
+        "day": 12,
+        "expected": "workers_8",
+        "other_text_count": 9,
+        "ranked_outputs": [
+          [
+            "semantic",
+            "project-000 worker configuration workers_8",
+            0.99989192
+          ],
+          [
+            "episode",
+            "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+            0.99947565
+          ],
+          [
+            "semantic",
+            "project-000 storage engine sqlite_local_postgres_hosted",
+            0.99947565
+          ],
+          [
+            "episode",
+            "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+            0.99922246
+          ],
+          [
+            "semantic",
+            "project-000 agent requirement embedded_local_and_hosted",
+            0.99922246
+          ],
+          [
+            "episode",
+            "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+            0.99915478
+          ],
+          [
+            "episode",
+            "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+            0.99909215
+          ],
+          [
+            "episode",
+            "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+            0.99903358
+          ],
+          [
+            "semantic",
+            "project-000 tenant isolation tenant_scoped",
+            0.99903358
+          ],
+          [
+            "episode",
+            "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+            0.99915384
+          ]
+        ],
+        "returned_count": 10,
+        "semantic_values": [
+          "workers_8"
+        ],
+        "wall_seconds": 0.17320063100032712
+      },
+      {
+        "assessment_flags": [
+          "missing_knowledge"
+        ],
+        "configuration_text_count": 1,
+        "considered_count": 14,
+        "day": 13,
+        "expected": null,
+        "other_text_count": 9,
+        "ranked_outputs": [
+          [
+            "episode",
+            "project-000: Worker configuration: withdrawn.",
+            0.99984275
+          ],
+          [
+            "episode",
+            "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+            0.99937964
+          ],
+          [
+            "semantic",
+            "project-000 storage engine sqlite_local_postgres_hosted",
+            0.99937964
+          ],
+          [
+            "episode",
+            "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+            0.99915478
+          ],
+          [
+            "semantic",
+            "project-000 agent requirement embedded_local_and_hosted",
+            0.99915478
+          ],
+          [
+            "episode",
+            "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+            0.99909215
+          ],
+          [
+            "episode",
+            "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+            0.99903358
+          ],
+          [
+            "episode",
+            "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+            0.99910775
+          ],
+          [
+            "episode",
+            "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+            0.99897836
+          ],
+          [
+            "semantic",
+            "project-000 tenant isolation tenant_scoped",
+            0.99897836
+          ]
+        ],
+        "returned_count": 10,
+        "semantic_values": [],
+        "wall_seconds": 0.16215771200040763
+      }
+    ],
+    "stages": [
+      {
+        "day": 11,
+        "observe_and_process_seconds": 0.1995851709998533,
+        "sizes": {
+          "episodes": 451,
+          "observations": 451,
+          "relationships": 250,
+          "semantic_memories": 251,
+          "semantic_revisions": 301,
+          "sqlite_episode_history_rows": 451,
+          "sqlite_logical_bytes": 10924032,
+          "sqlite_revision_history_rows": 557,
+          "sqlite_semantic_history_rows": 556
+        },
+        "value": "workers_4"
+      },
+      {
+        "day": 12,
+        "observe_and_process_seconds": 0.17757812699983333,
+        "sizes": {
+          "episodes": 452,
+          "observations": 452,
+          "relationships": 250,
+          "semantic_memories": 251,
+          "semantic_revisions": 302,
+          "sqlite_episode_history_rows": 452,
+          "sqlite_logical_bytes": 10993664,
+          "sqlite_revision_history_rows": 565,
+          "sqlite_semantic_history_rows": 563
+        },
+        "value": "workers_8"
+      },
+      {
+        "day": 13,
+        "observe_and_process_seconds": 0.17461599399939587,
+        "sizes": {
+          "episodes": 453,
+          "observations": 453,
+          "relationships": 250,
+          "semantic_memories": 250,
+          "semantic_revisions": 303,
+          "sqlite_episode_history_rows": 453,
+          "sqlite_logical_bytes": 11079680,
+          "sqlite_revision_history_rows": 574,
+          "sqlite_semantic_history_rows": 569
+        },
+        "value": null
+      }
+    ]
+  }
+}
