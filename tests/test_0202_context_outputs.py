@@ -40,16 +40,18 @@ async def _outputs(memory: Memory, *, observations: int = 100) -> list[dict[str,
         predicate="primary_crater",
     )
     results = []
-    for query, budget, structured, use_previous in (
-        (relevant, 256, False, False),
-        (relevant, 2048, True, True),
-        (missing, 512, True, False),
+    for query, budget, structured, use_previous, scoped in (
+        (relevant, 256, False, False, True),
+        (relevant, 2048, True, True, True),
+        ("deployment environment", 512, False, False, False),
+        (missing, 512, True, False, True),
     ):
         kwargs: dict[str, Any] = {
             "tenant_id": "benchmark",
-            "subject_id": "service-0006",
             "as_of": at,
         }
+        if scoped:
+            kwargs["subject_id"] = "service-0006"
         if structured:
             kwargs["goal"] = "Identify deployment environment"
             kwargs["retrieval_context"] = RetrievalContext(
@@ -67,9 +69,14 @@ async def _outputs(memory: Memory, *, observations: int = 100) -> list[dict[str,
         assert context.assessment == await memory.assess_memory(query, **kwargs)
         if query == missing:
             assert MemoryAssessmentFlag.MISSING_KNOWLEDGE in context.assessment.flags
-        else:
+        elif scoped:
             assert any(
                 "service-0006 deployment environment env-0006" in item.memory.statement
+                for item in context.recall_results
+            )
+        else:
+            assert any(
+                "deployment environment" in item.memory.statement.lower()
                 for item in context.recall_results
             )
         results.append(
