@@ -308,6 +308,8 @@ async def test_project_lifecycle_history_and_provenance_match_postgres(
     try:
         await memory.clear(tenant_id=_TENANT)
         assert await _project_lifecycle(memory) == expected
+        await memory.clear(tenant_id=_TENANT)
+        assert await _project_lifecycle(memory, scoped=True) == expected
     finally:
         await memory.clear(tenant_id=_TENANT)
         await engine.dispose()

@@ -407,6 +407,33 @@ async def test_episode_history_equal_times_and_tenant_scope() -> None:
     )
 
 
+async def _exercise_equal_time_episode_updates(memory: Memory) -> None:
+    tenant = "historical-candidate"
+    await _observe(memory, "equal-first", "migration first", _T0, session_id="equal-time")
+    first = (await memory.list_episodes(tenant_id=tenant))[0]
+    await _observe(memory, "equal-second", "migration second", _T0, session_id="equal-time")
+    latest = (await memory.list_episodes(tenant_id=tenant))[0]
+    assert latest.id == first.id
+    assert latest.memory_key == first.memory_key
+    assert len(latest.evidence) == 2
+    snapshots = await memory._episode_store.historical_episodes(
+        tenant_id=tenant, episode_ids={first.id}, as_of=_T0
+    )
+    assert snapshots[first.id] == latest
+    assert (
+        await memory._episode_store.historical_episodes(
+            tenant_id="another-tenant", episode_ids={first.id}, as_of=_T0
+        )
+        == {}
+    )
+
+
+async def test_equal_time_episode_updates_memory_and_sqlite(tmp_path: Path) -> None:
+    await _exercise_equal_time_episode_updates(Memory())
+    async with await EmbeddedMemory.open(tmp_path / "equal-time.db") as memory:
+        await _exercise_equal_time_episode_updates(memory)
+
+
 async def _exercise_clear_history_tenant_scope(memory: Memory) -> None:
     tenants = ("history-clear-alpha", "history-clear-beta")
     for tenant in tenants:
@@ -1363,6 +1390,8 @@ async def test_semantic_snapshots_postgres(postgres_memory_url: str | None) -> N
         ),
     )
     try:
+        await memory.clear(tenant_id="historical-candidate")
+        await _exercise_equal_time_episode_updates(memory)
         await memory.clear(tenant_id="historical-candidate")
         await _exercise_tenant_history_order(memory)
         await _exercise_semantic_snapshots(memory)
