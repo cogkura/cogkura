@@ -104,11 +104,12 @@ def test_review_tracks_post_measurement_state(tmp_path: Path) -> None:
         _MODULE.review(paths)
 
 
-def test_review_rejects_audit_timings(tmp_path: Path) -> None:
+@pytest.mark.parametrize("mode", ["cognitive_state_audit", "sqlite_state_clone"])
+def test_review_rejects_experimental_timings(tmp_path: Path, mode: str) -> None:
     paths = _reports(tmp_path)
     for path in paths:
         report = json.loads(path.read_text())
-        report["workload"]["cognitive_state_audit"] = True
+        report["workload"][mode] = True
         path.write_text(json.dumps(report))
     with pytest.raises(ValueError, match="uninstrumented"):
         _MODULE.review(paths)

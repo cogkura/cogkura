@@ -39,6 +39,7 @@ def review(paths: list[Path]) -> dict[str, Any]:
         or identity["diagnostic"] is not None
         or identity["context"]
         or identity.get("cognitive_state_audit", False)
+        or identity.get("sqlite_state_clone", False)
     ):
         raise ValueError("release recall measurements must be uninstrumented and recall-only")
     keys = (

@@ -31,6 +31,7 @@ from unittest.mock import patch
 
 from retrieval_diagnostics import stage_diagnostics
 from run_sqlite_workload import _run
+from sqlite_retrieval_state import clone_sqlite_state, compare_sqlite_state
 
 import cogkura
 from cogkura import (
@@ -178,7 +179,10 @@ async def run(
     postgres_url: str | None = None,
     context: bool = False,
     cognitive_state_audit: bool = False,
+    sqlite_state_clone: bool = False,
 ) -> dict[str, Any]:
+    if sqlite_state_clone and (backend != "sqlite" or context or cognitive_state_audit):
+        raise ValueError("SQLite clone state check requires SQLite recall-only mode")
     profiler_path = Path(__file__)
     diagnostics_path = profiler_path.with_name("retrieval_diagnostics.py")
     activation_path = profiler_path.resolve().parents[1] / "src/cogkura/algorithms/activation.py"
@@ -204,11 +208,19 @@ async def run(
     except (AttributeError, OSError):
         load_before = None
     workload_path = profiler_path.with_name("run_sqlite_workload.py")
-    measured_paths = (profiler_path, diagnostics_path, activation_path, workload_path)
+    clone_path_source = profiler_path.with_name("sqlite_retrieval_state.py")
+    measured_paths = (
+        profiler_path,
+        diagnostics_path,
+        activation_path,
+        workload_path,
+        clone_path_source,
+    )
     source_hashes = tuple(hashlib.sha256(path.read_bytes()).hexdigest() for path in measured_paths)
     profiles: list[dict[str, Any]] = []
     context_profiles: list[dict[str, Any]] = []
     before_cognitive_state: dict[str, Any] | None = None
+    clone_table_counts: dict[str, int] | None = None
 
     async def capture_before(memory: Memory) -> None:
         nonlocal before_cognitive_state
@@ -310,10 +322,16 @@ async def run(
         "semantic_correction_config": SemanticCorrectionConfig(enabled=True),
     }
     with tempfile.TemporaryDirectory(prefix="cogkura-retrieval-profile-") as directory:
+        database_path = Path(directory) / "memory.db"
+        clone_path = Path(directory) / "before-recall.db"
+
+        async def capture_clone(_memory: Memory) -> None:
+            clone_sqlite_state(database_path, clone_path)
+
         owner = None
         engine = None
         if backend == "sqlite":
-            owner = await EmbeddedMemory.open(Path(directory) / "memory.db", **options)
+            owner = await EmbeddedMemory.open(database_path, **options)
             memory = owner.memory
         elif backend == "postgres":
             if postgres_url is None:
@@ -365,11 +383,21 @@ async def run(
                     mixed=True,
                     trace_sql=False,
                     extended=context,
-                    before_recalls=capture_before if cognitive_state_audit else None,
+                    before_recalls=(
+                        capture_before
+                        if cognitive_state_audit
+                        else capture_clone
+                        if sqlite_state_clone
+                        else None
+                    ),
                 )
             after_state = await fixture_state(memory, revisions)
             if any(after_state[key] != result[key] for key in after_state):
                 raise RuntimeError("Recorded fixture state changed during the workload")
+            if sqlite_state_clone:
+                changed_tables, clone_table_counts = compare_sqlite_state(database_path, clone_path)
+                if changed_tables:
+                    raise RuntimeError(f"SQLite logical state changed: {changed_tables}")
             if cognitive_state_audit:
                 after_cognitive_state = {
                     key: freeze_state(value)
@@ -404,6 +432,7 @@ async def run(
         rss_unit = "bytes" if platform.system() == "Darwin" else "KiB on Linux; OS-dependent"
     except ImportError:
         peak_rss, rss_unit = None, None
+    direct_url = importlib.metadata.distribution("cogkura").read_text("direct_url.json")
     return {
         "method": ("cProfile" if profile else diagnostic or "uninstrumented")
         + "; per-recall timing, diagnostic modes include instrumentation overhead",
@@ -415,12 +444,15 @@ async def run(
             "python": platform.python_version(),
             "core_runtime_version": cogkura.__version__,
             "core_distribution_version": importlib.metadata.version("cogkura"),
+            "core_module": str(Path(cogkura.__file__).resolve()),
+            "core_direct_url": json.loads(direct_url) if direct_url else None,
             "platform": platform.platform(),
             "sqlite": sqlite3.sqlite_version,
             "profiler_source_sha256": source_hashes[0],
             "diagnostics_source_sha256": source_hashes[1],
             "activation_source_sha256": source_hashes[2],
             "workload_source_sha256": source_hashes[3],
+            "sqlite_state_clone_source_sha256": source_hashes[4],
         },
         "workload": {
             "observations": count,
@@ -431,6 +463,7 @@ async def run(
             "diagnostic": diagnostic,
             "context": context,
             "cognitive_state_audit": cognitive_state_audit,
+            "sqlite_state_clone": sqlite_state_clone,
         },
         "counts": result["counts"],
         "process_peak_rss": {"value": peak_rss, "unit": rss_unit, "includes_fixture": True},
@@ -439,6 +472,8 @@ async def run(
         "historical_values": result["historical_values"],
         "recorded_fixture_state_after_matches": True,
         "cognitive_state_audit_matches": True if cognitive_state_audit else None,
+        "sqlite_state_clone_matches": True if sqlite_state_clone else None,
+        "sqlite_state_clone_table_counts": clone_table_counts,
         "recall_outputs": result["recall_outputs"],
         "profiles": profiles,
         "context_profiles": context_profiles,
@@ -456,6 +491,11 @@ def main() -> None:
         "--cognitive-state-audit",
         action="store_true",
         help="compare cognitive state before and after; timings are not benchmark results",
+    )
+    parser.add_argument(
+        "--sqlite-state-clone",
+        action="store_true",
+        help="experimentally compare all SQLite logical tables using a pre-recall APFS clone",
     )
     parser.add_argument("--backend", choices=("memory", "sqlite", "postgres"), default="memory")
     parser.add_argument(
@@ -477,6 +517,10 @@ def main() -> None:
         parser.error("--postgres-url requires --backend postgres")
     if args.cognitive_state_audit and args.context:
         parser.error("--cognitive-state-audit requires recall-only mode")
+    if args.sqlite_state_clone and (
+        args.backend != "sqlite" or args.context or args.cognitive_state_audit
+    ):
+        parser.error("--sqlite-state-clone requires SQLite recall-only mode without audit")
     diagnostic = (
         "stages"
         if args.stage_diagnostics
@@ -497,6 +541,7 @@ def main() -> None:
             postgres_url=args.postgres_url,
             context=args.context,
             cognitive_state_audit=args.cognitive_state_audit,
+            sqlite_state_clone=args.sqlite_state_clone,
         )
     )
     output = json.dumps(report, indent=2, sort_keys=True) + "\n"

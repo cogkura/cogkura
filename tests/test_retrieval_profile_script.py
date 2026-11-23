@@ -97,6 +97,31 @@ async def test_cognitive_audit_rejects_a_mutating_recall(monkeypatch: pytest.Mon
         await profile.run(2, 2, 1, profile=False, cognitive_state_audit=True)
 
 
+@pytest.mark.asyncio
+async def test_sqlite_clone_audit_detects_mutating_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    profile = importlib.import_module("profile_retrieval")
+    from cogkura import Memory
+
+    if sys.platform != "darwin":
+        with pytest.raises(RuntimeError, match="requires macOS clonefile"):
+            await profile.run(2, 2, 1, backend="sqlite", profile=False, sqlite_state_clone=True)
+        return
+    clean = await profile.run(2, 2, 1, backend="sqlite", profile=False, sqlite_state_clone=True)
+    assert clean["sqlite_state_clone_matches"] is True
+    original = Memory.recall
+
+    async def mutating_recall(self: Memory, *args: object, **kwargs: object) -> object:
+        results = await original(self, *args, **kwargs)
+        await self.record_access(results, tenant_id="benchmark", referenced_at=kwargs["as_of"])
+        return results
+
+    monkeypatch.setattr(Memory, "recall", mutating_recall)
+    with pytest.raises(RuntimeError, match="SQLite logical state changed.*activation"):
+        await profile.run(2, 2, 1, backend="sqlite", profile=False, sqlite_state_clone=True)
+
+
 def test_profile_runner_backend_and_measurement_modes(tmp_path: Path) -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "profile_retrieval.py"
     reports = []
