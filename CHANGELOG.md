@@ -7,15 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Validation in progress
+## [0.20.2] - Release pending — Retrieval and historical memory hardening
 
-- Add retrieval and context measurement tools, historical snapshot and
-  concurrency regressions, and prior-release SQLite and PostgreSQL upgrade
-  checks for the 0.20.2 hardening work.
-- Document the supported and unsupported historical reconstruction boundaries.
-  The [hardening findings](docs/findings/0.20.2-historical-integrity.md) and
-  [upgrade findings](docs/findings/0.20.2-storage-upgrade-and-snapshots.md)
-  remain in progress; no 0.20.2 release acceptance is implied.
+### Validation
+
+- Repeat the established retrieval workload on the reference Mac and measure
+  complete context preparation, selection, assessment and recorded-use calls.
+  The original timing runs met their targets; separate snapshot runs checked
+  state integrity. The release owner explicitly waived complete state capture
+  within each timed run for 0.20.2 in favor of those independent gates.
+- Exercise historical reconstruction, corrections, withdrawal, shared evidence,
+  tenant isolation and rollback across the documented storage backends. Test
+  SQLite and PostgreSQL upgrades from the published 0.19.5 and 0.19.6 releases.
+- Validate scoped software-project retrieval and multi-session updates. Independent
+  four-backend comparisons passed for the tested workloads. The reviewed frozen
+  comparison passed for candidate `64f85f7` on the reference Mac with Python
+  3.11.15; the unchanged gold and raw comparison failure remain preserved.
+- Verify Python 3.11–3.15 across the hosted Core matrix and test the candidate
+  wheel and source distribution. See the [acceptance review](docs/findings/0.20.2-acceptance-review.md)
+  for evidence and the scope of the candidate-specific approvals.
+
+### Limits and follow-up
+
+- Historical reconstruction does not guarantee a coherent read during arbitrary
+  concurrent mutation or complete reconstruction of missing legacy history.
+- Tenant-wide processing can amplify retained history. The planned Agent default
+  is subject-scoped processing when the affected subject is known; tenant-wide
+  processing remains an explicit maintenance operation. SQLite scoped retrieval
+  also showed tenant-size sensitivity in the measured project fixture.
+- `MISSING_KNOWLEDGE` is an answerability warning even when context contains
+  memories. The Agent warning, broader scoped-processing validation and review
+  of the proposed context-preparation latency target remain follow-up work before
+  the 0.20.3 freeze.
+
+This entry is pending release approval; no 0.20.2 tag or publication is implied.
 
 ## [0.20.1] - 2026-11-21 — Retrieval performance and historical reconstruction
 
