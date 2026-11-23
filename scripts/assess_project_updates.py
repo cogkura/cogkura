@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
+import os
 import platform
 import tempfile
 import time
@@ -164,6 +165,10 @@ async def exercise(memory: Memory, projects: int) -> dict[str, Any]:
 
 
 async def run(backend: str, projects: int) -> dict[str, Any]:
+    try:
+        load_before = os.getloadavg()
+    except (AttributeError, OSError):
+        load_before = None
     options = {
         "activation_config": ActivationConfig(retrieval_threshold=-10),
         "semantic_consolidator": ComplementaryLearningSemanticConsolidator(
@@ -183,6 +188,8 @@ async def run(backend: str, projects: int) -> dict[str, Any]:
     return {
         "backend": backend,
         "projects": projects,
+        "pid": os.getpid(),
+        "host_load_average_before_fixture": load_before,
         "python": platform.python_version(),
         "module": str(Path(cogkura.__file__).resolve()),
         "direct_url": json.loads(direct_url) if direct_url else None,
