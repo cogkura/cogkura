@@ -1,0 +1,274 @@
+{
+  "backend": "sqlite",
+  "before": {
+    "episodes": 90,
+    "observations": 90,
+    "relationships": 50,
+    "semantic_memories": 50,
+    "semantic_revisions": 60,
+    "sqlite_episode_history_rows": 90,
+    "sqlite_logical_bytes": 2383872,
+    "sqlite_revision_history_rows": 110,
+    "sqlite_semantic_history_rows": 110
+  },
+  "direct_url": {
+    "url": "https://github.com/cogkura/cogkura.git",
+    "vcs_info": {
+      "commit_id": "64f85f78acd2046cafe0212c84b45c1d221affd4",
+      "requested_revision": "64f85f78acd2046cafe0212c84b45c1d221affd4",
+      "vcs": "git"
+    }
+  },
+  "driver_sha256": "28dbdc96fdd7a39fb160bd769100b9f7a1e789cb60a9eb3944916ccb965e37a4",
+  "fixture_sha256": "452c65d9526997ed18d3cd944c9174dcc4a1e9efcf59fb506af407c011b04dc4",
+  "module": "/private/tmp/cogkura-0202-official-module/cogkura/__init__.py",
+  "projects": 10,
+  "python": "3.11.15",
+  "queries": [
+    {
+      "assessment_flags": [],
+      "configuration_text_count": 1,
+      "considered_count": 15,
+      "day": 11,
+      "expected": "workers_4",
+      "other_text_count": 9,
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 worker configuration workers_4",
+          0.99989192
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99959379
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99959379
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99929664
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99929664
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99922246
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99915478
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99909215
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99909215
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99919958
+        ]
+      ],
+      "returned_count": 10,
+      "semantic_values": [
+        "workers_4"
+      ],
+      "wall_seconds": 0.05297024099945702
+    },
+    {
+      "assessment_flags": [],
+      "configuration_text_count": 1,
+      "considered_count": 15,
+      "day": 12,
+      "expected": "workers_8",
+      "other_text_count": 9,
+      "ranked_outputs": [
+        [
+          "semantic",
+          "project-000 worker configuration workers_8",
+          0.99989192
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99947565
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99947565
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99922246
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99922246
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99915478
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99909215
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99903358
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99903358
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99915384
+        ]
+      ],
+      "returned_count": 10,
+      "semantic_values": [
+        "workers_8"
+      ],
+      "wall_seconds": 0.04710168299970974
+    },
+    {
+      "assessment_flags": [
+        "missing_knowledge"
+      ],
+      "configuration_text_count": 1,
+      "considered_count": 14,
+      "day": 13,
+      "expected": null,
+      "other_text_count": 9,
+      "ranked_outputs": [
+        [
+          "episode",
+          "project-000: Worker configuration: withdrawn.",
+          0.99984275
+        ],
+        [
+          "episode",
+          "project-000: Revised architecture: SQLite for local agents, PostgreSQL for hosted deployments.",
+          0.99937964
+        ],
+        [
+          "semantic",
+          "project-000 storage engine sqlite_local_postgres_hosted",
+          0.99937964
+        ],
+        [
+          "episode",
+          "project-000: Agent integration needs an embedded local database while the hosted service still uses PostgreSQL.",
+          0.99915478
+        ],
+        [
+          "semantic",
+          "project-000 agent requirement embedded_local_and_hosted",
+          0.99915478
+        ],
+        [
+          "episode",
+          "project-000: The deployment pipeline now verifies migration completion before starting workers; a failed migration stops rollout.",
+          0.99909215
+        ],
+        [
+          "episode",
+          "project-000: The storage migration added reversible schema changes and exercised recovery on a copy of the database.",
+          0.99903358
+        ],
+        [
+          "episode",
+          "project-000: The incident review asks for connection health checks and bounded retries before a worker is ready.",
+          0.99910775
+        ],
+        [
+          "episode",
+          "project-000: Security review requires tenant-scoped access and prohibits sharing memory rows across customers.",
+          0.99897836
+        ],
+        [
+          "semantic",
+          "project-000 tenant isolation tenant_scoped",
+          0.99897836
+        ]
+      ],
+      "returned_count": 10,
+      "semantic_values": [],
+      "wall_seconds": 0.04519586999958847
+    }
+  ],
+  "stages": [
+    {
+      "day": 11,
+      "observe_and_process_seconds": 0.09642226200048754,
+      "sizes": {
+        "episodes": 91,
+        "observations": 91,
+        "relationships": 50,
+        "semantic_memories": 51,
+        "semantic_revisions": 61,
+        "sqlite_episode_history_rows": 91,
+        "sqlite_logical_bytes": 2457600,
+        "sqlite_revision_history_rows": 117,
+        "sqlite_semantic_history_rows": 116
+      },
+      "value": "workers_4"
+    },
+    {
+      "day": 12,
+      "observe_and_process_seconds": 0.1058485159992415,
+      "sizes": {
+        "episodes": 92,
+        "observations": 92,
+        "relationships": 50,
+        "semantic_memories": 51,
+        "semantic_revisions": 62,
+        "sqlite_episode_history_rows": 92,
+        "sqlite_logical_bytes": 2531328,
+        "sqlite_revision_history_rows": 125,
+        "sqlite_semantic_history_rows": 123
+      },
+      "value": "workers_8"
+    },
+    {
+      "day": 13,
+      "observe_and_process_seconds": 0.10798163799972826,
+      "sizes": {
+        "episodes": 93,
+        "observations": 93,
+        "relationships": 50,
+        "semantic_memories": 50,
+        "semantic_revisions": 63,
+        "sqlite_episode_history_rows": 93,
+        "sqlite_logical_bytes": 2617344,
+        "sqlite_revision_history_rows": 134,
+        "sqlite_semantic_history_rows": 129
+      },
+      "value": null
+    }
+  ]
+}
