@@ -30,8 +30,8 @@ if str(_SCRIPTS) not in sys.path:
 from run_sqlite_workload import _T, _run  # noqa: E402
 
 
-async def _outputs(memory: Memory) -> list[dict[str, Any]]:
-    await _run(memory, 100, 5, 1, mixed=True, trace_sql=False)
+async def _outputs(memory: Memory, *, observations: int = 100) -> list[dict[str, Any]]:
+    await _run(memory, observations, 5, 1, mixed=True, trace_sql=False)
     at = _T + timedelta(days=2)
     relevant = "service-0006 deployment environment env-0006"
     missing = RetrievalCue(
