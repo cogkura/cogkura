@@ -1,11 +1,13 @@
 # CogKura Core Agent integration handoff
 
-**Working draft for 0.20.3.** Do not pin a 0.20.3 release from this document
-until an exact candidate has completed its independent review and the release
-owner has approved and published it. The current released baseline is Core
-0.20.2, tag `v0.20.2`, commit
-`fb72911ce58173bf3669181d0e2c25eeefeaa58d`. The final 0.20.3 handoff must record
-its own tag and verified artifact identities.
+**Prepared for 0.20.3; publication pending.** The reviewed candidate is
+`a31f71e222dd231ed9643bc1d1cc109e3e8153dd`. Its locally built wheel SHA-256 is
+`16ae3d3a1be2313602f81794c4be2d9ab937a560f639cf623d57e2f15b077cbf`, and its
+source distribution SHA-256 is
+`0c844f226a275750d2d162a87f0c1d04382f3df8cac96d60b76c2173c2c78196`.
+The current published release remains Core 0.20.2, tag `v0.20.2`. Do not pin
+0.20.3 as a released version until the release owner approves publication and
+the published tag and artifacts have been verified.
 
 ## Runtime and identities
 
