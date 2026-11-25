@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Prepare the 0.20.3 architecture freeze and Agent integration contract. The
+  reference performance and scoped-processing investigations, independent
+  candidate validation and release review are in progress; see the
+  [release gate status](docs/findings/0.20.3-release.md).
+
 ## [0.20.2] — Retrieval and historical memory hardening
 
 ### Validation
