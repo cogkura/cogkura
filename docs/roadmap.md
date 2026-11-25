@@ -351,7 +351,7 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
 - Candidate `788444d` passed the Core Python 3.11–3.15 Linux/macOS/Windows matrix, PostgreSQL gates and independent Bench reviews with candidate-specific approvals. Raw benchmark comparisons remain available.
 - Uninstrumented workloads document a substantial retrieval-scaling limitation. See the [design](design-embedded-stabilisation-0.19.6.md) and [findings](findings/0.19.6-embedded-stabilisation.md).
 
-## 0.20.0 — Retrieval profiling (candidate)
+## 0.20.0 — Retrieval profiling (investigation; not published)
 
 - Investigate the 0.19.6 retrieval scaling issue using versioned workloads,
   optional diagnostics and independent comparisons. No cognitive change is included.
@@ -364,13 +364,19 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
   The [release findings](findings/0.20.1-release.md) identify the published
   artifacts, validation and remaining limitations.
 
-## 0.20.2 — Retrieval and historical memory hardening (in progress)
+## 0.20.2 — Retrieval and historical memory hardening (released)
 
 - Repeat the released retrieval measurements, assess context preparation, and
   validate historical integrity, upgrades, snapshot safety and backend parity.
-- The [design](design-retrieval-hardening-0.20.2.md) defines the release gates;
-  [performance findings](findings/0.20.2-performance-repeatability.md) track
-  the initial baseline work. Release acceptance remains open.
+- The [release findings](findings/0.20.2-release.md) record the published
+  candidate, evidence and bounded approvals.
+
+## 0.20.3 — Architecture freeze and Agent handoff (in progress)
+
+- Validate subject-scoped processing and Agent-facing public APIs, investigate
+  scoped-read scaling, and consolidate the cognitive and operational contracts.
+- The [design](design-core-architecture-freeze-0.20.3.md) defines the phased
+  work and release gates. Candidate validation and release approval remain open.
 
 ## Later
 

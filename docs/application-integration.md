@@ -39,6 +39,13 @@ await memory.process(tenant_id="shop", subject_id="customer_42")
 
 Processing cadence does not rehearse memory. Calling `process()` repeatedly without new observations leaves cognitive activation references unchanged. Historical observations keep their source chronology: processing them today does not make the represented evidence recent.
 
+When the affected subject is known, pass its `subject_id` rather than routinely
+processing the whole tenant. Processing is not one atomic transaction across the
+entire pipeline. A change involving multiple subjects or shared evidence may
+require broader processing; the caller is responsible for identifying affected
+scopes. Reprocessing an unchanged subject can still add timestamp-only semantic
+history snapshots; see the [scoped-processing investigation](findings/0.20.3-scoped-processing.md).
+
 Plain-language queries can retrieve relevant current semantic facts via lexical slot matching, evidence-linked relevance from supporting episodes, bounded entity association, bounded soft admission, and authoritative current admission even when base-level activation has decayed. Structured `RetrievalCue` fields remain the precise path when you have predicate or entity metadata.
 
 `valid_at` selects which semantic facts are valid at a snapshot time; it does not by itself mean the query asks for historical state. Use explicit historical wording (`previously`, `before`, `what was`, …) when you intend past-state retrieval.
@@ -77,6 +84,8 @@ context = await memory.prepare_context(
 - `context.render()` — deterministic plain-text rendering of selected memories
 
 Use structured fields for custom prompts, evaluation, and observability. Use `render()` when a simple text block is enough.
+For a known project or other subject, pass its `subject_id`: including a project
+name in a natural-language query does not apply a subject filter automatically.
 
 ### Source provenance (0.18.0)
 
@@ -177,6 +186,10 @@ A withdrawal uses `metadata["semantic_withdrawals"]` and does not create a new f
 
 `prepare_context()` always includes `MemoryAssessment`. Check flags such as `MISSING_KNOWLEDGE` before invoking your model. Cogkura reports memory state; it does not decide business responses.
 
+Rendered context may be non-empty even when `MISSING_KNOWLEDGE` is present.
+Do not treat the selected memories as sufficient evidence for the requested
+answer in that case; the application must handle the missing knowledge explicitly.
+
 ## External model invocation
 
 Pseudo-code only:
@@ -200,6 +213,10 @@ await memory.record_context_use(context, request_id=response.request_id)
 ```
 
 Only memories selected into working memory are recorded. Retrieved candidates that were not selected are not reinforced.
+`record_context_use()` records every selected result, so use it only when all
+were consumed. For partial consumption, pass only the actually consumed
+`RecallResult` objects from `context.recall_results` to
+`memory.record_access(consumed_results, tenant_id=context.tenant_id, ...)`.
 
 ## Learning feedback
 
