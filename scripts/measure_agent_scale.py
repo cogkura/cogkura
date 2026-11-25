@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
@@ -18,6 +19,11 @@ import statistics
 import time
 from datetime import timedelta
 from pathlib import Path
+
+try:
+    import resource
+except ModuleNotFoundError:  # Windows has no resource module.
+    resource = None  # type: ignore[assignment]
 
 from run_software_project_workload import _T, _TENANT
 
@@ -35,6 +41,11 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
         raise ValueError("A prebuilt database and at least one sample are required")
     with database.open("rb") as source:
         database_sha256 = hashlib.file_digest(source, "sha256").hexdigest()
+    package_root = Path(cogkura.__file__).resolve().parent
+    package_hash = hashlib.sha256()
+    for path in sorted(package_root.rglob("*.py")):
+        package_hash.update(str(path.relative_to(package_root)).encode())
+        package_hash.update(path.read_bytes())
     try:
         load_before = os.getloadavg()
     except (AttributeError, OSError):
@@ -103,6 +114,7 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
         previous = await memory.select_working_memory(query, **kwargs)
         times = []
         reference = None
+        cpu_start = time.process_time()
         for _ in range(samples):
             start = time.perf_counter()
             context = await memory.prepare_context(
@@ -116,6 +128,7 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
                 reference = context
             elif context != reference:
                 raise RuntimeError("Fixed-state prepared contexts changed across samples")
+        sample_cpu_seconds = time.process_time() - cpu_start
         assert reference is not None
         rendered_hash = hashlib.sha256(reference.render().encode()).hexdigest()
         assessment = [flag.value for flag in reference.assessment.flags]
@@ -130,10 +143,16 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
         "pid": os.getpid(),
         "load_average_before": load_before,
         "module": str(Path(cogkura.__file__).resolve()),
+        "distribution_version": importlib.metadata.version("cogkura"),
+        "package_source_sha256": package_hash.hexdigest(),
         "driver_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "database_sha256_before": database_sha256,
         "subject_counts": counts,
         "samples_seconds": times,
+        "sample_process_cpu_seconds": sample_cpu_seconds,
+        "process_max_rss_native_units": (
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if resource is not None else None
+        ),
         "median_seconds": statistics.median(times),
         "p95_seconds": sorted(times)[math.ceil(0.95 * len(times)) - 1],
         "rendered_sha256": rendered_hash,
