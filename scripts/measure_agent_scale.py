@@ -35,6 +35,28 @@ from cogkura import (
     WorkingMemoryConfig,
 )
 
+_STATE_TABLES = (
+    "observations",
+    "episodes",
+    "episode_history",
+    "semantic_memories",
+    "semantic_history",
+    "semantic_revisions",
+    "semantic_revision_history",
+    "semantic_relations",
+    "entity_relationships",
+    "activation_references",
+    "learning_events",
+    "inhibition_traces",
+)
+
+
+def _counts(conn: sqlite3.Connection) -> dict[str, int]:
+    return {
+        table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        for table in _STATE_TABLES
+    }
+
 
 async def measure(database: Path, samples: int) -> dict[str, object]:
     if not database.is_file() or samples < 1:
@@ -62,6 +84,7 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
             conn.execute("PRAGMA page_count").fetchone()[0]
             * conn.execute("PRAGMA page_size").fetchone()[0]
         )
+        rows_before = _counts(conn)
     query = "project-000 recall deployment incident database connection failures"
     at = _T + timedelta(days=16)
     kwargs = {
@@ -137,6 +160,7 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
             conn.execute("PRAGMA page_count").fetchone()[0]
             * conn.execute("PRAGMA page_size").fetchone()[0]
         )
+        rows_after = _counts(conn)
     return {
         "python": platform.python_version(),
         "platform": platform.platform(),
@@ -148,6 +172,8 @@ async def measure(database: Path, samples: int) -> dict[str, object]:
         "driver_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "database_sha256_before": database_sha256,
         "subject_counts": counts,
+        "state_table_counts_before": rows_before,
+        "state_table_counts_after": rows_after,
         "samples_seconds": times,
         "sample_process_cpu_seconds": sample_cpu_seconds,
         "process_max_rss_native_units": (
