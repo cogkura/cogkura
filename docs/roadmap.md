@@ -371,12 +371,12 @@ These milestones describe the SQLite work consolidated into the 0.19.5 release, 
 - The [release findings](findings/0.20.2-release.md) record the published
   candidate, evidence and bounded approvals.
 
-## 0.20.3 — Architecture freeze and Agent handoff (in progress)
+## 0.20.3 — Architecture freeze and Agent handoff (released)
 
 - Validate subject-scoped processing and Agent-facing public APIs, investigate
   scoped-read scaling, and consolidate the cognitive and operational contracts.
-- The [design](design-core-architecture-freeze-0.20.3.md) defines the phased
-  work and release gates. Candidate validation and release approval remain open.
+- The [release findings](findings/0.20.3-release.md) record the approved
+  candidate, published artifacts and bounded validation.
 
 ## Later
 
