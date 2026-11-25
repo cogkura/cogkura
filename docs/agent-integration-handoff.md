@@ -6,7 +6,7 @@
 source distribution SHA-256 is
 `0c844f226a275750d2d162a87f0c1d04382f3df8cac96d60b76c2173c2c78196`.
 The current published release remains Core 0.20.2, tag `v0.20.2`. Do not pin
-0.20.3 as a released version until the release owner approves publication and
+0.20.3 as a released version until the authorized publication has completed and
 the published tag and artifacts have been verified.
 
 ## Runtime and identities
