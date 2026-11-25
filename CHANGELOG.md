@@ -7,10 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Prepare the 0.20.3 architecture freeze and Agent integration contract. The
-  reference performance and scoped-processing investigations, independent
-  candidate validation and release review are in progress; see the
-  [release gate status](docs/findings/0.20.3-release.md).
+## [0.20.3] — Architecture freeze and Agent handoff
+
+### Changed
+
+- Consolidate the Agent-facing contract for embedded SQLite, subject-scoped
+  processing, project retrieval, answerability, provenance and recorded use.
+- Document cross-subject processing dependencies, retained-history behavior and
+  the boundaries of historical reconstruction and concurrent reads. Defer
+  historical snapshot compaction to a later Core version.
+- Preserve the existing cognitive algorithms and ranking behavior; no new
+  cognitive capability or Agent-specific runtime dependency is introduced.
+
+### Validation and limits
+
+- The reference 50-project, 250-observation-per-project SQLite workload met the
+  approved scoped context-preparation target in the recorded 0.20.2 baseline;
+  the specific fixture and measured storage growth are documented in the
+  [scaling findings](docs/findings/0.20.3-scoped-read-scaling.md).
+- Independent frozen comparison uses unchanged gold and requires explicit
+  candidate-specific review of differences; earlier approvals do not transfer.
+  See the [release gate status](docs/findings/0.20.3-release.md).
+- A non-empty rendered context does not establish answerability when
+  `MISSING_KNOWLEDGE` is present. Applications must resolve project subjects,
+  handle missing knowledge and record only memories actually consumed.
+- Historical reconstruction cannot recover unretained state or guarantee a
+  coherent cross-store read during arbitrary concurrent mutation. Reference
+  workloads are not general production latency or storage guarantees.
 
 ## [0.20.2] — Retrieval and historical memory hardening
 
