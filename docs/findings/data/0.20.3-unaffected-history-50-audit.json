@@ -1,0 +1,40 @@
+{
+  "episode_history": {
+    "baseline_rows_preserved": true,
+    "changed_fields_for_previously_snapshotted_identities": {},
+    "new_rows": 52,
+    "new_rows_by_current_subject": {
+      "project-049": 52
+    },
+    "unmatched_new_rows": 0
+  },
+  "semantic_history": {
+    "baseline_rows_preserved": true,
+    "changed_fields_for_previously_snapshotted_identities": {
+      "confidence,revision_key,revision_number,status,updated_at,valid_from": 1,
+      "confidence,status,updated_at,valid_until": 49,
+      "status,updated_at,valid_from,valid_until": 1,
+      "updated_at": 260
+    },
+    "new_rows": 362,
+    "new_rows_by_current_subject": {
+      "project-049": 362
+    },
+    "unmatched_new_rows": 0
+  },
+  "semantic_revision_history": {
+    "baseline_rows_preserved": true,
+    "changed_fields_for_previously_snapshotted_identities": {
+      "confidence,snapshot,status,updated_at,valid_until": 49,
+      "confidence,snapshot,updated_at,valid_until": 1,
+      "confidence,updated_at": 1,
+      "snapshot,status,updated_at,valid_from,valid_until": 1,
+      "updated_at": 1586
+    },
+    "new_rows": 1690,
+    "new_rows_by_current_subject": {
+      "project-049": 1690
+    },
+    "unmatched_new_rows": 0
+  }
+}

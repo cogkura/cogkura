@@ -13,6 +13,7 @@ _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+from audit_timestamp_only_history import experimental_copy, inspect  # noqa: E402
 from audit_unaffected_subject_history import audit  # noqa: E402
 from measure_agent_scale import measure  # noqa: E402
 from prepare_agent_scale_fixture import build  # noqa: E402
@@ -54,6 +55,11 @@ async def test_agent_scale_fixture_and_fixed_state_driver(tmp_path: Path) -> Non
     assert revised["withdrawals_applied"] == 1
     assert revised["subject_counts"] == {"project-000": 12, "project-001": 12}
     assert all(item["found"] for item in revised["evidence"].values())
+    pruned_database = tmp_path / "pruned.db"
+    removed = experimental_copy(revision_database, pruned_database, "project-001")
+    assert sum(removed.values()) > 0
+    comparisons = await inspect(revision_database, pruned_database, "project-001")
+    assert len(comparisons) == 16
     related = await probe_relationships(relationship_database, edges=3, samples=2, subject_index=1)
     assert related["added_relationships"] == 3
     assert related["subject_counts"] == {"project-000": 12, "project-001": 12}
